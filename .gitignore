@@ -1,0 +1,24 @@
+.DS_Store
+.learning
+.venv/
+__pycache__/
+.pytest_cache/
+test-results/
+lab/
+
+# Local external reference clone. Keep the project source of truth separate.
+docs/extra/outage_modeling_us/
+
+# Reproducible local EAGLE-I inputs and generated price-engine artifacts.
+price_engine/data/raw/
+price_engine/data/*.parquet
+price_engine/data/*.json
+price_engine/data/raw/*.part
+price_engine/filtration/county_tiers.csv
+price_engine/pricing/county_premiums.csv
+price_engine/pricing/county_drilldown.json
+price_engine/catalogs/*/data/*.parquet
+price_engine/catalogs/*/data/*.json
+price_engine/catalogs/*/filtration/*.csv
+price_engine/catalogs/*/pricing/*.csv
+price_engine/catalogs/*/pricing/*.json

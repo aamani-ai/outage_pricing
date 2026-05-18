@@ -1,0 +1,133 @@
+{
+  "id": "eagle-i-45min",
+  "label": "EAGLE-I \u00b7 45 min",
+  "short_label": "45 min",
+  "status": "recommended candidate",
+  "description": "Bridges two missing 15-minute intermediate snapshots; current best balance from the lab sensitivity work.",
+  "source": "EAGLE-I raw outage snapshots",
+  "algorithm": "price_engine/data/02_construct_events.py",
+  "gap_tolerance_minutes": 45,
+  "snapshot_interval_minutes": 15,
+  "threshold_customers_out_gt": 0,
+  "years_processed": [
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "event_count": 13190684,
+  "n_fips_in_events": 3090,
+  "duration_stats_hours": {
+    "min": 0.25,
+    "p50": 1.75,
+    "mean": 4.539143293626354,
+    "p95": 14.0,
+    "p99": 41.5,
+    "max": 9088.0
+  },
+  "annualization": {
+    "annualization_policy": "n_per_year = n_events_total / source_observation_years",
+    "years_processed": [
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "years_source": "/Users/divy/code/work/infrasure_git_codes/outage_pricing/price_engine/catalogs/eagle-i-45min/data/events_meta.json",
+    "source_window_start": "2014-11-01 04:00:00",
+    "source_window_end": "2026-01-01 00:00:00",
+    "source_observation_years": 11.16723705224732,
+    "intervals": [
+      {
+        "year": 2014,
+        "start": "2014-11-01 04:00:00",
+        "end": "2015-01-01 00:00:00"
+      },
+      {
+        "year": 2015,
+        "start": "2015-01-01 00:00:00",
+        "end": "2016-01-01 00:00:00"
+      },
+      {
+        "year": 2016,
+        "start": "2016-01-01 00:00:00",
+        "end": "2017-01-01 00:00:00"
+      },
+      {
+        "year": 2017,
+        "start": "2017-01-01 00:00:00",
+        "end": "2018-01-01 00:00:00"
+      },
+      {
+        "year": 2018,
+        "start": "2018-01-01 00:00:00",
+        "end": "2019-01-01 00:00:00"
+      },
+      {
+        "year": 2019,
+        "start": "2019-01-01 00:00:00",
+        "end": "2020-01-01 00:00:00"
+      },
+      {
+        "year": 2020,
+        "start": "2020-01-01 00:00:00",
+        "end": "2021-01-01 00:00:00"
+      },
+      {
+        "year": 2021,
+        "start": "2021-01-01 00:00:00",
+        "end": "2022-01-01 00:00:00"
+      },
+      {
+        "year": 2022,
+        "start": "2022-01-01 00:00:00",
+        "end": "2023-01-01 00:00:00"
+      },
+      {
+        "year": 2023,
+        "start": "2023-01-01 00:00:00",
+        "end": "2024-01-01 00:00:00"
+      },
+      {
+        "year": 2024,
+        "start": "2024-01-01 00:00:00",
+        "end": "2025-01-01 00:00:00"
+      },
+      {
+        "year": 2025,
+        "start": "2025-01-01 00:00:00",
+        "end": "2026-01-01 00:00:00"
+      }
+    ],
+    "note": "The denominator is the raw source exposure window for processed years. It deliberately does not use first_event/last_event per county."
+  },
+  "tier_counts": {
+    "amber": 2070,
+    "green": 951,
+    "red": 69
+  },
+  "generated_at": "2026-05-18T01:24:03+00:00",
+  "paths": {
+    "drilldown": "../catalogs/eagle-i-45min/pricing/county_drilldown.json",
+    "tiers": "../catalogs/eagle-i-45min/filtration/county_tiers.csv",
+    "events_meta": "../catalogs/eagle-i-45min/data/events_meta.json",
+    "annualization_meta": "../catalogs/eagle-i-45min/data/annualization_meta.json",
+    "catalog": "../catalogs/eagle-i-45min/catalog.json"
+  }
+}

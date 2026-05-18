@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>OutSure — outage pricing</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+<link rel="stylesheet" href="./styles.css" />
+<link rel="icon" type="image/svg+xml" href="./assets/brand/outsure-favicon.svg" />
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="brand">
+    <img class="brand-lockup" src="./assets/brand/outsure-logo-lockup.svg" alt="OutSure" />
+  </div>
+
+  <nav class="nav" aria-label="primary">
+    <button class="nav-item current" data-view="map">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3 3 5v16l6-2 6 2 6-2V3l-6 2-6-2z"/><path d="M9 3v16M15 5v16"/></svg>
+      <span>Map</span>
+    </button>
+    <button class="nav-item" data-view="matrix">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      <span>Matrix</span>
+    </button>
+    <button class="nav-item" data-view="drilldown">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12H8M21 6H8M21 18H8M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      <span>Drill-down</span>
+    </button>
+  </nav>
+
+  <div class="sidebar-section catalog-section">
+    <div class="section-title">Event catalog</div>
+    <select id="catalogSelect" class="catalog-select" aria-label="Event catalog"></select>
+    <div id="catalogNote" class="catalog-note"></div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="section-title">Coverage</div>
+    <div class="stat-list">
+      <div class="stat-row"><span>Counties</span><strong id="statCounties">—</strong></div>
+      <div class="stat-row"><span>Events</span><strong id="statEvents">—</strong></div>
+      <div class="stat-row"><span>Years</span><strong id="statYears">—</strong></div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="section-title">Tier mix</div>
+    <div class="tier-bar" id="tierBar"></div>
+    <div class="tier-legend">
+      <div><span class="dot green"></span>Green <strong id="tGreen">0</strong></div>
+      <div><span class="dot amber"></span>Amber <strong id="tAmber">0</strong></div>
+      <div><span class="dot red"></span>Red <strong id="tRed">0</strong></div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="section-title">Search</div>
+    <input id="search" type="search" placeholder="county, state, FIPS" autocomplete="off" />
+    <div id="searchResults" class="search-results"></div>
+  </div>
+
+  <div class="sidebar-foot">
+    <button id="themeToggle" class="ghost" aria-label="Toggle theme">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <span id="loadStatus" class="muted">loading…</span>
+  </div>
+</aside>
+
+<header class="header">
+  <div class="header-title">
+    <button id="backNav" class="back-btn" type="button" aria-label="Go back" hidden>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="crumbs" id="crumbs">
+      <span class="crumb">United States</span>
+    </div>
+    <span class="header-meta" id="headerMeta">v0 · parametric outage</span>
+  </div>
+  <div class="header-actions">
+    <div class="seg" role="tablist" aria-label="View">
+      <button class="seg-item current" data-view="map">Map</button>
+      <button class="seg-item" data-view="matrix">Matrix</button>
+      <button class="seg-item" data-view="drilldown">Drill-down</button>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+
+  <!-- ============ MAP VIEW ============ -->
+  <section id="view-map" class="view active">
+    <div class="intro-banner" id="introBanner">
+      <div class="intro-text">
+        <strong>Per-county parametric outage premiums.</strong>
+        <span>Hover any county for stats. Click a county — or use search at left — to open its premium matrix and full drill-down.</span>
+      </div>
+      <button class="intro-dismiss" id="introDismiss" aria-label="Dismiss">×</button>
+    </div>
+    <div class="map-toolbar">
+      <label class="check"><input type="checkbox" id="quotableOnly" /> Quotable only</label>
+      <div class="field">
+        <label>min events</label>
+        <input type="number" id="minEvents" value="0" min="0" step="50" />
+      </div>
+      <div class="field">
+        <label>min obs years</label>
+        <input type="number" id="minObsYears" value="0" min="0" step="0.5" />
+      </div>
+      <div class="field">
+        <label>color by</label>
+        <select id="mapColorBy">
+          <option value="tier">Tier</option>
+          <option value="lambda">λ at T=8h (events/yr)</option>
+          <option value="retail">Retail premium · T=8h · X=$2,500</option>
+        </select>
+      </div>
+      <div class="spacer"></div>
+      <div class="legend-wrap">
+        <button id="legendInfo" class="info-btn" type="button" aria-label="Explain map tiers" aria-expanded="false" aria-controls="legendPopover">i</button>
+        <div class="legend" id="mapLegend"></div>
+        <div id="legendPopover" class="legend-popover" hidden>
+          <div class="pop-title">Tier meaning</div>
+          <p class="pop-lede">Colors describe modelability, not outage severity. The overall county tier is the weakest current v0 gate.</p>
+          <div class="pop-row tier-row"><span class="dot green"></span><strong>Green</strong><span>Priced normally in v0.</span></div>
+          <div class="pop-row tier-row"><span class="dot amber"></span><strong>Amber</strong><span>Quoteable baseline, with a weaker credibility or quality gate.</span></div>
+          <div class="pop-row tier-row"><span class="dot red"></span><strong>Red</strong><span>No quote in v0 because at least one modelability gate failed.</span></div>
+          <div class="pop-row tier-row"><span class="dot grey"></span><strong>Grey</strong><span>No engine record, hidden by filters, or not evaluated in v0.</span></div>
+
+          <div class="pop-section-title">Current v0 gates</div>
+          <div class="gate-list">
+            <div><strong>D1</strong><span>Event volume</span><em>total historical events</em></div>
+            <div><strong>D2</strong><span>Events / year</span><em>annual credibility</em></div>
+            <div><strong>D3</strong><span>Observation window</span><em>source exposure length</em></div>
+            <div><strong>D4</strong><span>Tail credibility</span><em>duration p95 reaches trigger range</em></div>
+            <div><strong>D5</strong><span>Data quality</span><em>EAGLE-I / DQI signal</em></div>
+          </div>
+          <p class="pop-note">D1, D2, and D4 are county-event driven. D3 uses the raw source exposure window. D5 uses a FEMA-region source proxy in v0.</p>
+
+          <div class="pop-section-title">Roadmap dimensions</div>
+          <div class="roadmap-list">
+            <div><span class="dot grey"></span><strong>Regulatory readiness</strong><span>filing / licensing path</span></div>
+            <div><span class="dot grey"></span><strong>Trigger evidence</strong><span>utility or secondary validation</span></div>
+            <div><span class="dot grey"></span><strong>Underwriting appetite</strong><span>limits / concentration</span></div>
+            <div><span class="dot grey"></span><strong>Compliance ops</strong><span>taxes / forms / distribution</span></div>
+          </div>
+          <p class="pop-note">These are intentionally grey: useful launch-readiness dimensions, but not part of the v0 county tier.</p>
+        </div>
+      </div>
+    </div>
+    <div id="map"></div>
+    <div id="hoverTip" class="tip hidden"></div>
+  </section>
+
+  <!-- ============ MATRIX VIEW ============ -->
+  <section id="view-matrix" class="view">
+    <div class="empty-state" id="matrixEmpty">
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.6"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      <h3>No county selected yet</h3>
+      <p>The matrix shows the T × X premium grid for one county at a time. Pick a county from the map or search to get started.</p>
+      <div class="empty-actions">
+        <button class="empty-btn primary" data-jump="map">Open the map</button>
+        <button class="empty-btn" id="emptyMatrixFocusSearch">Search a county</button>
+      </div>
+    </div>
+    <div class="matrix-grid" id="matrixGrid" hidden>
+      <div class="card matrix-card">
+        <div class="card-header">
+          <div>
+            <h2 id="mxCounty" class="card-title">—</h2>
+            <div class="card-sub" id="mxMeta"></div>
+          </div>
+          <div class="ctl-cluster">
+            <label class="ctl">
+              <span>Expense ratio · <em id="expenseRatioVal">20%</em></span>
+              <input type="range" id="expenseRatio" min="0" max="0.40" step="0.01" value="0.20" />
+            </label>
+            <label class="ctl">
+              <span>Target margin · <em id="targetMarginVal">15%</em></span>
+              <input type="range" id="targetMargin" min="0" max="0.40" step="0.01" value="0.15" />
+            </label>
+            <label class="ctl ctl-inline">
+              <span>Show</span>
+              <select id="premKind">
+                <option value="retail" selected>Retail</option>
+                <option value="pure">Pure</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <table id="mxTable" class="matrix-table">
+          <thead><tr id="mxHead"></tr></thead>
+          <tbody id="mxBody"></tbody>
+        </table>
+
+        <div class="legend matrix-legend">
+          <div><span class="dot green"></span>Green</div>
+          <div><span class="dot amber"></span>Amber</div>
+          <div><span class="dot red"></span>No-quote</div>
+          <div class="muted">Click any cell for the full premium drill-down.</div>
+        </div>
+      </div>
+
+      <div class="card chart-card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title-sm">Duration distribution</h3>
+            <div class="card-sub">Empirical hours of all events for this county</div>
+          </div>
+        </div>
+        <div id="durChart" class="chart"></div>
+      </div>
+
+      <div class="card chart-card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title-sm">Survival S(T)</h3>
+            <div class="card-sub">P(event duration ≥ T) — drives λ(T)</div>
+          </div>
+        </div>
+        <div id="survChart" class="chart"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DRILL-DOWN VIEW ============ -->
+  <section id="view-drilldown" class="view">
+    <div class="empty-state" id="drillEmpty">
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.6"><path d="M21 12H8M21 6H8M21 18H8M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      <h3>No premium cell selected yet</h3>
+      <p>The drill-down shows the full λ → pure → retail derivation for one (county, T, X) cell. Pick a county, then click any cell in its premium matrix.</p>
+      <div class="empty-actions">
+        <button class="empty-btn primary" data-jump="map">Open the map</button>
+      </div>
+    </div>
+    <div class="drilldown-grid" id="drillGrid" hidden>
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title-sm">A · Contract</h3>
+        </div>
+        <dl class="kv" id="panelA"></dl>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title-sm">B · Empirical inputs</h3>
+        </div>
+        <dl class="kv" id="panelB"></dl>
+      </div>
+
+      <div class="card span-2">
+        <div class="card-header">
+          <h3 class="card-title-sm">C · Premium chain</h3>
+        </div>
+        <div class="chain" id="panelC"></div>
+      </div>
+
+      <div class="card span-2">
+        <div class="card-header">
+          <h3 class="card-title-sm">D · Why this tier?</h3>
+        </div>
+        <ul class="diag" id="panelD"></ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.16"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="./app.js" type="module"></script>
+</body>
+</html>
