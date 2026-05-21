@@ -263,6 +263,8 @@ The contract: **"If an outage in your FIPS lasts ≥ T hours, we pay you $X. Ann
 
 Two factors going in (frequency × survival), two outputs (pure premium, retail premium). That's the whole engine. Ten lines of code.
 
+Important v0 assumption: `S(T)` is a raw empirical count, not a fitted distribution. We do **not** fit Lognormal, Weibull, Exponential, GPD, or any other duration family. For each county and threshold, the engine counts historical events with `duration_hours >= T` and divides by the county's total historical events.
+
 ### Default load assumptions (locked in v0)
 
 | Parameter | Value | Configurable in dashboard? |
@@ -326,10 +328,10 @@ T (h)    S(T) = #events ≥ T / 11,789       λ(T) = 1,055.7 · S(T)
 ```
 λ(T = 4h)         = 1,055.7  ×  0.2909
                   = 307.1  qualifying events / year
-                  
+
 Pure premium      = 307.1  ×  $500
                   = $153,574 / year
-                  
+
 Retail premium    = $153,574 / (1 − 0.20 − 0.15)
                   = $153,574 / 0.65
                   = $236,268 / year
@@ -364,7 +366,7 @@ Same county, same payout, just a stricter trigger → λ collapses, premium coll
 ### v0 is NOT
 
 - **Not forward-looking.** No climate trend, no PRESTO, no scenario simulation.
-- **No parametric fit.** S(T) is raw empirical Kaplan-Meier (no censoring; we observe all events fully).
+- **No fitted duration distribution.** `S(T)` is direct empirical counting: historical events with `duration_hours >= T` divided by all historical events in that county. No Lognormal, Weibull, Exponential, GPD, or simulation is used in v0.
 - **No uncertainty load.** The slot is reserved in the math (`Retail = (Pure + UncLoad)/(1−ER−TM)`); the value is zero in v0. v0.5 fills it.
 - **No back-validation against EIA-861 / utility after-action reports.** The reconciliation checks listed in `EVENT_CONSTRUCTION.md` §Validation are eyeballed for v0; formalized in v0.5.
 - **No portfolio correlation.** If we write N policies in the same FIPS, all N trigger simultaneously on the same event. v0 prices each policy as if standalone. Customer-count fields (`min/max/mean_customers`) are preserved in events.parquet for v1 portfolio work.

@@ -125,10 +125,11 @@
         "green": 952,
         "red": 68
       },
-      "generated_at": "2026-05-18T01:23:46+00:00",
+      "generated_at": "2026-05-18T14:26:19+00:00",
       "paths": {
         "drilldown": "../catalogs/eagle-i-30min/pricing/county_drilldown.json",
         "tiers": "../catalogs/eagle-i-30min/filtration/county_tiers.csv",
+        "event_evidence": "../catalogs/eagle-i-30min/pricing/event_evidence",
         "events_meta": "../catalogs/eagle-i-30min/data/events_meta.json",
         "annualization_meta": "../catalogs/eagle-i-30min/data/annualization_meta.json",
         "catalog": "../catalogs/eagle-i-30min/catalog.json"
@@ -258,10 +259,11 @@
         "green": 951,
         "red": 69
       },
-      "generated_at": "2026-05-18T01:24:03+00:00",
+      "generated_at": "2026-05-18T14:24:53+00:00",
       "paths": {
         "drilldown": "../catalogs/eagle-i-45min/pricing/county_drilldown.json",
         "tiers": "../catalogs/eagle-i-45min/filtration/county_tiers.csv",
+        "event_evidence": "../catalogs/eagle-i-45min/pricing/event_evidence",
         "events_meta": "../catalogs/eagle-i-45min/data/events_meta.json",
         "annualization_meta": "../catalogs/eagle-i-45min/data/annualization_meta.json",
         "catalog": "../catalogs/eagle-i-45min/catalog.json"
@@ -391,10 +393,11 @@
         "green": 946,
         "red": 70
       },
-      "generated_at": "2026-05-18T01:24:24+00:00",
+      "generated_at": "2026-05-18T14:26:56+00:00",
       "paths": {
         "drilldown": "../catalogs/eagle-i-60min/pricing/county_drilldown.json",
         "tiers": "../catalogs/eagle-i-60min/filtration/county_tiers.csv",
+        "event_evidence": "../catalogs/eagle-i-60min/pricing/event_evidence",
         "events_meta": "../catalogs/eagle-i-60min/data/events_meta.json",
         "annualization_meta": "../catalogs/eagle-i-60min/data/annualization_meta.json",
         "catalog": "../catalogs/eagle-i-60min/catalog.json"
@@ -408,5 +411,5 @@
       "description": "Normalize a third-party derived event log into this same catalog contract for model-validation comparisons."
     }
   ],
-  "updated_at": "2026-05-18T01:24:24+00:00"
+  "updated_at": "2026-05-18T14:26:56+00:00"
 }

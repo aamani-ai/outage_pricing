@@ -8,6 +8,9 @@ Move from a purely historical empirical premium to a forward-looking outage
 pricing view that accounts for changing grid condition, utility management, and
 hazard exposure.
 
+For the consolidated modifier framework and source backlog, see
+[`outage_baseline_adjustment_framework.md`](outage_baseline_adjustment_framework.md).
+
 This should not replace the current v0 engine immediately. The current engine is
 the audit-friendly baseline. The forward-looking model should be an explicit
 overlay that can be backtested, explained, capped, and turned off.

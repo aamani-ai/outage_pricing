@@ -1,3 +1,7 @@
 pandas>=2.2
 pyarrow>=15
 requests>=2.31
+matplotlib>=3.8
+ipykernel>=6.29
+nbclient>=0.10
+nbconvert>=7.16

@@ -135,6 +135,8 @@ Steps per cell:
 4. Retail premium = `pure / (1 − expense_ratio − target_margin)` (defaults: 20% / 15%, denom = 0.65).
 5. Uncertainty load is a **stub of $0** in v0; v0.5 will fill this in.
 
+Distribution assumption: none in v0. `S(T)` is direct empirical counting from the county event durations. The engine does not fit Lognormal, Weibull, Exponential, GPD, or any other duration distribution.
+
 Two output files:
 - `pricing/county_premiums.csv` — flat table, 3,090 FIPS × 5 T × 5 X = 77,250 rows.
 - `pricing/county_drilldown.json` — per-FIPS dict with everything the dashboard needs (county, state, MCC, durations, tier, full grid, D1..D5 diagnostics). 6.2 MB total.

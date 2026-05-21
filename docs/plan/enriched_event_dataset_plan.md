@@ -2,6 +2,11 @@
 
 Date: 2026-05-18
 
+Implementation note: this plan now has a concrete working home at
+`curated_outage_data/`. Keep this file as the high-level concept note, and keep
+active source notes, schemas, phase plans, and future scripts in that project
+folder.
+
 ## Goal
 
 Create reproducible datasets that join our EAGLE-I-derived outage events with

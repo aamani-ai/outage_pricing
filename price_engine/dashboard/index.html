@@ -34,9 +34,34 @@
   </nav>
 
   <div class="sidebar-section catalog-section">
-    <div class="section-title">Event catalog</div>
+    <div class="section-title-row">
+      <div class="section-title">Event catalog</div>
+      <button id="catalogInfo" class="inline-info-btn" type="button" aria-label="Explain event catalog" aria-expanded="false" aria-controls="catalogPopover">i</button>
+    </div>
     <select id="catalogSelect" class="catalog-select" aria-label="Event catalog"></select>
     <div id="catalogNote" class="catalog-note"></div>
+    <div id="catalogPopover" class="catalog-popover" hidden>
+      <div class="pop-title">Event catalog</div>
+      <p class="pop-lede">An event catalog is the rule-set used to turn EAGLE-I outage snapshots into outage events before pricing.</p>
+      <div class="pop-metric-list">
+        <div>
+          <strong>Why it exists</strong>
+          <span>The raw source is a time series. The catalog decides when positive outage snapshots belong to the same event.</span>
+        </div>
+        <div>
+          <strong>30 / 45 / 60 min</strong>
+          <span>The number is the allowed gap between snapshots before the engine splits one outage sequence into two events.</span>
+        </div>
+        <div>
+          <strong>What changes</strong>
+          <span>Event count, duration tail, empirical S(T), annual rate, premium, and modelability can move.</span>
+        </div>
+        <div>
+          <strong>What it is not</strong>
+          <span>Not a product version, live trigger source, regulatory filing state, or fitted duration distribution.</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="sidebar-section">
@@ -118,39 +143,14 @@
           <option value="tier">Tier</option>
           <option value="lambda">λ at T=8h (events/yr)</option>
           <option value="retail">Retail premium · T=8h · X=$2,500</option>
+          <option value="events">Event evidence · total events</option>
         </select>
       </div>
       <div class="spacer"></div>
       <div class="legend-wrap">
         <button id="legendInfo" class="info-btn" type="button" aria-label="Explain map tiers" aria-expanded="false" aria-controls="legendPopover">i</button>
         <div class="legend" id="mapLegend"></div>
-        <div id="legendPopover" class="legend-popover" hidden>
-          <div class="pop-title">Tier meaning</div>
-          <p class="pop-lede">Colors describe modelability, not outage severity. The overall county tier is the weakest current v0 gate.</p>
-          <div class="pop-row tier-row"><span class="dot green"></span><strong>Green</strong><span>Priced normally in v0.</span></div>
-          <div class="pop-row tier-row"><span class="dot amber"></span><strong>Amber</strong><span>Quoteable baseline, with a weaker credibility or quality gate.</span></div>
-          <div class="pop-row tier-row"><span class="dot red"></span><strong>Red</strong><span>No quote in v0 because at least one modelability gate failed.</span></div>
-          <div class="pop-row tier-row"><span class="dot grey"></span><strong>Grey</strong><span>No engine record, hidden by filters, or not evaluated in v0.</span></div>
-
-          <div class="pop-section-title">Current v0 gates</div>
-          <div class="gate-list">
-            <div><strong>D1</strong><span>Event volume</span><em>total historical events</em></div>
-            <div><strong>D2</strong><span>Events / year</span><em>annual credibility</em></div>
-            <div><strong>D3</strong><span>Observation window</span><em>source exposure length</em></div>
-            <div><strong>D4</strong><span>Tail credibility</span><em>duration p95 reaches trigger range</em></div>
-            <div><strong>D5</strong><span>Data quality</span><em>EAGLE-I / DQI signal</em></div>
-          </div>
-          <p class="pop-note">D1, D2, and D4 are county-event driven. D3 uses the raw source exposure window. D5 uses a FEMA-region source proxy in v0.</p>
-
-          <div class="pop-section-title">Roadmap dimensions</div>
-          <div class="roadmap-list">
-            <div><span class="dot grey"></span><strong>Regulatory readiness</strong><span>filing / licensing path</span></div>
-            <div><span class="dot grey"></span><strong>Trigger evidence</strong><span>utility or secondary validation</span></div>
-            <div><span class="dot grey"></span><strong>Underwriting appetite</strong><span>limits / concentration</span></div>
-            <div><span class="dot grey"></span><strong>Compliance ops</strong><span>taxes / forms / distribution</span></div>
-          </div>
-          <p class="pop-note">These are intentionally grey: useful launch-readiness dimensions, but not part of the v0 county tier.</p>
-        </div>
+        <div id="legendPopover" class="legend-popover" hidden></div>
       </div>
     </div>
     <div id="map"></div>
@@ -226,6 +226,57 @@
         </div>
         <div id="survChart" class="chart"></div>
       </div>
+
+      <div class="card event-card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title-sm">Event evidence</h3>
+            <div class="card-sub" id="eventEvidenceSub">Top historical events for the selected county</div>
+          </div>
+          <div class="ctl-cluster evidence-controls">
+            <label class="ctl ctl-inline">
+              <span>T</span>
+              <select id="evidenceT">
+                <option value="2">2h</option>
+                <option value="4">4h</option>
+                <option value="8" selected>8h</option>
+                <option value="12">12h</option>
+                <option value="24">24h</option>
+              </select>
+            </label>
+            <label class="ctl ctl-inline">
+              <span>X</span>
+              <select id="evidenceX">
+                <option value="500">$500</option>
+                <option value="1000">$1,000</option>
+                <option value="2500" selected>$2,500</option>
+                <option value="5000">$5,000</option>
+                <option value="10000">$10,000</option>
+              </select>
+            </label>
+            <label class="ctl ctl-inline">
+              <span>Sort</span>
+              <select id="evidenceSort">
+                <option value="duration_desc">Duration</option>
+                <option value="start_desc">Recent</option>
+                <option value="max_customers_desc">Peak out</option>
+                <option value="contribution_desc">Contribution</option>
+              </select>
+            </label>
+            <label class="check evidence-check"><input type="checkbox" id="evidenceQualOnly" /> Qualifying only</label>
+          </div>
+        </div>
+        <div class="evidence-summary" id="eventEvidenceSummary"></div>
+        <div class="evidence-table-wrap">
+          <table class="evidence-table">
+            <thead>
+              <tr id="eventEvidenceHead"></tr>
+            </thead>
+            <tbody id="eventEvidenceBody"></tbody>
+          </table>
+        </div>
+        <div class="evidence-footnote" id="eventEvidenceNote"></div>
+      </div>
     </div>
   </section>
 
@@ -266,6 +317,7 @@
           <h3 class="card-title-sm">D · Why this tier?</h3>
         </div>
         <ul class="diag" id="panelD"></ul>
+        <div class="future-dims" id="panelFutureDims"></div>
       </div>
     </div>
   </section>

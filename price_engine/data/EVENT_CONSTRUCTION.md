@@ -119,6 +119,12 @@ After running `02_construct_events.py`, three sanity checks before declaring `ev
 
 3. **Counts per FIPS-year are reasonable.** A typical mid-sized county should have hundreds to low thousands of events per year. Counties with < 10 events/year either have low outage activity or low EAGLE-I coverage; cross-reference with `coverage_history.csv` to distinguish.
 
+4. **Compare threshold catalogs.** The curated-data diagnostic
+   `curated_outage_data/pipelines/event_catalog_diagnostics/gap_sensitivity.py`
+   compares the generated 30/45/60-minute catalogs. The current full-run result
+   supports `45 min` as a reasonable middle setting, while showing that
+   multi-week events need a separate persistent-outage/severity diagnostic.
+
 These are eyeballed checks for v0. Formal back-testing comes in v0.5.
 
 ## What this algorithm deliberately does not do

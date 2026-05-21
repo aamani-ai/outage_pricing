@@ -88,12 +88,13 @@ If you are catching up, read `plan/` files in numbered order. They are short and
 | Quoting unit | County (FIPS) |
 | Regulatory / sell/don't-sell unit | State |
 | Historical only? | Yes — no forward-looking adjustments in v0 |
+| Duration survival `S(T)` | Raw empirical count only: `events(duration >= T) / total events`; no fitted duration distribution in v0 |
 | Filter | Tiered: Green / Amber / Red, based on **modelability**, not loss frequency |
 | Confidence load | Interface specified in v0; implementation deferred to v0.5 |
 | Data source | EAGLE-I raw snapshots from Figshare article 24237376. No PRESTO. |
 
 ## Cross-refs
 
-- [`../docs/extra/outage_modeling_us/ideas/unified_outage_archive/learning/distributions_for_outage_durations.md`](../docs/extra/outage_modeling_us/ideas/unified_outage_archive/learning/distributions_for_outage_durations.md) — distribution-family primer that informs the pricing math
+- [`../docs/extra/outage_modeling_us/ideas/unified_outage_archive/learning/distributions_for_outage_durations.md`](../docs/extra/outage_modeling_us/ideas/unified_outage_archive/learning/distributions_for_outage_durations.md) — distribution-family primer for future v0.5+ work; v0 does not fit a duration distribution
 - [`../docs/extra/outage_modeling_us/ideas/unified_outage_archive/external_tools/presto.md`](../docs/extra/outage_modeling_us/ideas/unified_outage_archive/external_tools/presto.md) — why we are not using PRESTO
 - [`../docs/extra/outage_modeling_us/ideas/unified_outage_archive/pricing/panel_vs_event_log_for_pricing.md`](../docs/extra/outage_modeling_us/ideas/unified_outage_archive/pricing/panel_vs_event_log_for_pricing.md) — why the event log, not the panel, is the right input

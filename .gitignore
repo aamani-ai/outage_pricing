@@ -5,9 +5,11 @@ __pycache__/
 .pytest_cache/
 test-results/
 lab/
+notebooks/outputs/
 
 # Local external reference clone. Keep the project source of truth separate.
 docs/extra/outage_modeling_us/
+docs/extra/hazard_modeling/
 
 # Reproducible local EAGLE-I inputs and generated price-engine artifacts.
 price_engine/data/raw/
@@ -17,8 +19,18 @@ price_engine/data/raw/*.part
 price_engine/filtration/county_tiers.csv
 price_engine/pricing/county_premiums.csv
 price_engine/pricing/county_drilldown.json
+price_engine/pricing/event_evidence/
 price_engine/catalogs/*/data/*.parquet
 price_engine/catalogs/*/data/*.json
 price_engine/catalogs/*/filtration/*.csv
 price_engine/catalogs/*/pricing/*.csv
 price_engine/catalogs/*/pricing/*.json
+price_engine/catalogs/*/pricing/event_evidence/
+
+# Curated outage data local source downloads and generated artifacts.
+curated_outage_data/data/raw/**
+curated_outage_data/data/interim/**
+curated_outage_data/data/processed/**
+curated_outage_data/outputs/**
+!curated_outage_data/data/README.md
+!curated_outage_data/outputs/README.md

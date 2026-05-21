@@ -57,7 +57,14 @@ For v0, we use the **raw empirical survival function** of the duration distribut
 S_FIPS(T) = (number of historical events in FIPS with duration ≥ T) / (total historical events in FIPS)
 ```
 
-This is the Kaplan-Meier estimator with no censoring (all our events are fully observed; both start and end times are in the log). It is the simplest, most defensible, most explainable estimator. It says exactly what it does and nothing more.
+This is direct historical counting. v0 does **not** assume a Lognormal, Weibull, Exponential, GPD, Poisson-duration, or any other fitted duration distribution for `S(T)`. Since the event log has observed start and end times, we are not currently modeling censoring either. In survival-analysis language, this direct empirical curve is equivalent to the no-censoring case, but the implementation is just:
+
+```text
+count durations >= T
+divide by total durations
+```
+
+That explicit no-distribution assumption matters for interpretation. Confidence in `S(T)` depends on event density: a county with many historical events has a more stable empirical curve than a county with sparse evidence.
 
 **Why no Lognormal/Weibull/GPD fit in v0?** Because v0's job is the end-to-end pipeline. The empirical `S(T)` is correct for `T` values that have data behind them. It only fails for `T` values past the longest observed event in the FIPS, and there the right answer in v0 is "amber/red modelability" — not a heroic extrapolation. The distribution-family work belongs to v0.5, alongside the confidence load.
 

@@ -77,6 +77,23 @@ Reference implementation: the `eaglei_downloader.py` script in the user's separa
 
 The yearly CSVs are then consumed by `02_construct_events.py` which produces `events.parquet`. That construction logic is documented separately in `EVENT_CONSTRUCTION.md`.
 
+## Generated dashboard evidence
+
+`pricing/05_price.py` also writes compact per-county event evidence files:
+
+```text
+price_engine/pricing/event_evidence/{FIPS}.json
+price_engine/catalogs/{catalog_id}/pricing/event_evidence/{FIPS}.json
+```
+
+These are reproducible local artifacts, not source data. They are intentionally
+ignored by Git. The Matrix dashboard fetches one county file at a time so it can
+show the historical events behind a selected contract without loading the full
+national event table into the browser.
+
+Each file contains the top longest events for that county plus full-history
+threshold summaries. The full source of truth remains `events.parquet`.
+
 ## What the rest of the repo has (and v0 ignores)
 
 For clarity: the following exists in the repo from a prior project. None of it is consumed by v0.

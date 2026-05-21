@@ -13,6 +13,7 @@ const state = {
   selectedFips: null,
   view: 'map',
   countiesGeo: null,
+  eventEvidenceCache: new Map(),
 };
 
 const fmt = {
@@ -32,6 +33,186 @@ const tierColors = {
   grey:  () => getComputedStyle(document.documentElement).getPropertyValue('--tier-grey').trim(),
 };
 
+const modelabilityDims = [
+  {
+    key: 'd1',
+    code: 'D1',
+    title: 'Event volume',
+    short: 'total historical events',
+    lead: 'Measures how many outage events exist for the county in the selected EAGLE-I pricing catalog.',
+    bullets: ['Green: at least 200 events', 'Amber: 50 to 199 events', 'Red: fewer than 50 events'],
+    note: 'This is credibility, not severity. A high-event county can still be Green because it gives the model more evidence.',
+  },
+  {
+    key: 'd2',
+    code: 'D2',
+    title: 'Events / year',
+    short: 'annual credibility',
+    lead: 'Measures the annualized event rate using the corrected source exposure window.',
+    bullets: ['Green: at least 20 events/year', 'Amber: 5 to 19.9 events/year', 'Red: fewer than 5 events/year'],
+    note: 'This protects against counties that have events, but not enough recurring annual signal to price confidently.',
+  },
+  {
+    key: 'd3',
+    code: 'D3',
+    title: 'Observation window',
+    short: 'source exposure length',
+    lead: 'Measures how much source history is available for annualization and seasonality.',
+    bullets: ['Green: at least 5 source years', 'Amber: 3 to 4.9 source years', 'Red: fewer than 3 source years'],
+    note: 'Current v0 uses the raw EAGLE-I source exposure window, not first-event to last-event span.',
+  },
+  {
+    key: 'd4',
+    code: 'D4',
+    title: 'Tail credibility',
+    short: 'duration p95 reaches trigger range',
+    lead: 'Checks whether the county duration distribution reaches the deductible range we are pricing.',
+    bullets: ['Green: p95 duration at least 4 hours', 'Amber: p95 duration 2 to 3.99 hours', 'Red: p95 duration below 2 hours'],
+    note: 'This is a tail-support check. If almost all observed events are very short, long-duration pricing is weak.',
+  },
+  {
+    key: 'd5',
+    code: 'D5',
+    title: 'Data quality',
+    short: 'EAGLE-I / DQI signal',
+    lead: 'Uses the available EAGLE-I data-quality signal as a source-quality gate.',
+    bullets: ['Green: DQI at least 0.80 or unavailable', 'Amber: DQI 0.50 to 0.79', 'Red: DQI below 0.50'],
+    note: 'In v0, missing DQI is neutral because D1-D3 already catch observed data gaps. This should be refined later.',
+  },
+];
+
+const roadmapDims = [
+  {
+    key: 'regulatory',
+    title: 'Regulatory readiness',
+    short: 'filing / licensing path',
+    lead: 'Tracks whether the product can be explained and filed as an insurance product.',
+    bullets: ['policy form language', 'named trigger source and methodology', 'SERFF / state DOI filing path'],
+    note: 'Not part of v0 pricing. This becomes important before launch or carrier filing.',
+  },
+  {
+    key: 'trigger',
+    title: 'Trigger evidence',
+    short: 'utility or secondary validation',
+    lead: 'Tracks whether the live payout trigger has enough evidence at or near the insured location.',
+    bullets: ['primary oracle coverage', 'fallback or secondary source', 'audit logs and bridge validation'],
+    note: 'This is separate from EAGLE-I pricing quality. A county can price well but still have weak trigger evidence.',
+  },
+  {
+    key: 'underwriting',
+    title: 'Underwriting appetite',
+    short: 'limits / concentration',
+    lead: 'Tracks whether the county fits carrier and reinsurer appetite after aggregation is considered.',
+    bullets: ['per-policy and aggregate limits', 'regional concentration', 'excluded or constrained territories'],
+    note: 'This is a portfolio decision, not a historical data-quality gate.',
+  },
+  {
+    key: 'compliance',
+    title: 'Compliance ops',
+    short: 'taxes / forms / distribution',
+    lead: 'Tracks whether the operational requirements are ready for sale and servicing.',
+    bullets: ['producer and distribution rules', 'taxes and forms', 'payment, notice, and dispute operations'],
+    note: 'This is intentionally grey in v0 because it is a launch-readiness dimension.',
+  },
+];
+
+const evidenceColumns = [
+  {
+    key: 'start',
+    title: 'Start UTC',
+    lead: 'Inclusive event start timestamp from the EAGLE-I event catalog.',
+    bullets: ['Timezone-naive UTC', 'Derived from the first positive outage snapshot', 'Not converted to local county time'],
+    note: 'Use UTC consistently so cross-county and daylight-saving boundaries do not distort duration math.',
+  },
+  {
+    key: 'duration',
+    title: 'Duration',
+    lead: 'Elapsed event length in hours.',
+    bullets: ['Computed as end time minus start time', 'Includes bridged gaps allowed by the selected catalog', 'Used to decide whether the selected T is triggered'],
+    note: 'The 30/45/60 minute catalog choice changes event continuity and can change this value.',
+  },
+  {
+    key: 'max_out',
+    title: 'Max out',
+    lead: 'Highest customers_out value observed during the event.',
+    bullets: ['Comes from raw EAGLE-I snapshots', 'Useful severity context', 'Not directly used in the v0 premium formula'],
+    note: 'v0 prices event frequency and duration; outage size is preserved as evidence for review.',
+  },
+  {
+    key: 'mean_out',
+    title: 'Mean out',
+    lead: 'Average customers_out value across observed positive snapshots in the event.',
+    bullets: ['Computed over observed outage snapshots', 'Missing bridged intervals are not separately imputed', 'Useful for event shape and severity context'],
+    note: 'A long event with low mean outage can still trigger if its duration exceeds T.',
+  },
+  {
+    key: 'peak_pct_mcc',
+    title: 'Peak % MCC',
+    lead: 'Max out divided by Modeled County Customers when MCC is available.',
+    bullets: ['Shows county-scale outage intensity', 'Uses the MCC reference file', 'Displays n/a when MCC is missing'],
+    note: 'This is context only in v0, not a contract trigger threshold.',
+  },
+  {
+    key: 'trigger',
+    title: 'Trigger',
+    lead: 'Whether this historical event would satisfy the selected deductible T.',
+    bullets: ['Yes when duration >= selected T', 'No when duration is shorter than T', 'Does not include future trigger-oracle basis risk'],
+    note: 'This is a historical pricing-catalog trigger, not a live payout oracle decision.',
+  },
+  {
+    key: 'hist_payout',
+    title: 'Hist payout',
+    lead: 'Hypothetical payout if the selected contract had existed for this historical event.',
+    bullets: ['Equals selected X when Trigger is yes', 'Equals $0 when Trigger is no', 'Before expense ratio, margin, or uncertainty load'],
+    note: 'This is historical scenario payout, not expected loss for one event.',
+  },
+  {
+    key: 'pure_contrib',
+    title: 'Pure contrib.',
+    lead: 'This event row contribution to annual pure premium under the selected T and X.',
+    bullets: ['Formula: historical payout / observation years', 'Rows are compact evidence examples', 'Summary cards use the full county event history'],
+    note: 'Visible rows may not sum to the full pure premium because the table only stores top events.',
+  },
+];
+
+const evidenceKpis = [
+  {
+    key: 'trigger_count',
+    title: 'History triggers',
+    lead: 'Full-history count of county events that satisfy the selected deductible T.',
+    bullets: ['Not annualized', 'Uses duration >= selected T', 'Computed from the full county event history'],
+    note: 'This answers how many historical events would have triggered the selected contract.',
+  },
+  {
+    key: 'survival',
+    title: 'S(T)',
+    lead: 'Empirical share of county events that last at least the selected deductible T.',
+    bullets: ['Formula: qualifying events / all events', 'Not annualized', 'Feeds the annual trigger-rate calculation'],
+    note: 'This is the survival probability used in the premium matrix.',
+  },
+  {
+    key: 'lambda',
+    title: 'Annual rate',
+    lead: 'Annualized qualifying event frequency for the selected T.',
+    bullets: ['Formula: n_per_year x S(T)', 'Units are events per year', 'Uses the corrected source exposure window'],
+    note: 'This is the annual frequency term in pure premium.',
+  },
+  {
+    key: 'pure',
+    title: 'Pure premium / yr',
+    lead: 'Annual expected payout before expense ratio, target margin, and uncertainty load.',
+    bullets: ['Formula: lambda(T) x X', 'Annual value', 'Uses the selected payout X'],
+    note: 'This is the clean historical expected payout under the selected catalog definition.',
+  },
+  {
+    key: 'retail',
+    title: 'Retail premium / yr',
+    lead: 'Annual customer-facing premium after expense ratio and target margin.',
+    bullets: ['Formula: pure / (1 - expense - margin)', 'Annual value', 'Updates when sliders change'],
+    note: 'v0 uncertainty load is still $0, so this is pure premium grossed up by the denominator.',
+  },
+];
+
 // ============ BOOT ============
 async function boot() {
   const status = document.getElementById('loadStatus');
@@ -50,13 +231,170 @@ async function boot() {
 
   initTheme();
   populateSidebar();
+  renderDimensionInfoBlocks();
+  renderEvidenceHeader();
   wireTabs();
   wireMatrixControls();
   wireSearch();
+  wireInlineInfo();
   wireLegendInfo();
+  wireCatalogInfo();
   wireBackNav();
   await initMap();
   await initRouting();
+}
+
+function infoId(info, scope) {
+  return `${scope}-${info.key}-info`;
+}
+
+function infoButtonMarkup(info, scope) {
+  const id = infoId(info, scope);
+  return `
+    <button class="inline-info-btn" type="button" aria-label="Explain ${info.title}" aria-expanded="false" aria-controls="${id}">i</button>
+  `;
+}
+
+function infoPanelMarkup(info, scope) {
+  const id = infoId(info, scope);
+  return `
+    <div class="inline-info-pop" id="${id}" hidden>
+      <strong>${info.title}</strong>
+      <p>${info.lead}</p>
+      <div class="info-rule-list">${info.bullets.map(item => `<span>${item}</span>`).join('')}</div>
+      <em>${info.note}</em>
+    </div>
+  `;
+}
+
+function renderDimensionInfoBlocks() {
+  const futureDims = document.getElementById('panelFutureDims');
+  if (futureDims) {
+    futureDims.innerHTML = `
+      <div class="future-title">Future launch-readiness dimensions</div>
+      <div class="future-dim-list">
+        ${roadmapDims.map(dim => `
+          <div>
+            <span class="dot grey"></span>
+            <div class="roadmap-copy">
+              <div class="dim-title-row">
+                <strong>${dim.title}</strong>
+                ${infoButtonMarkup(dim, 'panel-roadmap')}
+              </div>
+              <span>${dim.short}</span>
+              ${infoPanelMarkup(dim, 'panel-roadmap')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <p class="future-note">These are not scored in v0 yet. They should become separate grey readiness gates once trigger, filing, underwriting, and compliance evidence exists.</p>
+    `;
+  }
+}
+
+function gateListMarkup(scope = 'legend-gate') {
+  return modelabilityDims.map(dim => `
+    <div>
+      <div class="dim-title-row">
+        <strong>${dim.code}</strong>
+        ${infoButtonMarkup(dim, scope)}
+      </div>
+      <span>${dim.title}</span>
+      <em>${dim.short}</em>
+      ${infoPanelMarkup(dim, scope)}
+    </div>
+  `).join('');
+}
+
+function roadmapListMarkup(scope = 'legend-roadmap') {
+  return roadmapDims.map(dim => `
+    <div>
+      <span class="dot grey"></span>
+      <div class="roadmap-copy">
+        <div class="dim-title-row">
+          <strong>${dim.title}</strong>
+          ${infoButtonMarkup(dim, scope)}
+        </div>
+        <span>${dim.short}</span>
+        ${infoPanelMarkup(dim, scope)}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderEvidenceHeader() {
+  const head = document.getElementById('eventEvidenceHead');
+  if (!head) return;
+  head.innerHTML = evidenceColumns.map(col => `
+    <th>
+      <div class="evidence-th">
+        <span>${col.title}</span>
+        ${infoButtonMarkup(col, 'evidence-col')}
+      </div>
+      ${infoPanelMarkup(col, 'evidence-col')}
+    </th>
+  `).join('');
+}
+
+function closeInlineInfo(root = document) {
+  root.querySelectorAll?.('.inline-info-btn[aria-expanded="true"]').forEach(btn => {
+    const pop = document.getElementById(btn.getAttribute('aria-controls'));
+    btn.setAttribute('aria-expanded', 'false');
+    if (pop) pop.hidden = true;
+  });
+}
+
+function wireInlineInfo() {
+  document.body.addEventListener('click', event => {
+    const btn = event.target.closest('.inline-info-btn');
+    if (!btn) {
+      if (!event.target.closest('.inline-info-pop')) closeInlineInfo();
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const pop = document.getElementById(btn.getAttribute('aria-controls'));
+    if (!pop) return;
+
+    const scope = btn.closest('.diag li, .gate-list > div, .roadmap-list > div, .future-dim-list > div, .legend-popover, .future-dims') || document;
+    const isOpen = btn.getAttribute('aria-expanded') === 'true';
+    closeInlineInfo(scope);
+    btn.setAttribute('aria-expanded', String(!isOpen));
+    pop.hidden = isOpen;
+    if (!isOpen) positionInlineInfo(btn, pop);
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeInlineInfo();
+  });
+}
+
+function positionInlineInfo(btn, pop) {
+  pop.style.position = 'fixed';
+  pop.style.left = '';
+  pop.style.right = '';
+  pop.style.top = '';
+  pop.style.maxHeight = '';
+  pop.style.overflowY = '';
+
+  const btnRect = btn.getBoundingClientRect();
+  const popRect = pop.getBoundingClientRect();
+  const margin = 12;
+
+  let left = btnRect.right - popRect.width;
+  left = Math.max(margin, Math.min(left, window.innerWidth - popRect.width - margin));
+
+  let top = btnRect.bottom + 8;
+  if (top + popRect.height > window.innerHeight - margin) {
+    top = Math.max(margin, btnRect.top - popRect.height - 8);
+  }
+
+  pop.style.left = `${left}px`;
+  pop.style.top = `${top}px`;
+  pop.style.maxHeight = `${Math.max(180, window.innerHeight - top - margin)}px`;
+  pop.style.overflowY = 'auto';
 }
 
 // ============ CATALOGS ============
@@ -79,6 +417,7 @@ async function loadManifest() {
       paths: {
         drilldown: '../pricing/county_drilldown.json',
         tiers: '../filtration/county_tiers.csv',
+        event_evidence: '../pricing/event_evidence',
       },
     }],
   };
@@ -117,6 +456,7 @@ async function loadCatalog(catalogId) {
   state.catalog = catalog;
   state.drilldown = await drillResp.json();
   state.tiers = parseCsv(await tiersResp.text());
+  state.eventEvidenceCache.clear();
 
   const nCounties = Object.keys(state.drilldown).length;
   status.textContent = `${fmt.num(nCounties)} counties · ${catalog.short_label || catalog.label}`;
@@ -573,12 +913,18 @@ function colorFor(fips, mode) {
     if (!cell) return { color: tierColors.grey(), tier: 'grey' };
     return { color: premiumScale(cell.retail), tier: d.tier };
   }
+  if (mode === 'events') {
+    const events = d.n_events_total ?? null;
+    if (events == null || events <= 0) return { color: tierColors.grey(), tier: 'grey' };
+    return { color: eventCountScale(events), tier: d.tier };
+  }
   return { color: tierColors.grey(), tier: 'grey' };
 }
 
 // sequential color ramps (interpolated)
 const lambdaScale = d3.scaleSequential(d3.interpolateYlOrRd).domain([0, 50]).clamp(true);
 const premiumScale = d3.scaleSequentialLog(d3.interpolateYlOrRd).domain([500, 50000]).clamp(true);
+const eventCountScale = d3.scaleSequentialLog(d3.interpolateYlGnBu).domain([1, 10000]).clamp(true);
 
 function refreshMapColors() {
   if (!state.countiesGeo) return;
@@ -600,10 +946,104 @@ function renderMapLegend(mode) {
       <div><span class="sw" style="background:${tierColors.grey()}"></span>Filtered</div>`;
   } else if (mode === 'lambda') {
     const stops = [0, 12.5, 25, 37.5, 50].map(v => lambdaScale(v));
-    el.innerHTML = `<span>0</span><div class="ramp" style="background:linear-gradient(to right,${stops.join(',')})"></div><span>50+/yr</span>`;
-  } else {
+    el.innerHTML = rampLegendMarkup('λ(8h)', '0', '50+/yr', stops);
+  } else if (mode === 'retail') {
     const stops = [500, 2500, 10000, 25000, 50000].map(v => premiumScale(v));
-    el.innerHTML = `<span>$500</span><div class="ramp" style="background:linear-gradient(to right,${stops.join(',')})"></div><span>$50k+</span>`;
+    el.innerHTML = rampLegendMarkup('Retail', '$500', '$50k+/yr', stops);
+  } else if (mode === 'events') {
+    const stops = [1, 50, 200, 1000, 10000].map(v => eventCountScale(v));
+    el.innerHTML = rampLegendMarkup('Historical events', '1', '10k+', stops);
+  }
+  renderLegendPopover(mode);
+}
+
+function rampLegendMarkup(title, low, high, stops) {
+  return `
+    <span class="legend-kicker">${title}</span>
+    <span>${low}</span>
+    <div class="ramp" style="background:linear-gradient(to right,${stops.join(',')})"></div>
+    <span>${high}</span>
+    <div class="legend-filtered"><span class="sw" style="background:${tierColors.grey()}"></span>Filtered</div>
+  `;
+}
+
+function legendMetricRows(rows) {
+  return `
+    <div class="pop-metric-list">
+      ${rows.map(row => `
+        <div>
+          <strong>${row[0]}</strong>
+          <span>${row[1]}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderLegendPopover(mode) {
+  const pop = document.getElementById('legendPopover');
+  const btn = document.getElementById('legendInfo');
+  if (!pop) return;
+
+  const labels = {
+    tier: 'Explain map tiers',
+    lambda: 'Explain annual trigger-rate layer',
+    retail: 'Explain retail premium layer',
+    events: 'Explain event evidence layer',
+  };
+  if (btn) btn.setAttribute('aria-label', labels[mode] || 'Explain map layer');
+
+  if (mode === 'tier') {
+    pop.innerHTML = `
+      <div class="pop-title">Tier meaning</div>
+      <p class="pop-lede">Colors describe modelability, not outage severity. The overall county tier is the weakest current v0 gate.</p>
+      <div class="pop-row tier-row"><span class="dot green"></span><strong>Green</strong><span>Priced normally in v0.</span></div>
+      <div class="pop-row tier-row"><span class="dot amber"></span><strong>Amber</strong><span>Quoteable baseline, with a weaker credibility or quality gate.</span></div>
+      <div class="pop-row tier-row"><span class="dot red"></span><strong>Red</strong><span>No quote in v0 because at least one modelability gate failed.</span></div>
+      <div class="pop-row tier-row"><span class="dot grey"></span><strong>Grey</strong><span>No engine record, hidden by filters, or not evaluated in v0.</span></div>
+
+      <div class="pop-section-title">Current v0 gates</div>
+      <div class="gate-list">${gateListMarkup('legend-gate')}</div>
+      <p class="pop-note">D1, D2, and D4 are county-event driven. D3 uses the raw source exposure window. D5 uses a FEMA-region source proxy in v0.</p>
+
+      <div class="pop-section-title">Roadmap dimensions</div>
+      <div class="roadmap-list">${roadmapListMarkup('legend-roadmap')}</div>
+      <p class="pop-note">These are intentionally grey: useful launch-readiness dimensions, but not part of the v0 county tier.</p>
+    `;
+  } else if (mode === 'lambda') {
+    pop.innerHTML = `
+      <div class="pop-title">Annual trigger rate</div>
+      <p class="pop-lede">Colors show annualized qualifying outage frequency for the selected catalog at <strong>T = 8h</strong>. Darker counties have more expected 8h+ events per year.</p>
+      ${legendMetricRows([
+        ['Formula', 'lambda(8h) = n_per_year x S(8h)'],
+        ['Meaning', 'Expected qualifying events per year, not premium and not modelability tier.'],
+        ['Grey', 'Filtered by toolbar controls, missing engine record, or unavailable value.'],
+      ])}
+      <p class="pop-note">This layer is a risk-frequency diagnostic. Confidence still depends on the amount of historical event evidence behind the empirical survival curve.</p>
+    `;
+  } else if (mode === 'retail') {
+    pop.innerHTML = `
+      <div class="pop-title">Retail premium</div>
+      <p class="pop-lede">Colors show annual retail premium for <strong>T = 8h</strong> and <strong>X = $2,500</strong> under the current v0 load assumptions.</p>
+      ${legendMetricRows([
+        ['Formula', 'retail = lambda(8h) x $2,500 / (1 - expense - margin)'],
+        ['Default loads', 'Expense ratio 20%, target margin 15%, uncertainty load $0 in v0.'],
+        ['Grey', 'Filtered by toolbar controls, missing engine record, or unavailable value.'],
+      ])}
+      <p class="pop-note">This layer is a pricing-output diagnostic. Quotability is still governed by the tier layer and modelability gates.</p>
+    `;
+  } else if (mode === 'events') {
+    pop.innerHTML = `
+      <div class="pop-title">Event evidence volume</div>
+      <p class="pop-lede">Colors show total historical outage events in the selected EAGLE-I catalog. This is a first-pass confidence proxy for the empirical survival curve.</p>
+      ${legendMetricRows([
+        ['Why it matters', 'v0 estimates S(T) by direct counting, so more historical events usually means a more stable empirical curve.'],
+        ['D1 reference', 'Green starts at 200 total events; Amber is 50 to 199; Red is fewer than 50.'],
+        ['Not severity', 'High event volume can include many short routine outages. It does not mean the county is worse by itself.'],
+        ['For a specific T', 'Qualifying event count at that T also matters; this map is the national overview layer.'],
+      ])}
+      <p class="pop-note">Grey still means hidden by filters, missing engine record, or not evaluated in v0.</p>
+    `;
   }
 }
 
@@ -645,8 +1085,35 @@ function wireLegendInfo() {
   };
 
   btn.addEventListener('click', toggle);
-  pop.addEventListener('click', event => event.stopPropagation());
+  pop.addEventListener('click', event => {
+    if (!event.target.closest('.inline-info-btn')) event.stopPropagation();
+  });
   window.addEventListener('resize', positionPopover);
+  document.addEventListener('click', close);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') close();
+  });
+}
+
+function wireCatalogInfo() {
+  const btn = document.getElementById('catalogInfo');
+  const pop = document.getElementById('catalogPopover');
+  if (!btn || !pop) return;
+
+  const close = () => {
+    pop.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+  };
+
+  btn.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    const isOpen = !pop.hidden;
+    pop.hidden = isOpen;
+    btn.setAttribute('aria-expanded', String(!isOpen));
+  });
+
+  pop.addEventListener('click', event => event.stopPropagation());
   document.addEventListener('click', close);
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape') close();
@@ -715,6 +1182,9 @@ function wireMatrixControls() {
   const kind = document.getElementById('premKind');
   const erVal = document.getElementById('expenseRatioVal');
   const tmVal = document.getElementById('targetMarginVal');
+  const evidenceControls = ['evidenceT', 'evidenceX', 'evidenceSort', 'evidenceQualOnly']
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
 
   const refresh = () => {
     erVal.textContent = (+er.value * 100).toFixed(0) + '%';
@@ -724,6 +1194,12 @@ function wireMatrixControls() {
   er.addEventListener('input', refresh);
   tm.addEventListener('input', refresh);
   kind.addEventListener('change', refresh);
+  evidenceControls.forEach(control => {
+    const eventName = control.type === 'checkbox' ? 'change' : 'change';
+    control.addEventListener(eventName, () => {
+      if (state.selectedFips) renderEventEvidence(state.selectedFips);
+    });
+  });
 }
 
 function openMatrix(fips, opts = {}) {
@@ -783,7 +1259,181 @@ function renderMatrix(fips) {
     renderDurationChart(d);
     renderSurvivalChart(d);
   });
+  renderEventEvidence(fips);
   updateCrumbs();
+}
+
+function eventEvidenceBasePath() {
+  if (state.catalog?.paths?.event_evidence) {
+    return state.catalog.paths.event_evidence.replace(/\/$/, '');
+  }
+  const drillPath = state.catalog?.paths?.drilldown;
+  if (drillPath) {
+    return drillPath.replace(/county_drilldown\.json$/, 'event_evidence').replace(/\/$/, '');
+  }
+  return null;
+}
+
+async function loadEventEvidence(fips) {
+  const key = `${state.catalogId}:${fips}`;
+  if (state.eventEvidenceCache.has(key)) return state.eventEvidenceCache.get(key);
+
+  const base = eventEvidenceBasePath();
+  if (!base) return null;
+
+  const resp = await fetch(`${base}/${fips}.json`, { cache: 'no-store' });
+  if (!resp.ok) {
+    state.eventEvidenceCache.set(key, null);
+    return null;
+  }
+  const data = await resp.json();
+  state.eventEvidenceCache.set(key, data);
+  return data;
+}
+
+function evidenceContract() {
+  return {
+    T: +document.getElementById('evidenceT').value,
+    X: +document.getElementById('evidenceX').value,
+    sort: document.getElementById('evidenceSort').value,
+    qualifyingOnly: document.getElementById('evidenceQualOnly').checked,
+    er: +document.getElementById('expenseRatio').value,
+    tm: +document.getElementById('targetMargin').value,
+  };
+}
+
+function fmtUtc(value) {
+  return String(value || '').replace('T', ' ').replace(/:\d{2}(?:\.\d+)?$/, '');
+}
+
+function renderEvidenceShell(message) {
+  const sub = document.getElementById('eventEvidenceSub');
+  const summary = document.getElementById('eventEvidenceSummary');
+  const body = document.getElementById('eventEvidenceBody');
+  const note = document.getElementById('eventEvidenceNote');
+  if (sub) sub.textContent = 'Top historical events for the selected county';
+  if (summary) summary.innerHTML = '';
+  if (body) body.innerHTML = `<tr><td colspan="8"><div class="evidence-empty">${message}</div></td></tr>`;
+  if (note) note.textContent = '';
+}
+
+async function renderEventEvidence(fips) {
+  const d = state.drilldown[fips];
+  if (!d) {
+    renderEvidenceShell('Select a county to view event evidence.');
+    return;
+  }
+
+  renderEvidenceShell('Loading event evidence...');
+  const evidence = await loadEventEvidence(fips);
+  if (state.selectedFips !== String(fips) || state.view !== 'matrix') return;
+  if (!evidence) {
+    renderEvidenceShell('Event evidence files are not generated for this catalog yet. Re-run the pricing/catalog pipeline to create per-county evidence JSON.');
+    return;
+  }
+
+  const { T, X, sort, qualifyingOnly, er, tm } = evidenceContract();
+  const denom = Math.max(1e-6, 1 - er - tm);
+  const threshold = evidence.threshold_summary?.[String(T)] || {};
+  const lam = threshold.lambda_T ?? d.grid?.[T]?.lambda_T ?? 0;
+  const qualifyingEvents = threshold.qualifying_events ?? Math.round((d.grid?.[T]?.S_T ?? 0) * d.n_events_total);
+  const pure = lam * X;
+  const retail = pure / denom;
+  const observationYears = evidence.observation_years || d.observation_years || 1;
+
+  const rows = (evidence.events || []).map(event => {
+    const qualifies = +event.duration_hours >= T;
+    const payout = qualifies ? X : 0;
+    return {
+      ...event,
+      qualifies,
+      payout,
+      contribution: payout / observationYears,
+    };
+  }).filter(event => !qualifyingOnly || event.qualifies);
+
+  rows.sort((a, b) => {
+    if (sort === 'start_desc') return String(b.start_time_utc).localeCompare(String(a.start_time_utc));
+    if (sort === 'max_customers_desc') return (+b.max_customers_out || 0) - (+a.max_customers_out || 0);
+    if (sort === 'contribution_desc') return (+b.contribution || 0) - (+a.contribution || 0) || (+b.duration_hours || 0) - (+a.duration_hours || 0);
+    return (+b.duration_hours || 0) - (+a.duration_hours || 0);
+  });
+
+  const sub = document.getElementById('eventEvidenceSub');
+  const summary = document.getElementById('eventEvidenceSummary');
+  const body = document.getElementById('eventEvidenceBody');
+  const note = document.getElementById('eventEvidenceNote');
+
+  if (sub) {
+    sub.textContent = `${evidence.county}, ${evidence.state} · ${evidence.rows_policy.replaceAll('_', ' ')}`;
+  }
+
+  if (summary) {
+    const sT = threshold.S_T ?? d.grid?.[T]?.S_T ?? 0;
+    const kpis = [
+      {
+        ...evidenceKpis[0],
+        value: `${fmt.num(qualifyingEvents)} / ${fmt.num(evidence.n_events_total)}`,
+        meta: 'full history',
+      },
+      {
+        ...evidenceKpis[1],
+        value: fmt.pct(sT),
+        meta: 'qualifying share',
+      },
+      {
+        ...evidenceKpis[2],
+        value: `${fmt.num3(lam)} /yr`,
+        meta: 'annualized',
+      },
+      {
+        ...evidenceKpis[3],
+        value: fmt.moneyCents(pure),
+        meta: 'annual',
+      },
+      {
+        ...evidenceKpis[4],
+        value: fmt.money(retail),
+        meta: 'annual',
+      },
+    ];
+    summary.innerHTML = `
+      ${kpis.map(kpi => `
+        <div class="evidence-stat">
+          <div class="evidence-stat-head">
+            <span>${kpi.title}</span>
+            ${infoButtonMarkup(kpi, 'evidence-kpi')}
+          </div>
+          <strong class="evidence-stat-value">${kpi.value}</strong>
+          <small>${kpi.meta}</small>
+          ${infoPanelMarkup(kpi, 'evidence-kpi')}
+        </div>
+      `).join('')}
+    `;
+  }
+
+  if (body) {
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="8"><div class="evidence-empty">No rows in the compact evidence file match this filter.</div></td></tr>';
+    } else {
+      body.innerHTML = rows.map(event => `
+        <tr class="${event.qualifies ? 'qualifies' : ''}">
+          <td>${escapeHtml(fmtUtc(event.start_time_utc))}</td>
+          <td>${fmt.num2(+event.duration_hours)}h</td>
+          <td>${fmt.num(+event.max_customers_out)}</td>
+          <td>${fmt.num1(+event.mean_customers_out)}</td>
+          <td>${event.peak_out_pct_mcc == null ? 'n/a' : fmt.pct(+event.peak_out_pct_mcc)}</td>
+          <td>${event.qualifies ? 'yes' : 'no'}</td>
+          <td>${fmt.money(event.payout)}</td>
+          <td>${fmt.moneyCents(event.contribution)}</td>
+        </tr>
+      `).join('');
+    }
+  }
+
+  if (note) {
+    note.textContent = `Showing ${fmt.num(rows.length)} of ${fmt.num(evidence.rows_returned)} compact evidence rows. Pure contribution is historical payout divided by ${fmt.num2(observationYears)} source years. The table is not the full ${fmt.num(evidence.n_events_total)}-row county event log; the KPIs above use the full county history.`;
+  }
 }
 
 function renderDurationChart(d) {
@@ -931,23 +1581,30 @@ function openDrilldown(fips, T, X, opts = {}) {
   // Panel D
   const tierRow = state.tiers.get(fips);
   if (tierRow) {
-    const diag = (label, detail, cls) => `
+    const diag = (label, detail, cls, dimKey) => {
+      const dim = modelabilityDims.find(d => d.key === dimKey);
+      return `
       <li class="${cls}">
         <span class="check-icon">${cls === 'pass' ? '✓' : cls === 'warn' ? '!' : '✗'}</span>
         <span>
-          <div class="d-label">${label}</div>
+          <div class="d-label-row">
+            <div class="d-label">${label}</div>
+            ${dim ? infoButtonMarkup(dim, `diag-${fips}`) : ''}
+          </div>
           <div class="d-detail">${detail}</div>
+          ${dim ? infoPanelMarkup(dim, `diag-${fips}`) : ''}
         </span>
         <span class="tierBadge ${tierClassFromStr(cls)}">${tierFromCls(cls)}</span>
       </li>
     `;
+    };
     const m = (v) => v === 'green' ? 'pass' : v === 'amber' ? 'warn' : 'fail';
     document.getElementById('panelD').innerHTML = [
-      diag('D1 · Volume',         `${fmt.num(+tierRow.n_events_total)} events`,                m(tierRow.d1_volume)),
-      diag('D2 · Events / year',  `${(+tierRow.n_per_year).toFixed(1)} events/yr`,             m(tierRow.d2_per_year)),
-      diag('D3 · Window',         `${(+tierRow.observation_years).toFixed(1)} source years`, m(tierRow.d3_obs_years)),
-      diag('D4 · Tail (p95)',     `${(+tierRow.duration_p95).toFixed(1)}h`,                    m(tierRow.d4_tail)),
-      diag('D5 · DQI',            tierRow.dqi ? (+tierRow.dqi).toFixed(2) : 'n/a',             m(tierRow.d5_dqi)),
+      diag('D1 · Volume',         `${fmt.num(+tierRow.n_events_total)} events`,                m(tierRow.d1_volume), 'd1'),
+      diag('D2 · Events / year',  `${(+tierRow.n_per_year).toFixed(1)} events/yr`,             m(tierRow.d2_per_year), 'd2'),
+      diag('D3 · Window',         `${(+tierRow.observation_years).toFixed(1)} source years`, m(tierRow.d3_obs_years), 'd3'),
+      diag('D4 · Tail (p95)',     `${(+tierRow.duration_p95).toFixed(1)}h`,                    m(tierRow.d4_tail), 'd4'),
+      diag('D5 · DQI',            tierRow.dqi ? (+tierRow.dqi).toFixed(2) : 'n/a',             m(tierRow.d5_dqi), 'd5'),
     ].join('');
   } else {
     document.getElementById('panelD').innerHTML = '<li class="warn"><span></span><span><div class="d-label">No tier diagnostics</div></span><span></span></li>';

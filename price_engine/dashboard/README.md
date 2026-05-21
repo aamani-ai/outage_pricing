@@ -27,6 +27,8 @@ dashboard/
 ../catalogs/manifest.json                         available event catalogs
 ../catalogs/<catalog>/pricing/county_drilldown.json   per-FIPS dict
 ../catalogs/<catalog>/filtration/county_tiers.csv     tier diagnostics
+../catalogs/<catalog>/pricing/event_evidence/{FIPS}.json
+                                                     compact per-county event evidence
 ```
 
 Catalogs are produced by `run_catalogs.sh` upstream. If the manifest is absent,
@@ -49,9 +51,9 @@ python -m http.server 8000
 
 ### Views
 
-1. **Map** — choropleth of US counties. Color by tier (default), or by λ(T=8h), or by retail premium at T=8h/X=$2.5k. Filters: quotable-only toggle, min events, min observation years. Hover for full tooltip; click to open the Matrix for that county.
+1. **Map** — choropleth of US counties. Color by tier (default), λ(T=8h), retail premium at T=8h/X=$2.5k, or total historical event evidence. Filters: quotable-only toggle, min events, min observation years. Hover for full tooltip; click to open the Matrix for that county.
 
-2. **Matrix** — T (rows) × X (cols) premium grid for the selected county. Cell colour = tier. Sliders for expense ratio + target margin recompute retail premium live. Toggle pure / retail. Right of the matrix: duration distribution (Plot) and survival S(T) curve (Plot).
+2. **Matrix** — T (rows) × X (cols) premium grid for the selected county. Cell colour = tier. Sliders for expense ratio + target margin recompute retail premium live. Toggle pure / retail. Right of the matrix: duration distribution (Plot) and survival S(T) curve (Plot). The bottom Event Evidence card fetches one county evidence file on demand and shows the top historical events with selected-contract payout and pure-premium contribution columns.
 
 3. **Drill-down** — four cards: A contract, B empirical inputs, C premium chain, D five tier diagnostics with pass/warn/fail iconography.
 

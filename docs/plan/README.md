@@ -12,6 +12,8 @@ trigger-source strategy, enriched datasets, and forward-looking modeling.
 - [Trigger Source Implications](trigger_source_implications.md)
 - [Enriched Event Dataset Plan](enriched_event_dataset_plan.md)
 - [Forward-Looking Modeling Plan](forward_looking_modeling_plan.md)
+- [Outage Baseline Adjustment Framework](outage_baseline_adjustment_framework.md)
+- [Portfolio Risk Engine Plan](portfolio_risk_engine_plan.md)
 
 ## Planning Principles
 

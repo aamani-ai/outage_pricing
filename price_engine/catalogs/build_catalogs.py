@@ -78,6 +78,7 @@ def catalog_paths(catalog_id: str) -> dict[str, Path]:
         "tiers": root / "filtration" / "county_tiers.csv",
         "premiums": root / "pricing" / "county_premiums.csv",
         "drilldown": root / "pricing" / "county_drilldown.json",
+        "event_evidence": root / "pricing" / "event_evidence",
         "catalog": root / "catalog.json",
     }
 
@@ -89,7 +90,7 @@ def run(cmd: list[str]) -> None:
 
 def build_catalog(spec: CatalogSpec, downstream_only: bool = False) -> dict:
     paths = catalog_paths(spec.id)
-    for key in ("events", "summary", "durations", "tiers", "premiums", "drilldown"):
+    for key in ("events", "summary", "durations", "tiers", "premiums", "drilldown", "event_evidence"):
         paths[key].parent.mkdir(parents=True, exist_ok=True)
 
     py = sys.executable
@@ -131,10 +132,14 @@ def build_catalog(spec: CatalogSpec, downstream_only: bool = False) -> dict:
         str(paths["durations"]),
         "--tiers",
         str(paths["tiers"]),
+        "--events",
+        str(paths["events"]),
         "--out-csv",
         str(paths["premiums"]),
         "--out-json",
         str(paths["drilldown"]),
+        "--out-evidence-dir",
+        str(paths["event_evidence"]),
     ])
 
     return write_catalog_json(spec)
@@ -176,6 +181,7 @@ def write_catalog_json(spec: CatalogSpec) -> dict:
         "paths": {
             "drilldown": f"../catalogs/{spec.id}/pricing/county_drilldown.json",
             "tiers": f"../catalogs/{spec.id}/filtration/county_tiers.csv",
+            "event_evidence": f"../catalogs/{spec.id}/pricing/event_evidence",
             "events_meta": f"../catalogs/{spec.id}/data/events_meta.json",
             "annualization_meta": f"../catalogs/{spec.id}/data/annualization_meta.json",
             "catalog": f"../catalogs/{spec.id}/catalog.json",

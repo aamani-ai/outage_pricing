@@ -5,10 +5,13 @@ Reads:
   - price_engine/data/county_summary.parquet      (for n_per_year per FIPS)
   - price_engine/data/county_durations.parquet    (for S(T) per FIPS)
   - price_engine/filtration/county_tiers.csv      (to mask out red counties)
+  - price_engine/data/events.parquet              (for per-county evidence files)
 
 Writes:
   - price_engine/pricing/county_premiums.csv      long form: (fips, T, X, pure, retail)
   - price_engine/pricing/county_drilldown.json    per-FIPS dict for dashboard
+  - price_engine/pricing/event_evidence/{FIPS}.json
+                                                    compact top-event evidence by county
 
 Pricing math (see plan/02_pricing_math.md):
   N_per_year(FIPS) = n_events_total(FIPS) / observation_years(FIPS)
@@ -37,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -47,9 +51,11 @@ HERE = Path(__file__).resolve().parent
 SUMMARY = HERE.parent / "data" / "county_summary.parquet"
 DURATIONS = HERE.parent / "data" / "county_durations.parquet"
 TIERS = HERE.parent / "filtration" / "county_tiers.csv"
+EVENTS = HERE.parent / "data" / "events.parquet"
 
 OUT_CSV = HERE / "county_premiums.csv"
 OUT_JSON = HERE / "county_drilldown.json"
+OUT_EVIDENCE_DIR = HERE / "event_evidence"
 
 T_GRID = [2, 4, 8, 12, 24]                # hours
 X_GRID = [500, 1000, 2500, 5000, 10000]   # dollars
@@ -66,16 +72,131 @@ def s_of_t(durations: np.ndarray, T: float) -> float:
     return float((durations >= T).sum()) / float(durations.size)
 
 
+def clean_float(value, digits: int | None = None):
+    if pd.isna(value):
+        return None
+    value = float(value)
+    return round(value, digits) if digits is not None else value
+
+
+def write_event_evidence(
+    events_path: Path,
+    out_dir: Path,
+    drilldown: dict[str, dict],
+    max_rows: int,
+) -> None:
+    """Write compact per-county event evidence files for static dashboard fetches.
+
+    The national event table is too large for the browser. Each county file keeps
+    the longest events only, plus exact threshold summaries from the pricing grid.
+    """
+    if max_rows <= 0:
+        print("[skip] event evidence disabled because max rows <= 0", flush=True)
+        return
+
+    columns = [
+        "event_id", "fips", "state", "county",
+        "start_time", "end_time", "duration_hours",
+        "n_snapshots", "min_customers", "max_customers", "mean_customers", "year",
+    ]
+    events = pd.read_parquet(events_path, columns=columns)
+    events["fips"] = events["fips"].astype("int64")
+    print(f"[load] {len(events):,} events for evidence table", flush=True)
+
+    # Keep files compact: table rows are evidence examples, not a full event dump.
+    top = (
+        events
+        .sort_values(
+            ["fips", "duration_hours", "max_customers", "start_time"],
+            ascending=[True, False, False, False],
+            kind="mergesort",
+        )
+        .groupby("fips", sort=False)
+        .head(max_rows)
+    )
+    del events
+
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    written = 0
+    for fips, group in top.groupby("fips", sort=False):
+        key = str(int(fips))
+        county = drilldown.get(key)
+        if not county:
+            continue
+
+        mcc = county.get("mcc")
+        observation_years = county.get("observation_years")
+        rows = []
+        for rank, (_, event) in enumerate(group.iterrows(), start=1):
+            max_customers = clean_float(event["max_customers"], 0)
+            rows.append({
+                "rank_by_duration": rank,
+                "event_id": str(event["event_id"]),
+                "start_time_utc": event["start_time"].isoformat(),
+                "end_time_utc": event["end_time"].isoformat(),
+                "year": int(event["year"]),
+                "duration_hours": clean_float(event["duration_hours"], 3),
+                "n_snapshots": int(event["n_snapshots"]),
+                "min_customers_out": int(event["min_customers"]),
+                "max_customers_out": int(event["max_customers"]),
+                "mean_customers_out": clean_float(event["mean_customers"], 3),
+                "peak_out_pct_mcc": (
+                    clean_float(float(max_customers) / float(mcc), 6)
+                    if mcc and max_customers is not None and float(mcc) > 0
+                    else None
+                ),
+            })
+
+        threshold_summary = {}
+        for T in T_GRID:
+            cell = county["grid"][T]
+            qualifying = int(round(float(cell["S_T"]) * int(county["n_events_total"])))
+            threshold_summary[str(T)] = {
+                "qualifying_events": qualifying,
+                "S_T": clean_float(cell["S_T"], 8),
+                "lambda_T": clean_float(cell["lambda_T"], 8),
+            }
+
+        record = {
+            "fips": key,
+            "state": county["state"],
+            "county": county["county"],
+            "tier": county["tier"],
+            "quotable": county["quotable"],
+            "n_events_total": int(county["n_events_total"]),
+            "observation_years": clean_float(observation_years, 8),
+            "mcc": clean_float(mcc, 3),
+            "rows_policy": f"top_{max_rows}_longest_events",
+            "rows_returned": len(rows),
+            "threshold_summary": threshold_summary,
+            "events": rows,
+        }
+        (out_dir / f"{key}.json").write_text(json.dumps(record, separators=(",", ":")))
+        written += 1
+
+    print(f"[save] {out_dir} ({written:,} county files; top {max_rows} events each)", flush=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--summary", type=Path, default=SUMMARY)
     parser.add_argument("--durations", type=Path, default=DURATIONS)
     parser.add_argument("--tiers", type=Path, default=TIERS)
+    parser.add_argument("--events", type=Path, default=EVENTS)
     parser.add_argument("--out-csv", type=Path, default=OUT_CSV)
     parser.add_argument("--out-json", type=Path, default=OUT_JSON)
+    parser.add_argument("--out-evidence-dir", type=Path, default=OUT_EVIDENCE_DIR)
+    parser.add_argument("--evidence-max-rows", type=int, default=200)
+    parser.add_argument("--skip-evidence", action="store_true")
     args = parser.parse_args()
 
-    for p in (args.summary, args.durations, args.tiers):
+    required = [args.summary, args.durations, args.tiers]
+    if not args.skip_evidence:
+        required.append(args.events)
+    for p in required:
         if not p.exists():
             print(f"[fail] missing {p}; run upstream scripts first", flush=True)
             return 1
@@ -159,6 +280,14 @@ def main() -> int:
     with args.out_json.open("w") as fh:
         json.dump(drilldown, fh)
     print(f"[save] {args.out_json} ({len(drilldown):,} FIPS)", flush=True)
+
+    if not args.skip_evidence:
+        write_event_evidence(
+            events_path=args.events,
+            out_dir=args.out_evidence_dir,
+            drilldown=drilldown,
+            max_rows=args.evidence_max_rows,
+        )
 
     return 0
 
