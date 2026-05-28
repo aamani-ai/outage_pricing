@@ -35,6 +35,7 @@ lambda_adjusted(location, T, horizon)
     * grid_condition_modifier(location or fips, horizon)
     * hazard_weather_modifier(location or fips, horizon)
     * location_basis_modifier(location, fips)
+    * customer_impact_modifier(fips, T)
     * trigger_alignment_modifier(trigger_source, location, T)
 ```
 
@@ -63,8 +64,127 @@ right.
 | grid condition | Is the serving grid stronger or weaker than county history implies? | curated utility/grid features |
 | hazard/weather | Is weather-driven outage risk elevated or changing? | forward model / scenario layer |
 | location basis | Is this premise materially different from county average? | separate location-aware design |
+| customer impact | Does the county event population reflect meaningful customer outages, or is it dominated by very small (single/few customer) events that inflate `n_per_year` and `S(T)` denominators? | curated severity features, then gate or capped modifier |
 | trigger alignment | Does EAGLE-I county event behavior match the payout oracle? | requires overlap validation |
 | commercial viability | Does the resulting premium make sense versus alternatives? | product/underwriting filter |
+
+## Modifier Lifecycle
+
+This framework treats every modifier as **scaffolding for current ignorance**,
+not as a permanent feature of the pricing engine. As inputs improve, most
+modifiers should shrink toward `1.0` or be **absorbed into the baseline rate**
+and retired. A small number are structural and stay no matter how good the
+data gets.
+
+Every modifier in this framework must declare which category it belongs to.
+
+### Two categories
+
+```text
+total_adjustment
+  = bias_correction_modifiers     <-- shrink with better data, can be retired
+  * forward_regime_modifiers      <-- structural, do NOT shrink with data quality
+```
+
+- **Bias-correction modifiers** exist because the *measurement* of the baseline
+  is imperfect. Better data on the relevant dimension makes them collapse.
+- **Forward-regime modifiers** exist because the *future* may not look like the
+  past. Even perfect history does not eliminate them; better data only
+  calibrates them more tightly.
+
+### Classification of current modifiers
+
+| Modifier | Category | Shrinks when | Retirement / absorption path |
+|---|---|---|---|
+| `credibility` | bias-correction | More years of data, hierarchical pooling | Folded into hierarchical baseline rate |
+| `regime` | bias-correction | Longer history with proper regime weighting | Baked into baseline as regime-weighted rate |
+| `customer_impact` | bias-correction | Event construction uses customer / `% MCC` threshold | Folded into `02_construct_events.py` |
+| `location_basis` | bias-correction | Feeder, circuit, or premise-level data | Baseline becomes premise-level, not county |
+| `trigger_alignment` | bias-correction | Overlap data with payout oracle | Baseline rebuilt directly on oracle events |
+| `grid_condition` | forward-regime | (does not shrink with data quality) | Stays as overlay; calibration improves only |
+| `hazard_weather` | forward-regime | (does not shrink with data quality) | Stays as overlay; resolution improves only |
+
+### Shrinkage trajectory (conceptual)
+
+```text
+  modifier
+   value
+     ^
+ 1.5 |     . . .                              forward-regime
+     |   .       . .                          (grid, hazard/weather)
+ 1.2 |  *           . . . . . . . .           stays in stack
+     | / \
+ 1.0 |/   *--------*-------*--------          neutral baseline (1.0)
+     |     \                                  bias-correction
+ 0.8 |      *-----*                           (credibility, customer impact,
+     |             \                           location basis, regime,
+ 0.6 |              *--- (absorbed)            trigger alignment)
+     |                                         shrinks then retires
+     +-------------------------------------> data maturity
+          v0     v0.5      v1     v1+
+```
+
+- v0: every bias-correction modifier is needed because the inputs are coarse.
+- v0.5: features get better, some modifiers collapse to near `1.0` and become
+  gate-only.
+- v1: better granularity allows several modifiers to be **absorbed into the
+  baseline** rather than living as multipliers.
+- v1+: only forward-regime modifiers remain in the multiplicative stack.
+
+### Absorption path (how modifiers retire)
+
+```text
+v0 (now):
+  lambda_historical(fips, T)
+    * credibility * customer_impact * location_basis * regime
+    * trigger_alignment * grid_condition * hazard_weather
+
+v0.5 (better event construction + curated features):
+  lambda_historical(fips, T)
+    * credibility * [customer_impact ~ 1.0] * location_basis * regime
+    * trigger_alignment * grid_condition * hazard_weather
+         ^
+         folded into 02_construct_events.py and retired
+
+v1 (premise-level data + oracle overlap):
+  lambda_premise(location, T)
+    * credibility * [regime baked in]
+    * grid_condition * hazard_weather
+         ^
+         location_basis and trigger_alignment absorbed into the baseline
+
+v1+ (mature):
+  lambda_premise(location, T, horizon)
+    * grid_condition * hazard_weather
+         ^
+         only forward-regime modifiers remain
+```
+
+### Important second-order effect
+
+Better granularity sometimes **reveals heterogeneity that needs more nuanced
+adjustment, not less**. For example, feeder-level data may show that a few
+premises in a county need large uplifts while the rest stay flat. The right
+response is usually to **shift complexity from modifiers into the baseline
+rate**, not to add more modifiers.
+
+```text
+coarse data:   one baseline + many modifiers
+fine data:     richer baseline + fewer, structural modifiers
+```
+
+### Rule for every new modifier
+
+When a new modifier is proposed, the framework requires it to declare:
+
+1. Category: `bias-correction` or `forward-regime`.
+2. Shrinkage trigger: which data improvement causes it to shrink.
+3. Retirement criterion: what input change retires it entirely.
+4. Whether it can be absorbed into the baseline rate, and how.
+
+This keeps the modifier stack **finite and decreasing over time** for
+bias-correction effects, while preserving structural modifiers that legitimately
+belong as overlays.
 
 ## Granularity Loopholes
 
@@ -87,6 +207,108 @@ Granularity issues to document before changing prices:
 | outage-source mismatch | EAGLE-I event may not match OMS/sensor/public-map trigger event |
 | event-definition mismatch | 30/45/60 minute stitching changes event count and duration |
 | data-quality heterogeneity | EAGLE-I coverage, DQI, and reporting gaps vary by region |
+
+## Customer Impact Modifier
+
+This is a new candidate modifier added because v0 event construction treats every
+positive-customer outage as one event, regardless of how many customers were
+affected. That makes `n_per_year` and `S(T)` denominator-sensitive to very small
+events (e.g. one customer out for several hours), which can produce premiums
+that look unrealistically high to non-technical reviewers even when the math is
+internally consistent.
+
+### What it asks
+
+```text
+Does the county event population reflect meaningful customer outages,
+or is it dominated by single-customer / very small events that look like
+qualifying events for pricing but do not match a realistic claim picture?
+```
+
+### Why it is a separate modifier and not folded into `location_basis_modifier`
+
+The two factors answer different questions:
+
+| Modifier | Question | Data primitive |
+|---|---|---|
+| `location_basis_modifier` | Is the specific premise different from the county average? | premise/feeder/utility territory features |
+| `customer_impact_modifier` | Is the county event distribution itself a fair claim picture? | event-level `min/max/mean_customers`, `mcc`, derived intensity |
+
+Folding customer impact into `location_basis_modifier` would conflate
+within-county heterogeneity (premise vs county) with the county-level event
+distribution. Keep them separate so each modifier has one job and an auditable
+data source.
+
+If data sparsity makes a standalone modifier unstable, the framework still
+allows treating customer impact as a sub-component of `location_basis_modifier`,
+documented explicitly with its weighting and governance.
+
+### Candidate inputs
+
+From `price_engine/data/events.parquet` and county aggregates:
+
+- `max_customers`, `mean_customers` per event
+- `peak_out_pct_mcc = max_customers / mcc` per event
+- county aggregates such as share of events with `max_customers < N`,
+  `peak_customers_p95`, planned `customer_minutes_out`
+
+These are already preserved by event construction
+(`price_engine/data/02_construct_events.py`) and partly surfaced as evidence in
+the dashboard. They are not in pricing math today.
+
+### Lifecycle category
+
+```text
+category            = bias-correction
+shrinkage_trigger   = event construction uses customer / % MCC threshold,
+                      or severity-conditional S(T) features
+retirement_path     = folded into price_engine/data/02_construct_events.py
+                      so the baseline no longer counts trivial outages as events
+```
+
+See [Modifier Lifecycle](#modifier-lifecycle) for how this fits into the broader
+retirement principle.
+
+### Initial status
+
+```text
+customer_impact_modifier = 1.0          # validated neutral
+status                   = gate_only    # eligibility flag first, not a multiplier
+```
+
+The first use is a non-quote gate, not a numeric premium uplift or discount.
+
+### Activation rules (do not skip)
+
+A modifier can move from `gate_only` / `1.0` to an active numeric multiplier
+only when all of these are satisfied:
+
+1. Feature definition is documented in `curated_outage_data/schemas/` with a
+   stable computation and source.
+2. County-year backtest exists comparing v0 baseline vs candidate adjustment.
+3. Lift/discount is bounded (caps and floors documented in the model card).
+4. Monotonicity check: increasing severity intensity should not produce
+   unexpected non-monotone premium changes.
+5. Stability check: county-level adjustment is stable across catalog choices
+   (30/45/60 minute event stitching).
+6. Sensitivity bands documented for urban/rural, MCC availability, and
+   modelability tier.
+7. Rollback path exists and is one config flag away.
+
+If any of these fail, the modifier stays at `1.0` or `gate_only`.
+
+### Rollout path
+
+```mermaid
+flowchart TD
+    eventSignals[EventCustomerSignals] --> featureBuild[CountyFeatureBuild]
+    featureBuild --> challengerBacktest[ChallengerBacktest]
+    challengerBacktest --> governanceGate[GovernanceGate]
+    governanceGate -->|"pass"| cappedModifier[CappedCustomerImpactModifier]
+    governanceGate -->|"fail"| neutralModifier[ModifierEquals1.0]
+    cappedModifier --> pricingOverlay[ForwardPricingOverlay]
+    neutralModifier --> pricingOverlay
+```
 
 ## What We Should Build First
 
@@ -192,6 +414,8 @@ What would prove it beats v0?
   overlap data exists?
 - What is the minimum backtest needed before a modifier can affect pricing?
 - How should we cap modifiers so they cannot create unjustified premium jumps?
+- Should `customer_impact_modifier` stay standalone, or be merged into
+  `location_basis_modifier` once curated severity features stabilize?
 
 ## Near-Term Recommendation
 

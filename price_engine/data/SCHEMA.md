@@ -129,6 +129,19 @@ fit a Lognormal, Weibull, Exponential, GPD, or any other duration distribution.
 Because no fitted curve is used, confidence in `S(T)` is tied to the amount of
 historical event evidence available for the county and threshold.
 
+## Customer-Impact Fields Are Not In v0 Pricing
+
+`min_customers`, `max_customers`, `mean_customers`, `mcc`, and the derived
+`peak_out_pct_mcc` are preserved on every event row and surfaced in the
+dashboard as evidence. They are **not** inputs to the v0 premium formula. The
+v0 engine prices on event frequency and duration only.
+
+These fields are reserved for the planned
+`customer_impact_modifier` described in
+[`docs/plan/outage_baseline_adjustment_framework.md`](../../docs/plan/outage_baseline_adjustment_framework.md#customer-impact-modifier).
+Any move to use them in pricing must follow the activation rules in that
+document.
+
 ## Event Evidence JSON
 
 Path:

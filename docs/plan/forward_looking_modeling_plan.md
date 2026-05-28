@@ -35,7 +35,14 @@ lambda_forward(fips, T)
     * hazard_modifier
     * trigger_alignment_modifier
     * credibility_modifier
+    * customer_impact_modifier   # optional, gate_only by default
 ```
+
+`customer_impact_modifier` is defined in
+[`outage_baseline_adjustment_framework.md`](outage_baseline_adjustment_framework.md#customer-impact-modifier).
+It is included in the forward decomposition only as an optional challenger.
+Default is `1.0` / `gate_only`; it never moves to a numeric multiplier without
+the activation checks in that document.
 
 The first version should keep this decomposition visible. If we later use a
 statistical or machine-learning model, it should still report the components in
@@ -100,6 +107,28 @@ actually determine payouts.
 This should not be guessed. Until we have overlap data, this modifier should be
 `1.0` with a clear "not calibrated" status, or the county should remain
 unavailable for trigger-adjusted pricing.
+
+### Customer impact modifier (optional challenger)
+
+Source: county aggregates of event-level customer-impact signals
+(`max_customers`, `mean_customers`, `peak_out_pct_mcc`, planned
+`customer_minutes_out`).
+
+Interpretation:
+
+This modifier asks whether the county event population, as constructed today,
+fairly represents claim-relevant outages, or whether it is dominated by very
+small events that inflate the qualifying-event count without matching realistic
+loss experience.
+
+Operating rules in the forward-looking context:
+
+- Stays at `1.0` / `gate_only` until backtest evidence shows lift.
+- Cap and floor must be set before any non-neutral value is used.
+- Must not be used to silently lower premiums; non-quote (gate) is preferred to
+  unbounded discount when severity evidence is weak.
+- Must be reported as a separate column in challenger metrics, not folded into
+  grid or hazard modifier outputs.
 
 ### Credibility modifier
 
@@ -175,6 +204,9 @@ Metrics:
 - rank stability
 - top-risk capture
 - residual bias by urban/rural, utility type, and data-quality tier
+- residual bias by customer-impact intensity bins (e.g. low/medium/high
+  `peak_out_pct_mcc`), so the customer-impact modifier is auditable as a
+  separate effect
 
 ## Governance Rules
 
@@ -209,6 +241,9 @@ stable and directionally useful.
   survival curve `S(T)`?
 - How conservative should credibility pooling be for low-event counties?
 - Should trigger alignment be an eligibility gate, a modifier, or both?
+- Should the customer-impact modifier ever act as a numeric multiplier, or
+  remain a non-quote gate, given that severity is observed in EAGLE-I but is
+  not part of contract trigger today?
 
 ## Recommended Sequence
 

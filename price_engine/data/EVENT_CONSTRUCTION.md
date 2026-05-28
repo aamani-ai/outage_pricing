@@ -96,6 +96,13 @@ This is the dial the catalog layer is designed to expose. Users should be able t
 
 The `min_customers` field is preserved on every event row, so anyone who later wants severity-thresholded analysis can apply it as a post-filter without re-running event construction.
 
+The `min_customers`, `max_customers`, `mean_customers`, and derived
+`peak_out_pct_mcc` fields are the data primitives for the planned
+`customer_impact_modifier`. See
+[`docs/plan/outage_baseline_adjustment_framework.md`](../../docs/plan/outage_baseline_adjustment_framework.md#customer-impact-modifier)
+for placement, activation rules, and rollout path. They are not used in v0
+pricing.
+
 ### Choice C — Minimum event duration: 15 minutes (one snapshot)
 
 **Decision: `MIN_DURATION = 15 min` (one full snapshot).** No additional minimum applied.
