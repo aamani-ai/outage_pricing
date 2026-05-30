@@ -375,88 +375,109 @@ The model card has the exact threshold values and the rationale; the
 walkthrough's job here is just to remind readers that the per-customer
 number is only as good as its evidence base.
 
-## Why this is still labeled "shadow" (and what it would take to graduate)
+## The one assumption you must read — A011
 
-The per-customer chain produces a real number — for Boone, MO at T = 8 h,
-X = $5,000 the dashboard shows $1,617.01 / yr — but every surface in the
-dashboard labels it **shadow**, not the headline price. Phases 1–3
-deliberately could not close two specific gaps that gate the graduation
-from shadow to production-pricing status.
+The per-customer chain is the dashboard's headline price as of
+2026-05-30 (governance terminal state **(b) — Activate as numeric
+multiplier**). It inherits the v0 assumption stack (A001–A008) and
+adds **exactly one** material assumption of its own:
+[**A011**](assumptions.md#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation),
+the synchronous-outage approximation. This section is the long-form
+explanation of A011, which any reader quoting the per-customer number
+should be familiar with.
 
-### Gap 1 — the synchronous-outage assumption is untested
+### What the approximation says
 
-Step 4 above described the synchronous-vs-staggered spectrum:
+Under the **synchronous-outage view**, the M customers represented by
+`mean_customers` are modelled as a single persistent set, out for the
+full event duration. A random customer's probability of being out for
+≥ T then equals M / MCC. Averaging that ratio over qualifying events
+yields the multiplier, and multiplying through gives the per-customer
+annual rate.
 
-- Under the **synchronous** view, the M customers represented by
-  `mean_customers` are out for the full event duration. A random
-  customer's probability of being out for ≥ T is exactly M / MCC.
-- Under the **staggered** view, M is a snapshot-average across
-  customers cycling in and out. No individual is out for the full D,
-  and the per-customer rate is lower than the multiplier suggests.
+Under a fully **staggered view**, M is a snapshot-average across
+customers cycling in and out, and no individual is out for the full D.
+The same multiplier in that regime overstates the per-customer rate.
+
+Real events sit somewhere on the spectrum between those two extremes.
+
+### Why we cannot test it from EAGLE-I alone
 
 EAGLE-I publishes per-snapshot **counts**, not customer **identifiers**.
-It cannot distinguish synchronous from staggered. Phase 4 of the
-[per-customer pricing plan](../plan/per_customer_pricing_plan.md#phase-4--external-validation-against-poweroutageus-per-outage-data)
-exists to bound this empirically using PowerOutage.US per-`OutageId`
-records, which DO carry individual outage lifespans.
+There is no field in the input data that distinguishes "the same 500
+customers were out continuously" from "200 different customers cycled
+in and out, averaging 500." Both produce the same `mean_customers`.
 
-Until that validation lands, we cannot claim the multiplier is honest.
-The shadow label says: "this is our best first-order estimate; the data
-to verify it is staged but not yet processed."
+This is a **data constraint**, not a modelling oversight. It is the
+specific reason A011 exists as a documented assumption rather than as
+a validated formula.
 
-### Gap 2 — the activation governance gate has not been opened
+### What we ship in the meantime
 
-The adjustment framework's activation rules — recorded on the
-[`customer_impact_v1` model card](../../curated_outage_data/model_cards/customer_impact_v1.md#activation-gate-future) —
-require:
+- The headline per-customer number uses the **mean** estimator
+  ([A010](assumptions.md#a010--mean-not-max-of-customers_out--mcc-is-the-headline-per-customer-estimator)).
+- The dashboard chain footnote shows the **median** estimator (robust
+  to heavy-tail outliers — typically smaller than the headline) and the
+  **max-based** estimator (treats peak instantaneous share as the
+  proxy — typically larger). Together they bracket the plausible range.
+- The coverage gate flags (FIPS, T) cells with thin evidence so a
+  reader knows when to lean less on the headline.
 
-| Activation requirement | Status |
-|---|---|
-| Feature definition documented | ✓ schema + walkthrough |
-| County-year backtest | ✓ Phase 1 notebook |
-| Cap and floor | ✓ model card |
-| Monotonicity check | ✓ implicit in computed bounds |
-| Stability check | ✓ Phase 2 cross-catalog QA |
-| Sensitivity bands (mean / median / max) | ✓ surfaced in dashboard chain |
-| Rollback path | ✓ one config flag |
-| **External validation** | ✗ pending Phase 4 |
+These are the working tools that make A011 honest at the point of use.
 
-The missing row gates the conversation. Even if external validation
-lands cleanly, the move from shadow → numeric multiplier in production
-pricing is a governance decision, not a code change.
+### Suggested resolution path
 
-### What graduation would look like
+The empirical fix is per-`OutageId` data — vendor or utility feeds that
+carry individual outage lifespans, not just snapshot counts. Two
+candidates already documented in the project:
 
-When Phase 4 has bounded the synchronous-assumption error, governance
-has three terminal options (this is the
-[**Customer-impact graduation** track on the roadmap](roadmap.md#customer-impact-graduation--next-gate)):
+- A contracted PowerOutage.US live API ([`docs/extra/poweroutage_us/`](../extra/poweroutage_us/)
+  — the trial extract is staged locally; commercial agreement pending).
+- Utility OMS overlap on a target footprint (longer lead time; requires
+  vendor relationships).
 
-- **(a) Stay shadow** — keep the parallel display; v0 stays the
-  headline price. Conservative default if evidence is ambiguous.
-- **(b) Activate as numeric multiplier** — `λ_county × multiplier`
-  becomes the new pricing rate. The dashboard headline switches.
-- **(c) Absorb into baseline** — modify
-  `02_construct_events.py` so the baseline intrinsically counts only
-  meaningful events; the multiplier disappears because the v0 number
-  becomes per-customer-aware.
+When either source is available, [Phase 4 of the per-customer pricing
+plan](../plan/per_customer_pricing_plan.md#phase-4--external-validation-against-poweroutageus-per-outage-data)
+runs the validation: build per-`OutageId` events for a comparable
+window, compute the per-customer rate directly (no synchronous
+approximation), and compare to the EAGLE-I-derived multiplier. The
+output is either (a) confirmation that the synchronous approximation
+is within the sensitivity band, or (b) an empirical correction factor
+that we fold back into the multiplier.
 
-### Why we are deploying anyway
+Phase 4 is **refinement work**, not a gate on the price. The price
+ships now; the refinement tightens A011 when capacity permits.
 
-The shadow surface as it stands has commercial and pedagogical value
-**before** graduation:
+### Why this is treated as a documented assumption, not a "shadow"
 
-- It exposes the v0-to-per-customer ratio explicitly (the 100×–4000×
-  difference per cell), so stakeholders and underwriters can see the
-  magnitude of the bias rather than wonder.
-- It gives the team a working surface to gather feedback against — and
-  that feedback informs the Phase 4 / 5 decisions.
-- It keeps v0 unchanged, so the regulatory and audit story for current
-  pricing is intact.
+v0 already ships with eight documented assumptions
+(A001–A008) — including some genuinely-untested ones like A001 (UTC
+timestamps), placeholder commercial defaults like A006 (ER = 0.20,
+TM = 0.15), and known simplifications like A007 (no portfolio
+correlation). None of those are called "shadow"; they are documented
+in the registry and the engine ships.
 
-**Deploying is not the same as graduating.** Deploy exposes the work
-for review; graduation moves it into pricing math. The current sequence
-is: deploy → team feedback → Phase 4 validation → Phase 5 governance →
-terminal-state decision (a / b / c).
+A011 is the same shape. It is a **data-constrained measurement
+assumption** with a clear resolution path. The per-customer chain that
+rests on it produces a number that is, by every empirical measure we
+have so far, **more accurate than v0's county-trigger rate** — Phase 1
+showed v0 over-prices the per-customer expected loss by 100×–4000×
+depending on the county, which is a far larger systematic error than
+the plausible synchronous-vs-staggered band of A011.
+
+Treating per-customer as "shadow" while shipping v0 as "the price"
+would invert the accuracy ordering. The correct posture is: ship
+per-customer as the headline, document its one new assumption (A011)
+in the registry alongside v0's assumptions, and queue Phase 4 as
+ongoing refinement.
+
+This refines the modifier lifecycle in the
+[adjustment framework](../plan/outage_baseline_adjustment_framework.md#modifier-lifecycle):
+**bias-correction modifiers** (like this one) graduate via the
+assumption registry once their data constraint is documented;
+**forward-regime modifiers** (climate, grid condition, hazard) still
+require external validation because they project future conditions
+rather than correct present measurement.
 
 ## What this stage is not
 

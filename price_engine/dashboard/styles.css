@@ -975,11 +975,12 @@ table { border-collapse: collapse; width: 100%; }
   color: var(--surface);
 }
 
-/* Matrix cell variants for per-customer / multiplier / coverage gate */
-.matrix-table td.shadow { background: var(--primary-soft); color: var(--primary-2); }
+/* Matrix cell variants for the per-customer / multiplier views — colored
+   by coverage-gate status (`available`, `caution`, `not-available`). */
+.matrix-table td.available { background: var(--primary-soft); color: var(--primary-2); }
 .matrix-table td.caution { background: repeating-linear-gradient(135deg, var(--amber-soft) 0 8px, var(--surface-2) 8px 16px); color: var(--tier-amber); }
 .matrix-table td.not-available { background: var(--surface-2); color: var(--faint); font-style: italic; cursor: not-allowed; font-family: var(--font-body); }
-.matrix-table td.shadow:not(.not-available):hover { box-shadow: inset 0 0 0 2px var(--primary); }
+.matrix-table td.available:not(.not-available):hover { box-shadow: inset 0 0 0 2px var(--primary); }
 
 /* Coverage gate badge (re-uses tierBadge sizing but with neutral palette) */
 .gateBadge {
@@ -998,7 +999,7 @@ table { border-collapse: collapse; width: 100%; }
 .gateBadge.not-available { background: var(--grey-soft); color: var(--muted); }
 
 /* Legend dots for the matrix legend in per-customer / multiplier modes. */
-.dot.shadow { background: var(--primary); }
+.dot.available { background: var(--primary); }
 .dot.caution-stripe {
   background-image: repeating-linear-gradient(135deg, var(--tier-amber) 0 3px, var(--surface-2) 3px 6px);
 }
@@ -1013,18 +1014,20 @@ table { border-collapse: collapse; width: 100%; }
   gap: var(--space-2);
 }
 
-/* Per-customer chain section inside Panel C.
-   The per-customer block is the underwriter's primary read — even though
-   v0 county-trigger remains the official baseline, this is what stakeholders
-   want to see. So it gets a featured callout treatment: subtle primary-soft
-   tint, a left accent border, and a stronger heading. v0 chain sits above
-   it in neutral styling. */
+/* Per-customer chain in Panel C is the shipped headline — it renders in
+   the standard .chain rhythm with no callout box (the chain itself IS the
+   main content). The v0 county-trigger chain follows underneath as a
+   reference view via .chain-section.reference. */
 .chain-section {
   margin-top: var(--space-5);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border-strong);
+}
+.chain-section.reference {
+  margin-top: var(--space-5);
   padding: var(--space-4);
-  background: var(--primary-soft);
-  border: 1px solid var(--primary);
-  border-left-width: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--divider);
   border-radius: var(--radius-md);
   position: relative;
 }
@@ -1035,11 +1038,29 @@ table { border-collapse: collapse; width: 100%; }
   gap: var(--space-2);
   font-family: var(--font-body);
   font-size: var(--text-xs);
-  color: var(--primary-2);
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 700;
   margin-bottom: var(--space-2);
+}
+.chain-section-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--grey-soft);
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+/* Reference-view rows: muted vs the headline chain. */
+.chain-row.reference .label { color: var(--muted); }
+.chain-row.reference .val { color: var(--ink-2); }
+.chain-row.reference.total .label { color: var(--ink-2); font-weight: 600; }
+.chain-row.reference.total .val {
+  color: var(--ink-2);
+  font-size: var(--text-base);
+  font-weight: 600;
 }
 .chain-section-note {
   font-family: var(--font-body);
@@ -1048,21 +1069,9 @@ table { border-collapse: collapse; width: 100%; }
   margin-bottom: var(--space-3);
   line-height: 1.5;
 }
-.chain-row.shadow .label { color: var(--ink-2); }
-.chain-row.shadow .val { color: var(--ink); }
-.chain-row.shadow:not(:last-child) { border-bottom: 1px dashed rgba(11, 110, 116, 0.25); }
-[data-theme="dark"] .chain-row.shadow:not(:last-child) { border-bottom-color: rgba(79, 179, 191, 0.25); }
-.chain-section .chain-row.total {
-  border-top: 2px solid var(--primary);
-  padding-top: var(--space-3);
-  margin-top: var(--space-3);
-}
-.chain-section .chain-row.total .label { color: var(--primary-2); font-weight: 700; }
-.chain-section .chain-row.total .val {
-  color: var(--primary-2);
-  font-size: var(--text-lg);
-  font-weight: 700;
-}
+/* Legacy .chain-row.shadow rules (removed when per-customer became the
+   headline rather than a shadow callout). The standard .chain-row styles
+   now apply directly to the per-customer rows. */
 .chain-empty {
   padding: var(--space-3);
   border-radius: var(--radius-md);
@@ -1135,7 +1144,6 @@ table { border-collapse: collapse; width: 100%; }
   align-self: center;
 }
 .roadmap-status.shipped { background: var(--green-soft); color: var(--tier-green); }
-.roadmap-status.shadow { background: var(--primary-soft); color: var(--primary-2); }
 .roadmap-status.next   { background: var(--green-soft); color: var(--tier-green); }
 .roadmap-status.blocked { background: var(--amber-soft); color: var(--tier-amber); }
 .roadmap-status.research { background: var(--amber-soft); color: var(--tier-amber); }

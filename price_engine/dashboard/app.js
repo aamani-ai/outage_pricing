@@ -1284,9 +1284,9 @@ function syncMatrixViewSeg() {
 }
 
 const matrixModeNotes = {
-  county: 'v0 baseline. Annual per-policy premium that triggers on any qualifying county-event ≥ T. <button class="mode-note-link" type="button" data-library-section="pricing">Read the pricing methodology →</button>',
-  customer: 'Shadow estimate of per-customer expected loss. Not currently used in pricing. <button class="mode-note-link" type="button" data-library-section="per-customer-walkthrough">Read the per-customer walkthrough →</button>',
-  multiplier: 'Customer-impact multiplier per cell — <code>mean(mean_customers / MCC | duration ≥ T)</code>. Converts county-trigger rate to per-customer. <button class="mode-note-link" type="button" data-library-section="per-customer-walkthrough">Read the walkthrough →</button>',
+  customer: 'Annual per-policy premium (one policy = one metered electric account). One documented data constraint in <a href="#" data-library-section="assumptions">A011</a> — the synchronous-outage approximation. <button class="mode-note-link" type="button" data-library-section="per-customer-walkthrough">Read the per-customer walkthrough →</button>',
+  county: 'Reference view · v0 county-trigger rate. Useful for sensitivity comparison against the per-customer headline; not the price quoted to a policyholder. <button class="mode-note-link" type="button" data-library-section="pricing">Read the pricing methodology →</button>',
+  multiplier: 'Customer-impact multiplier per cell — <code>mean(mean_customers / MCC | duration ≥ T)</code>. Diagnostic view: what the per-customer chain multiplies <code>λ_county</code> by, before pricing math. <button class="mode-note-link" type="button" data-library-section="per-customer-walkthrough">Read the walkthrough →</button>',
 };
 
 const coverageGateInfo = {
@@ -1330,7 +1330,7 @@ function renderMatrixLegend() {
     `;
   } else {
     el.innerHTML = `
-      <div><span class="dot shadow"></span>Available</div>
+      <div><span class="dot available"></span>Available</div>
       <div class="legend-with-info">
         <span class="dot caution-stripe"></span>Caution · thin evidence
         ${infoButtonMarkup(coverageGateInfo, 'matrix-legend')}
@@ -1364,7 +1364,7 @@ function renderMatrix(fips) {
   if (modeNoteEl) {
     const mode = state.matrixView;
     const text = matrixModeNotes[mode] || '';
-    const tag = mode === 'customer' ? '<strong>Per-customer (shadow) · </strong>'
+    const tag = mode === 'customer' ? '<strong>Per-customer · </strong>'
               : mode === 'multiplier' ? '<strong>Multiplier · </strong>'
               : '<strong>County trigger · </strong>';
     modeNoteEl.innerHTML = tag + text;
@@ -1419,7 +1419,7 @@ function renderMatrix(fips) {
           const pure = lamCust * X;
           const retail = pure / denom;
           const val = kind === 'pure' ? pure : retail;
-          td.className = status === 'caution' ? 'caution' : 'shadow';
+          td.className = status === 'caution' ? 'caution' : 'available';
           td.textContent = fmt.moneyCents(val);
           if (status === 'caution') {
             td.title = `caution · ${gateReasonText(pcCell.coverage_gate_reason)}`;
@@ -1433,7 +1433,7 @@ function renderMatrix(fips) {
           td.textContent = '—';
           td.title = pcCell ? gateReasonText(pcCell.coverage_gate_reason) : 'no per-customer view';
         } else {
-          td.className = status === 'caution' ? 'caution' : 'shadow';
+          td.className = status === 'caution' ? 'caution' : 'available';
           td.textContent = fmt.pct4(pcCell.multiplier_mean);
           if (status === 'caution') {
             td.title = `caution · ${gateReasonText(pcCell.coverage_gate_reason)}`;
@@ -1778,54 +1778,55 @@ function openDrilldown(fips, T, X, opts = {}) {
     ${multBlock}
   `;
 
-  // Panel C — premium chain. v0 chain on top, per-customer (shadow) below.
-  // Every dollar value carries an explicit "/ yr" unit so the annual nature
-  // of the number is unambiguous at every step (intermediate AND total).
-  const v0Chain = `
-    <div class="chain-row">
-      <span class="label">λ(T=${T}h) = N/yr × S(T)</span>
-      <span class="op">${(d.n_per_year||0).toFixed(2)} × ${fmt.pct(sT)}</span>
-      <span class="val">${lam.toFixed(4)} / yr</span>
-    </div>
-    <div class="chain-row">
-      <span class="label">Pure premium = λ(T) × X</span>
-      <span class="op">${lam.toFixed(4)} × ${fmt.money(X)}</span>
-      <span class="val">${fmt.moneyCents(pure)} / yr</span>
-    </div>
-    <div class="chain-row">
-      <span class="label">+ Uncertainty load (v0 stub)</span>
-      <span class="op">+</span>
-      <span class="val">${fmt.moneyCents(0)} / yr</span>
-    </div>
-    <div class="chain-row">
-      <span class="label">÷ (1 − expense − margin)</span>
-      <span class="op">÷ ${denom.toFixed(2)}</span>
-      <span class="val">${fmt.moneyCents(pure / denom)} / yr</span>
-    </div>
-    <div class="chain-row total">
-      <span class="label">Retail annual premium · v0 county trigger</span>
-      <span class="op"></span>
-      <span class="val">${fmt.money(retail)} / yr</span>
+  // Panel C — per-customer chain (the shipped headline) renders first, in
+  // the standard chain rhythm. v0 county-trigger chain renders below as a
+  // muted reference / sensitivity view. Every dollar value carries an
+  // explicit "/ yr" unit so the annual nature is unambiguous.
+  const v0ReferenceChain = `
+    <div class="chain-section reference">
+      <div class="chain-section-title">
+        <span>Reference · v0 county-trigger</span>
+        <span class="chain-section-tag">sensitivity</span>
+      </div>
+      <div class="chain-section-note">Same pricing math, different rate. Useful for sensitivity comparison against the per-customer headline; not the price quoted to a policyholder. <button class="mode-note-link" type="button" data-library-section="pricing">Read the pricing methodology →</button></div>
+      <div class="chain-row reference">
+        <span class="label">λ(T=${T}h) = N/yr × S(T)</span>
+        <span class="op">${(d.n_per_year||0).toFixed(2)} × ${fmt.pct(sT)}</span>
+        <span class="val">${lam.toFixed(4)} / yr</span>
+      </div>
+      <div class="chain-row reference">
+        <span class="label">Pure premium = λ(T) × X</span>
+        <span class="op">${lam.toFixed(4)} × ${fmt.money(X)}</span>
+        <span class="val">${fmt.moneyCents(pure)} / yr</span>
+      </div>
+      <div class="chain-row reference">
+        <span class="label">+ Uncertainty load (v0 stub)</span>
+        <span class="op">+</span>
+        <span class="val">${fmt.moneyCents(0)} / yr</span>
+      </div>
+      <div class="chain-row reference">
+        <span class="label">÷ (1 − expense − margin)</span>
+        <span class="op">÷ ${denom.toFixed(2)}</span>
+        <span class="val">${fmt.moneyCents(pure / denom)} / yr</span>
+      </div>
+      <div class="chain-row total reference">
+        <span class="label">Retail · v0 county trigger</span>
+        <span class="op"></span>
+        <span class="val">${fmt.money(retail)} / yr</span>
+      </div>
     </div>
   `;
 
-  let shadowSection = '';
+  // Per-customer headline chain — the shipped price. Renders FIRST, in
+  // standard .chain-row rhythm (no callout box; it's the main content).
+  let perCustomerChain = '';
   if (!pcCell) {
-    shadowSection = `
-      <div class="chain-section">
-        <div class="chain-section-title"><span>Per-customer view (shadow)</span></div>
-        <div class="chain-empty">Per-customer view not loaded for this catalog. Re-run <code>curated_outage_data/pipelines/per_customer_rate/compute_per_customer_lambda.py</code> to regenerate.</div>
-      </div>
+    perCustomerChain = `
+      <div class="chain-empty">Per-customer view not loaded for this catalog. Re-run <code>curated_outage_data/pipelines/per_customer_rate/compute_per_customer_lambda.py</code> to regenerate.</div>
     `;
   } else if (gateStatus === 'not_available') {
-    shadowSection = `
-      <div class="chain-section">
-        <div class="chain-section-title">
-          <span>Per-customer view (shadow)</span>
-          <span class="gateBadge not-available">not available</span>
-        </div>
-        <div class="chain-empty">No per-customer estimate for this (county, T). Reason: <strong>${gateReasonText(pcCell.coverage_gate_reason)}</strong>.</div>
-      </div>
+    perCustomerChain = `
+      <div class="chain-empty">No per-customer estimate for this (county, T). Reason: <strong>${gateReasonText(pcCell.coverage_gate_reason)}</strong>. The v0 county-trigger rate is shown below as a reference.</div>
     `;
   } else {
     const m = pcCell.multiplier_mean;
@@ -1836,43 +1837,41 @@ function openDrilldown(fips, T, X, opts = {}) {
     const retailMedian = (lamCustMedian * X) / denom;
     const lamCustMax = pcCell.lambda_customer_max;
     const retailMax = (lamCustMax * X) / denom;
-    shadowSection = `
-      <div class="chain-section">
-        <div class="chain-section-title">
-          <span>Per-customer view (shadow)</span>
-          <span class="gateBadge ${gateClass}">${gateStatus.replace('_', ' ')}</span>
-        </div>
-        <div class="chain-section-note">Headline: mean of <code>mean_customers / MCC</code> over qualifying events. Not used in v0 pricing. ${gateStatus === 'caution' ? `<strong>Caution:</strong> ${gateReasonText(pcCell.coverage_gate_reason)}.` : ''}</div>
-        <div class="chain-row shadow">
-          <span class="label">customer-impact multiplier · mean</span>
-          <span class="op">E[mean_cust / MCC | dur ≥ T]</span>
-          <span class="val">${fmt.pct4(m)}</span>
-        </div>
-        <div class="chain-row shadow">
-          <span class="label">λ<sub>customer</sub>(T) = λ<sub>county</sub> × mult</span>
-          <span class="op">${lam.toFixed(4)} × ${fmt.pct4(m)}</span>
-          <span class="val">${lamCust.toFixed(6)} / yr</span>
-        </div>
-        <div class="chain-row shadow">
-          <span class="label">Pure (per-customer)</span>
-          <span class="op">${lamCust.toFixed(6)} × ${fmt.money(X)}</span>
-          <span class="val">${fmt.moneyCents(pureCust)} / yr</span>
-        </div>
-        <div class="chain-row shadow">
-          <span class="label">÷ (1 − expense − margin)</span>
-          <span class="op">÷ ${denom.toFixed(2)}</span>
-          <span class="val">${fmt.moneyCents(retailCust)} / yr</span>
-        </div>
-        <div class="chain-row total shadow">
-          <span class="label">Retail · per-customer (shadow)</span>
-          <span class="op"></span>
-          <span class="val">${fmt.moneyCents(retailCust)} / yr</span>
-        </div>
-        <div class="chain-section-note">Sensitivity at this X: median estimator → ${fmt.moneyCents(retailMedian)} / yr · max estimator → ${fmt.moneyCents(retailMax)} / yr. <button class="mode-note-link" type="button" data-library-section="per-customer-walkthrough">Read the walkthrough →</button></div>
+    perCustomerChain = `
+      <div class="chain-row">
+        <span class="label">customer-impact multiplier · mean</span>
+        <span class="op">E[mean_cust / MCC | dur ≥ T]</span>
+        <span class="val">${fmt.pct4(m)}</span>
       </div>
+      <div class="chain-row">
+        <span class="label">λ<sub>customer</sub>(T) = λ<sub>county</sub> × mult</span>
+        <span class="op">${lam.toFixed(4)} × ${fmt.pct4(m)}</span>
+        <span class="val">${lamCust.toFixed(6)} / yr</span>
+      </div>
+      <div class="chain-row">
+        <span class="label">Pure premium = λ<sub>customer</sub>(T) × X</span>
+        <span class="op">${lamCust.toFixed(6)} × ${fmt.money(X)}</span>
+        <span class="val">${fmt.moneyCents(pureCust)} / yr</span>
+      </div>
+      <div class="chain-row">
+        <span class="label">+ Uncertainty load (v0 stub)</span>
+        <span class="op">+</span>
+        <span class="val">${fmt.moneyCents(0)} / yr</span>
+      </div>
+      <div class="chain-row">
+        <span class="label">÷ (1 − expense − margin)</span>
+        <span class="op">÷ ${denom.toFixed(2)}</span>
+        <span class="val">${fmt.moneyCents(retailCust)} / yr</span>
+      </div>
+      <div class="chain-row total">
+        <span class="label">Retail annual premium · per-customer</span>
+        <span class="op"></span>
+        <span class="val">${fmt.money(retailCust)} / yr</span>
+      </div>
+      <div class="chain-section-note">One documented data constraint: <a href="#" data-library-section="assumptions">A011</a> — the synchronous-outage approximation. Sensitivity at this X: median estimator → ${fmt.moneyCents(retailMedian)} / yr · max estimator → ${fmt.moneyCents(retailMax)} / yr. ${gateStatus === 'caution' ? `<strong>Caution:</strong> ${gateReasonText(pcCell.coverage_gate_reason)}. ` : ''}<button class="mode-note-link" type="button" data-library-section="per-customer-walkthrough">Read the per-customer walkthrough →</button></div>
     `;
   }
-  document.getElementById('panelC').innerHTML = v0Chain + shadowSection;
+  document.getElementById('panelC').innerHTML = perCustomerChain + v0ReferenceChain;
 
   // Panel D
   const tierRow = state.tiers.get(fips);
@@ -2029,7 +2028,7 @@ function setLibraryTitle(text) {
 function renderLibraryOverview() {
   const sections = [
     { key: 'roadmap', meta: 'What\'s next', desc: 'Forward-looking tracks organized by bias-correction vs forward-regime. Status, why it matters, what unlocks each one.' },
-    { key: 'per-customer-walkthrough', meta: 'Walkthrough', desc: 'End-to-end nuance-by-nuance walk through the per-customer shadow rate, with a worked Boone, MO example.' },
+    { key: 'per-customer-walkthrough', meta: 'Walkthrough', desc: 'End-to-end nuance-by-nuance walk through the per-customer pricing chain, with a worked Boone, MO example.' },
     { key: 'pricing', meta: 'Pipeline · pricing', desc: 'The v0 pricing math (λ(T) → Pure → Retail) plus the per-customer view evidence.' },
     { key: 'event-catalog', meta: 'Pipeline · events', desc: 'The event-construction algorithm (three knobs: threshold / gap tolerance / minimum duration).' },
     { key: 'aggregation', meta: 'Pipeline · rate', desc: 'How per-event records roll up to per-county summaries and how the annualization denominator is defined.' },
@@ -2153,13 +2152,8 @@ async function navigateLibrary(sectionKey) {
 const ROADMAP_ITEMS = [
   {
     name: 'Per-customer rate',
-    status: 'shadow',
-    desc: 'Bias-correction · live in dashboard',
-  },
-  {
-    name: 'Customer-impact graduation',
-    status: 'next',
-    desc: 'Bias-correction · post-deploy review + Phase 4 validation',
+    status: 'shipped',
+    desc: 'Bias-correction · headline price (this release)',
   },
   {
     name: 'Trigger source alignment',

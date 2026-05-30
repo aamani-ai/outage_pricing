@@ -276,10 +276,15 @@ per-customer plan.
 ### A009 — Per-customer `customer_impact_multiplier` first-order estimator
 
 - **Category:** math
-- **Status:** active — phase-1 validation in progress
+- **Status:** active — shipped
 - **First written:** 2026-05-30
 - **Last reviewed:** 2026-05-30
 - **Owner:** modeling
+
+> **Shipping status (2026-05-30):** the per-customer chain is the dashboard
+> headline price as of this date. The first-order estimator described
+> here is shipped; the underlying synchronous-outage data constraint is
+> documented separately in [A011](#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation).
 
 **Statement.** The first-order estimator for the per-customer impact
 multiplier on `lambda(T)` is
@@ -317,7 +322,7 @@ shadow rate is recomputed before it reaches the dashboard.
 ### A010 — Mean (not max) of `customers_out / MCC` is the headline per-customer estimator
 
 - **Category:** math
-- **Status:** active — validated by Phase 1
+- **Status:** active — shipped (mean is the headline; max is the sensitivity upper bound shown in the per-customer chain footnote)
 - **First written:** 2026-05-30
 - **Last reviewed:** 2026-05-30
 - **Owner:** modeling
@@ -343,3 +348,67 @@ event duration), the headline per-customer premium is understated by
 empirically.
 
 **Cited from.** [`docs/plan/per_customer_pricing_plan.md`](../plan/per_customer_pricing_plan.md) (Phase 1 gate close), [Phase 1 notebook §F3](../../notebooks/outputs/per_customer_rate_phase1/per_customer_rate_phase1.html).
+
+---
+
+### A011 — Per-customer multiplier rests on a synchronous-outage approximation
+
+- **Category:** math
+- **Status:** active — shipped with documented data constraint
+- **First written:** 2026-05-30
+- **Last reviewed:** 2026-05-30
+- **Owner:** modeling
+
+**Statement.** The per-customer chain treats `mean_customers` (per-event
+customer-count aggregate from EAGLE-I) as a proxy for the share of
+customers actually affected during the event. This rests on a
+**synchronous-outage approximation**: the M customers represented by
+`mean_customers` are modelled as a single persistent set, out for the
+full event duration, so the per-customer probability of being out for
+≥ T equals M / MCC. EAGLE-I publishes 15-minute customer-count snapshots
+only — not customer identifiers — so synchronous vs staggered outage
+profiles cannot be distinguished from this dataset alone. The
+approximation is intrinsic to the input data and is the constraint that
+the rest of the per-customer chain inherits.
+
+**Justification.** Without per-customer identifiers, no scalar proxy is
+exact. The mean of `mean_customers / MCC` over qualifying events is the
+most defensible first-order estimator under the synchronous model: it
+falls out of "expected customer-event count per year" directly
+([A009](#a009--per-customer-customer_impact_multiplier-first-order-estimator)),
+it is simple, and it uses only data already in our pipeline. The
+accompanying [A010](#a010--mean-not-max-of-customers_out--mcc-is-the-headline-per-customer-estimator)
+sensitivity (median + max bounds reported alongside the headline) makes
+the per-event distribution shape visible to the reader without forcing
+a single choice on the assumption.
+
+**Impact if wrong.** Reality lies on a spectrum between two extremes:
+
+- Fully synchronous (all M customers out for the full duration) — the
+  multiplier is exact.
+- Fully staggered (different customers cycling through each snapshot,
+  averaging to M) — no individual customer is out for the full duration;
+  the multiplier overstates the per-customer rate.
+
+Real events typically sit somewhere in between. The dashboard's
+sensitivity footnote (median → headline → max) already brackets the
+plausible range; the empirical bias of the headline within that range
+is what we cannot measure from EAGLE-I alone.
+
+**Suggested resolution path.** Per-`OutageId` records — e.g. a
+contracted PowerOutage.US live feed, or utility OMS overlap — carry
+individual outage lifespans and let us measure the synchronous-vs-
+staggered mix directly. The concrete first step is documented in
+[Phase 4 of the per-customer pricing plan](../plan/per_customer_pricing_plan.md#phase-4--external-validation-against-poweroutageus-per-outage-data).
+The output would be either (a) confirmation that the synchronous
+approximation is within the sensitivity band, or (b) an empirical
+correction factor that tightens the headline. Pending that work, the
+per-customer chain ships with this constraint **documented**, not
+**gated**.
+
+This is the only known systematic assumption added by the per-customer
+chain on top of v0; every other piece (`λ_county`, `S(T)`, MCC,
+annualization, ER / TM defaults) is inherited from v0's existing
+assumption stack (A001–A008).
+
+**Cited from.** [Per-customer view walkthrough §The one assumption you must read](per_customer_view_walkthrough.md#the-one-assumption-you-must-read--a011), [`customer_impact_v1` model card](../../curated_outage_data/model_cards/customer_impact_v1.md), [Per-Customer Pricing Plan](../plan/per_customer_pricing_plan.md), dashboard mode-notes for the per-customer view.
