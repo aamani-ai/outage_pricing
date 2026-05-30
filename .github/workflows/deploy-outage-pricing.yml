@@ -1,0 +1,104 @@
+name: Build and Deploy outage-pricing to Cloud Run
+
+# Triggered only on pushes to the deploy/outage-pricing branch. Keeps main
+# non-deploying so iteration is decoupled from production.
+
+on:
+  push:
+    branches: [deploy/outage-pricing]
+  workflow_dispatch: {}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    env:
+      SERVICE: outage-pricing
+      REGION: us-central1
+      AR_HOST: us-central1-docker.pkg.dev
+      AR_PROJECT: modeling-nonprod-svc-db5x
+      AR_REPO: infrasuremodelingdocker
+      APP_PATH: price_engine
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve methodology symlink to a real copy
+        # The dashboard references docs/methodology/ via a symlink at
+        # price_engine/dashboard/methodology -> ../../docs/methodology. When
+        # `pack build` is invoked with --path price_engine/, the symlink
+        # target lives outside the build path. Replace the symlink with a
+        # real directory copy so the bundle is self-contained inside the
+        # container image.
+        run: |
+          set -eu
+          if [ -L "${APP_PATH}/dashboard/methodology" ]; then
+            echo "Symlink detected; replacing with real copy from docs/methodology/"
+            rm "${APP_PATH}/dashboard/methodology"
+            cp -r docs/methodology "${APP_PATH}/dashboard/methodology"
+            ls -la "${APP_PATH}/dashboard/methodology/" | head -10
+          else
+            echo "No symlink at ${APP_PATH}/dashboard/methodology — assuming pre-resolved real directory."
+            ls -la "${APP_PATH}/dashboard/" | grep methodology || true
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: 'google-github-actions/auth@v3'
+        with:
+          project_id: 'modeling-nonprod-svc-db5x'
+          workload_identity_provider: 'projects/952205173464/locations/global/workloadIdentityPools/infrasure-gh-actions-pool/providers/github-repo-provider'
+          service_account: 'gh-actions-deploy@modeling-nonprod-svc-db5x.iam.gserviceaccount.com'
+
+      - name: Set up Cloud SDK
+        uses: 'google-github-actions/setup-gcloud@v3'
+
+      - name: Configure Docker for GAR
+        run: gcloud auth configure-docker ${{ env.AR_HOST }} --quiet
+
+      - name: Setup pack CLI
+        uses: buildpacks/github-actions/setup-pack@v5.0.0
+
+      - name: Build and push image
+        # paketobuildpacks/builder-jammy-base is fine for Python (the libatomic
+        # gotcha that requires -full is Node-specific). The Procfile inside
+        # APP_PATH tells the buildpack to launch `python server.py`.
+        run: |
+          IMAGE="${{ env.AR_HOST }}/${{ env.AR_PROJECT }}/${{ env.AR_REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
+          pack build "$IMAGE" \
+            --builder paketobuildpacks/builder-jammy-base \
+            --path ${{ env.APP_PATH }} \
+            --publish
+
+      - name: Deploy to Cloud Run
+        # IAP + no-allow-unauthenticated: domain-restricted to aamani.ai
+        # (binding added in the next step). 512Mi/1CPU is plenty for a
+        # static-file Python server.
+        run: |
+          IMAGE="${{ env.AR_HOST }}/${{ env.AR_PROJECT }}/${{ env.AR_REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image "$IMAGE" \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --iap \
+            --no-allow-unauthenticated \
+            --service-account project-service-account@modeling-nonprod-svc-db5x.iam.gserviceaccount.com \
+            --memory 512Mi \
+            --cpu 1
+
+      - name: Grant IAP access to aamani.ai domain
+        run: |
+          gcloud iap web add-iam-policy-binding \
+            --resource-type=cloud-run \
+            --service=${{ env.SERVICE }} \
+            --region=${{ env.REGION }} \
+            --member='domain:aamani.ai' \
+            --role='roles/iap.httpsResourceAccessor' \
+            --condition=None
+
+      - name: Print service URL
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE }} --region=${{ env.REGION }} --format='value(status.url)')
+          echo "=== Cloud Run service URL: $URL ==="

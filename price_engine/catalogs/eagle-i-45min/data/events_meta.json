@@ -1,0 +1,40 @@
+{
+  "knobs": {
+    "GAP_TOLERANCE_minutes": 45.0,
+    "THRESHOLD_customers_out_gt": 0,
+    "MIN_DURATION_minutes": 15.0,
+    "SNAPSHOT_INTERVAL_minutes": 15.0
+  },
+  "timestamp_policy": {
+    "source_timezone_assumption": "UTC",
+    "parquet_time_convention": "timezone-naive UTC",
+    "start_time": "inclusive first observed outage snapshot",
+    "end_time": "exclusive end = last observed outage snapshot + SNAPSHOT_INTERVAL",
+    "year": "UTC calendar year of start_time"
+  },
+  "years_processed": [
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "n_fips_in_events": 3090,
+  "n_events_out": 13190684,
+  "duration_stats_hours": {
+    "min": 0.25,
+    "p50": 1.75,
+    "mean": 4.539143293626354,
+    "p95": 14.0,
+    "p99": 41.5,
+    "max": 9088.0
+  },
+  "wall_time_seconds": 502.6
+}
