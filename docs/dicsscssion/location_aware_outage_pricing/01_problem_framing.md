@@ -182,6 +182,17 @@ Start a separate location-aware design track before changing production pricing.
 The next task is not to rewrite the price engine immediately; it is to define
 the data levels and bridge logic we can defend.
 
+## Related Plan
+
+The first phased build addressing this gap — without committing yet to a
+full location-aware product — is
+[`docs/plan/per_customer_pricing_plan.md`](../../plan/per_customer_pricing_plan.md).
+That plan treats the **customer-experience rate** as the intermediate
+quantity we can build today (Path A in the plan), reserves a slot for the
+location-basis factor described here (Path B), and uses PowerOutage.US
+per-outage data as validation (Path C). It explicitly does not change v0
+pricing.
+
 ## Sources
 
 - Central Hudson Outage Map Guide:

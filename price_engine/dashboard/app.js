@@ -14,12 +14,16 @@ const state = {
   view: 'map',
   countiesGeo: null,
   eventEvidenceCache: new Map(),
+  perCustomer: null,       // {meta: {...}, view: {fips_str: {T_str: {...}}}}
+  matrixView: 'customer', // 'county' | 'customer' | 'multiplier' — Per-customer is the more reliable default
 };
 
 const fmt = {
   money: d3.format('$,.0f'),
   moneyCents: d3.format('$,.2f'),
   pct: d3.format('.2%'),
+  pct3: d3.format('.3%'),
+  pct4: d3.format('.4%'),
   num: d3.format(','),
   num1: d3.format(',.1f'),
   num2: d3.format(',.2f'),
@@ -120,58 +124,58 @@ const evidenceColumns = [
   {
     key: 'start',
     title: 'Start UTC',
-    lead: 'Inclusive event start timestamp from the EAGLE-I event catalog.',
-    bullets: ['Timezone-naive UTC', 'Derived from the first positive outage snapshot', 'Not converted to local county time'],
-    note: 'Use UTC consistently so cross-county and daylight-saving boundaries do not distort duration math.',
+    lead: 'The wall-clock UTC time of the first 15-minute EAGLE-I scrape where this county had any customer without power.',
+    bullets: ['Stored timezone-naive but is UTC by convention — not converted to county-local time', 'Derived from the first positive customers_out snapshot inside the event', 'Use UTC throughout so cross-county and DST boundaries do not distort duration math'],
+    note: 'A snapshot timestamp represents the start of its 15-minute interval (e.g. 14:15 covers [14:15, 14:30)).',
   },
   {
     key: 'duration',
     title: 'Duration',
-    lead: 'Elapsed event length in hours.',
-    bullets: ['Computed as end time minus start time', 'Includes bridged gaps allowed by the selected catalog', 'Used to decide whether the selected T is triggered'],
-    note: 'The 30/45/60 minute catalog choice changes event continuity and can change this value.',
+    lead: 'How long the event lasted in hours, from the first positive scrape to 15 minutes after the last positive scrape inside the event.',
+    bullets: ['Formula: end_time − start_time, in hours', 'Includes bridged-gap intervals where scrapes were missing but within the catalog\'s gap tolerance', 'This is the value compared against the selected T deductible'],
+    note: 'The 30 / 45 / 60-minute catalog choice changes how many gaps get bridged, which can shift this value.',
   },
   {
     key: 'max_out',
     title: 'Max out',
-    lead: 'Highest customers_out value observed during the event.',
-    bullets: ['Comes from raw EAGLE-I snapshots', 'Useful severity context', 'Not directly used in the v0 premium formula'],
+    lead: 'At the event’s worst 15-minute EAGLE-I scrape, this many customers in the county were without power.',
+    bullets: ['A "customer" in EAGLE-I is a metered electric account (roughly one per household or small business) — not a person, not a grid node', 'Computed as the max customers_out across the event’s observed 15-minute snapshots', 'Not directly used in the v0 premium formula'],
     note: 'v0 prices event frequency and duration; outage size is preserved as evidence for review.',
   },
   {
     key: 'mean_out',
     title: 'Mean out',
-    lead: 'Average customers_out value across observed positive snapshots in the event.',
-    bullets: ['Computed over observed outage snapshots', 'Missing bridged intervals are not separately imputed', 'Useful for event shape and severity context'],
+    lead: 'Average count of customers without power across the event’s observed positive 15-minute scrapes.',
+    bullets: ['Same "customer" units as Max out — metered electric accounts', 'Denominator is the count of observed positive snapshots; bridged-gap slots are not averaged in, so mean can be biased upward when scrapes are patchy', 'Not directly used in the v0 premium formula'],
     note: 'A long event with low mean outage can still trigger if its duration exceeds T.',
   },
   {
     key: 'peak_pct_mcc',
     title: 'Peak % MCC',
-    lead: 'Max out divided by Modeled County Customers when MCC is available.',
-    bullets: ['Shows county-scale outage intensity', 'Uses the MCC reference file', 'Displays n/a when MCC is missing'],
-    note: 'This is context only in v0, not a contract trigger threshold.',
+    lead: 'At the event’s worst snapshot, the share of the county’s customer base that was without power.',
+    bullets: ['Numerator and denominator are both EAGLE-I "customers" — metered electric accounts — so the ratio is dimensionally clean', 'MCC = Modeled County Customers, a static per-county estimate from Moehl et al. 2023 (shipped with EAGLE-I as MCC.csv); not population, not refreshed per year', 'Displays n/a when MCC is missing or zero'],
+    note: 'An indirect county-level severity intensity for the worst instant — not a spatial footprint, and not a time-integrated severity.',
   },
   {
     key: 'trigger',
     title: 'Trigger',
-    lead: 'Whether this historical event would satisfy the selected deductible T.',
-    bullets: ['Yes when duration >= selected T', 'No when duration is shorter than T', 'Does not include future trigger-oracle basis risk'],
-    note: 'This is a historical pricing-catalog trigger, not a live payout oracle decision.',
+    lead: 'Yes if this event\'s duration was at least the selected T — meaning the contract would have paid out for it.',
+    bullets: ['Yes when duration ≥ selected T, No otherwise', 'A county-level trigger: fires if ANY positive customers_out snapshot lasted ≥ T, regardless of how many customers were affected', 'Does not include the live-oracle basis risk that a future contract trigger would face'],
+    note: 'This is the historical pricing-catalog trigger. The customer paying the policy may not have been one of the customers actually out — that gap is the basis-risk question, tracked separately in the adjustment framework.',
   },
   {
     key: 'hist_payout',
     title: 'Hist payout',
-    lead: 'Hypothetical payout if the selected contract had existed for this historical event.',
-    bullets: ['Equals selected X when Trigger is yes', 'Equals $0 when Trigger is no', 'Before expense ratio, margin, or uncertainty load'],
-    note: 'This is historical scenario payout, not expected loss for one event.',
+    lead: 'What the contract would have paid out for this single event, if a policy with the selected T and X had been in force.',
+    bullets: ['Equals X when Trigger = yes, else $0', 'Before expense ratio, target margin, and uncertainty load', 'Per-event payout, not an annual figure'],
+    note: 'This is one historical event\'s hypothetical payout, not the policy\'s expected annual loss.',
   },
   {
     key: 'pure_contrib',
     title: 'Pure contrib.',
-    lead: 'This event row contribution to annual pure premium under the selected T and X.',
-    bullets: ['Formula: historical payout / observation years', 'Rows are compact evidence examples', 'Summary cards use the full county event history'],
-    note: 'Visible rows may not sum to the full pure premium because the table only stores top events.',
+    lead: 'This single event\'s slice of the annual pure premium — its historical payout spread evenly across the source observation window.',
+    bullets: ['Formula: historical payout ÷ source observation years (~11.17 yrs for the 2014-2025 release)', 'Compact-evidence rows only — the table holds the longest events, not the full county event log', 'KPI summary cards use the full county history, not just visible rows'],
+    note: 'Sum of visible rows is generally less than the full pure premium — visible rows are evidence examples, not an exhaustive total.',
   },
 ];
 
@@ -257,12 +261,16 @@ function infoButtonMarkup(info, scope) {
 
 function infoPanelMarkup(info, scope) {
   const id = infoId(info, scope);
+  const readMore = info.readMore
+    ? `<button class="info-read-more" type="button" data-library-section="${escapeHtml(info.readMore.section)}">${escapeHtml(info.readMore.label || 'Read more in library →')}</button>`
+    : '';
   return `
     <div class="inline-info-pop" id="${id}" hidden>
       <strong>${info.title}</strong>
       <p>${info.lead}</p>
       <div class="info-rule-list">${info.bullets.map(item => `<span>${item}</span>`).join('')}</div>
       <em>${info.note}</em>
+      ${readMore}
     </div>
   `;
 }
@@ -340,7 +348,13 @@ function closeInlineInfo(root = document) {
   root.querySelectorAll?.('.inline-info-btn[aria-expanded="true"]').forEach(btn => {
     const pop = document.getElementById(btn.getAttribute('aria-controls'));
     btn.setAttribute('aria-expanded', 'false');
-    if (pop) pop.hidden = true;
+    if (pop) {
+      pop.hidden = true;
+      // If the popover was re-parented to <body> for clean positioning,
+      // move it back to its original DOM location so the markup tree stays
+      // tidy and subsequent renders find it where they expect.
+      restoreInlineInfoToOriginalParent(pop);
+    }
   });
 }
 
@@ -372,6 +386,16 @@ function wireInlineInfo() {
 }
 
 function positionInlineInfo(btn, pop) {
+  // Re-parent to <body> so flex / overflow on the popover's original parent
+  // can't constrain its natural width. Remember the original parent so we
+  // can move it back when the popover closes (keeps the DOM tidy and the
+  // delegated event scope intact).
+  if (pop.parentElement !== document.body) {
+    pop._originalParent = pop.parentElement;
+    pop._originalNextSibling = pop.nextSibling;
+    document.body.appendChild(pop);
+  }
+
   pop.style.position = 'fixed';
   pop.style.left = '';
   pop.style.right = '';
@@ -383,18 +407,40 @@ function positionInlineInfo(btn, pop) {
   const popRect = pop.getBoundingClientRect();
   const margin = 12;
 
+  // Prefer right-aligning popover under the button. If that pushes past the
+  // left edge, switch to left-anchored. Same logic for vertical.
   let left = btnRect.right - popRect.width;
+  if (left < margin) left = btnRect.left;
   left = Math.max(margin, Math.min(left, window.innerWidth - popRect.width - margin));
 
   let top = btnRect.bottom + 8;
   if (top + popRect.height > window.innerHeight - margin) {
-    top = Math.max(margin, btnRect.top - popRect.height - 8);
+    const above = btnRect.top - popRect.height - 8;
+    top = above >= margin ? above : margin;
   }
 
   pop.style.left = `${left}px`;
   pop.style.top = `${top}px`;
-  pop.style.maxHeight = `${Math.max(180, window.innerHeight - top - margin)}px`;
+  pop.style.maxHeight = `${Math.max(220, window.innerHeight - top - margin)}px`;
   pop.style.overflowY = 'auto';
+}
+
+function restoreInlineInfoToOriginalParent(pop) {
+  if (!pop || pop.parentElement === pop._originalParent) return;
+  if (!pop._originalParent || !pop._originalParent.isConnected) return;
+  // Reset the inline positioning so it doesn't leak when the element is
+  // reattached and then re-opened from a different anchor.
+  pop.style.position = '';
+  pop.style.left = '';
+  pop.style.right = '';
+  pop.style.top = '';
+  pop.style.maxHeight = '';
+  pop.style.overflowY = '';
+  if (pop._originalNextSibling && pop._originalNextSibling.isConnected) {
+    pop._originalParent.insertBefore(pop, pop._originalNextSibling);
+  } else {
+    pop._originalParent.appendChild(pop);
+  }
 }
 
 // ============ CATALOGS ============
@@ -445,9 +491,11 @@ async function loadCatalog(catalogId) {
   status.textContent = `loading ${catalog.short_label || catalog.label}…`;
   status.style.color = '';
 
-  const [drillResp, tiersResp] = await Promise.all([
+  const perCustomerUrl = perCustomerViewUrl(catalog);
+  const [drillResp, tiersResp, perCustResp] = await Promise.all([
     fetch(catalog.paths.drilldown, { cache: 'no-store' }),
     fetch(catalog.paths.tiers, { cache: 'no-store' }),
+    perCustomerUrl ? fetch(perCustomerUrl, { cache: 'no-store' }) : Promise.resolve(null),
   ]);
   if (!drillResp.ok) throw new Error(`${catalog.label}: county_drilldown.json missing — build catalogs`);
   if (!tiersResp.ok) throw new Error(`${catalog.label}: county_tiers.csv missing — build catalogs`);
@@ -456,6 +504,7 @@ async function loadCatalog(catalogId) {
   state.catalog = catalog;
   state.drilldown = await drillResp.json();
   state.tiers = parseCsv(await tiersResp.text());
+  state.perCustomer = (perCustResp && perCustResp.ok) ? await perCustResp.json() : null;
   state.eventEvidenceCache.clear();
 
   const nCounties = Object.keys(state.drilldown).length;
@@ -1182,6 +1231,7 @@ function wireMatrixControls() {
   const kind = document.getElementById('premKind');
   const erVal = document.getElementById('expenseRatioVal');
   const tmVal = document.getElementById('targetMarginVal');
+  const seg = document.getElementById('matrixViewSeg');
   const evidenceControls = ['evidenceT', 'evidenceX', 'evidenceSort', 'evidenceQualOnly']
     .map(id => document.getElementById(id))
     .filter(Boolean);
@@ -1194,12 +1244,102 @@ function wireMatrixControls() {
   er.addEventListener('input', refresh);
   tm.addEventListener('input', refresh);
   kind.addEventListener('change', refresh);
+  if (seg) {
+    seg.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.seg-item');
+      if (!btn || btn.disabled) return;
+      const mode = btn.dataset.mxview;
+      if (!mode || mode === state.matrixView) return;
+      setMatrixView(mode);
+    });
+  }
   evidenceControls.forEach(control => {
     const eventName = control.type === 'checkbox' ? 'change' : 'change';
     control.addEventListener(eventName, () => {
       if (state.selectedFips) renderEventEvidence(state.selectedFips);
     });
   });
+}
+
+function setMatrixView(mode) {
+  state.matrixView = mode;
+  syncMatrixViewSeg();
+  // Show toggle is moot in Multiplier view — the number is dimensionless.
+  const kind = document.getElementById('premKind');
+  if (kind) kind.disabled = (mode === 'multiplier');
+  if (state.selectedFips) renderMatrix(state.selectedFips);
+}
+
+function syncMatrixViewSeg() {
+  // Defensive: every render of the matrix re-asserts that the toggle's
+  // current button matches state.matrixView. Prevents the toggle from
+  // drifting out of sync if state was changed without going through
+  // setMatrixView (e.g. on initial boot when the JS state default may not
+  // match the HTML default-current class).
+  const seg = document.getElementById('matrixViewSeg');
+  if (!seg) return;
+  seg.querySelectorAll('.seg-item').forEach(b => {
+    b.classList.toggle('current', b.dataset.mxview === state.matrixView);
+  });
+}
+
+const matrixModeNotes = {
+  county: 'v0 baseline. Annual per-policy premium that triggers on any qualifying county-event ≥ T.',
+  customer: 'Shadow estimate of per-customer expected loss. Not currently used in pricing — see Per-Customer Pricing Plan.',
+  multiplier: 'Customer-impact multiplier per cell — `mean(mean_customers / MCC | duration ≥ T)`. Converts county-trigger rate to per-customer.',
+};
+
+const coverageGateInfo = {
+  key: 'coverage-gate',
+  title: 'Coverage gate · what the cell colors mean',
+  lead: 'Each (county, T) cell is classified by how much evidence backs the per-customer estimate. Color tells you whether to lean on the number.',
+  bullets: [
+    'Available · ≥ 100 qualifying events at T AND ≥ 500 total county events. The multiplier is computed on a credible sample.',
+    'Caution · 10–99 qualifying events at T, OR < 500 total events. The value is shown but flagged as thin evidence — read with sensitivity bands in mind.',
+    'Not available · < 10 qualifying events at T, or MCC missing. Cell is blanked because the estimate would be noise.',
+  ],
+  note: 'Thresholds are tunable at the top of compute_per_customer_lambda.py. They exist because the per-event mean_customers / MCC distribution is heavy-tailed — small samples can swing the mean by a lot. Hover any caution / blank cell for the specific reason; click for the drill-down.',
+  readMore: { section: 'per-customer-walkthrough', label: 'Read the full per-customer walkthrough →' },
+};
+
+function gateClassName(status) {
+  if (status === 'available') return 'available';
+  if (status === 'caution') return 'caution';
+  return 'not-available';
+}
+
+function gateReasonText(reason) {
+  switch (reason) {
+    case 'mcc_missing': return 'MCC missing';
+    case 'insufficient_qualifying_events': return 'too few qualifying events';
+    case 'low_qualifying_event_count': return 'low qualifying-event count';
+    case 'low_total_event_count': return 'low total event count';
+    default: return reason || '';
+  }
+}
+
+function renderMatrixLegend() {
+  const el = document.getElementById('matrixLegend');
+  if (!el) return;
+  if (state.matrixView === 'county') {
+    el.innerHTML = `
+      <div><span class="dot green"></span>Green</div>
+      <div><span class="dot amber"></span>Amber</div>
+      <div><span class="dot red"></span>No-quote</div>
+      <div class="legend-hint">Click any cell for the full premium drill-down.</div>
+    `;
+  } else {
+    el.innerHTML = `
+      <div><span class="dot shadow"></span>Available</div>
+      <div class="legend-with-info">
+        <span class="dot caution-stripe"></span>Caution · thin evidence
+        ${infoButtonMarkup(coverageGateInfo, 'matrix-legend')}
+      </div>
+      <div><span class="dot not-available"></span>Not available</div>
+      <div class="legend-hint">Coverage-gate status per (county, T). Hover a cell for the reason; click for the full drill-down.</div>
+      ${infoPanelMarkup(coverageGateInfo, 'matrix-legend')}
+    `;
+  }
 }
 
 function openMatrix(fips, opts = {}) {
@@ -1220,10 +1360,22 @@ function renderMatrix(fips) {
     `${(d.n_per_year || 0).toFixed(1)} events/yr · p50 duration ${d.duration_p50.toFixed(1)}h · p95 ${d.duration_p95.toFixed(1)}h` +
     (d.mcc ? ` · MCC ${fmt.num(d.mcc)}` : '');
 
+  const modeNoteEl = document.getElementById('mxModeNote');
+  if (modeNoteEl) {
+    const mode = state.matrixView;
+    const text = matrixModeNotes[mode] || '';
+    const tag = mode === 'customer' ? '<strong>Per-customer (shadow) · </strong>'
+              : mode === 'multiplier' ? '<strong>Multiplier · </strong>'
+              : '<strong>County trigger · </strong>';
+    modeNoteEl.innerHTML = tag + text;
+    modeNoteEl.hidden = false;
+  }
+
   const er = +document.getElementById('expenseRatio').value;
   const tm = +document.getElementById('targetMargin').value;
   const kind = document.getElementById('premKind').value;
   const denom = Math.max(1e-6, 1 - er - tm);
+  const view = state.matrixView;
 
   // header row
   const head = document.getElementById('mxHead');
@@ -1235,12 +1387,20 @@ function renderMatrix(fips) {
     const tr = document.createElement('tr');
     tr.innerHTML = `<th>${T}h</th>`;
     const cell = d.grid?.[T] ?? null;
+    const pcCell = perCustomerCell(fips, T);
+
     for (const X of X_GRID) {
       const td = document.createElement('td');
+
+      // RED no-quote always wins
       if (!cell || d.tier === 'red') {
         td.className = 'red';
         td.textContent = d.tier === 'red' ? '—' : 'no data';
-      } else {
+        tr.appendChild(td);
+        continue;
+      }
+
+      if (view === 'county') {
         const lam = cell.lambda_T;
         const pure = lam * X;
         const retail = pure / denom;
@@ -1248,11 +1408,46 @@ function renderMatrix(fips) {
         td.className = d.tier;
         td.textContent = fmt.money(val);
         td.addEventListener('click', () => openDrilldown(fips, T, X));
+      } else if (view === 'customer') {
+        const status = pcCell?.coverage_gate_status;
+        if (!pcCell || status === 'not_available') {
+          td.className = 'not-available';
+          td.textContent = '—';
+          td.title = pcCell ? gateReasonText(pcCell.coverage_gate_reason) : 'no per-customer view';
+        } else {
+          const lamCust = pcCell.lambda_customer_mean;
+          const pure = lamCust * X;
+          const retail = pure / denom;
+          const val = kind === 'pure' ? pure : retail;
+          td.className = status === 'caution' ? 'caution' : 'shadow';
+          td.textContent = fmt.moneyCents(val);
+          if (status === 'caution') {
+            td.title = `caution · ${gateReasonText(pcCell.coverage_gate_reason)}`;
+          }
+          td.addEventListener('click', () => openDrilldown(fips, T, X));
+        }
+      } else if (view === 'multiplier') {
+        const status = pcCell?.coverage_gate_status;
+        if (!pcCell || status === 'not_available') {
+          td.className = 'not-available';
+          td.textContent = '—';
+          td.title = pcCell ? gateReasonText(pcCell.coverage_gate_reason) : 'no per-customer view';
+        } else {
+          td.className = status === 'caution' ? 'caution' : 'shadow';
+          td.textContent = fmt.pct4(pcCell.multiplier_mean);
+          if (status === 'caution') {
+            td.title = `caution · ${gateReasonText(pcCell.coverage_gate_reason)}`;
+          }
+          td.addEventListener('click', () => openDrilldown(fips, T, X));
+        }
       }
       tr.appendChild(td);
     }
     body.appendChild(tr);
   }
+
+  renderMatrixLegend();
+  syncMatrixViewSeg();
 
   // defer chart rendering one frame to ensure containers have non-zero width
   requestAnimationFrame(() => {
@@ -1272,6 +1467,26 @@ function eventEvidenceBasePath() {
     return drillPath.replace(/county_drilldown\.json$/, 'event_evidence').replace(/\/$/, '');
   }
   return null;
+}
+
+function perCustomerViewUrl(catalog) {
+  // Derive sibling URL from the catalog's drilldown path. The pipeline mirrors
+  // per_customer_view.json into the catalog pricing folder; we never need to
+  // touch manifest.json for this.
+  const drillPath = catalog?.paths?.drilldown;
+  if (!drillPath) return null;
+  return drillPath.replace(/county_drilldown\.json$/, 'per_customer_view.json');
+}
+
+function perCustomerCell(fips, T) {
+  // Returns {lambda_county, multiplier_mean, multiplier_median, multiplier_max,
+  //          lambda_customer_mean, ..., coverage_gate_status, coverage_gate_reason}
+  // or null if the per-customer view is unavailable or the cell is missing.
+  const view = state.perCustomer?.view;
+  if (!view) return null;
+  const perFips = view[String(fips)];
+  if (!perFips) return null;
+  return perFips[String(T)] || null;
 }
 
 async function loadEventEvidence(fips) {
@@ -1526,10 +1741,20 @@ function openDrilldown(fips, T, X, opts = {}) {
   const pure = lam * X;
   const retail = pure / denom;
 
+  // Per-customer view for this (FIPS, T) cell. Always look up; may be null
+  // if curated view is unavailable for this catalog.
+  const pcCell = perCustomerCell(fips, T);
+  const gateStatus = pcCell?.coverage_gate_status;
+  const gateClass = gateStatus ? gateClassName(gateStatus) : null;
+
   // Panel A
+  const gateChip = gateClass
+    ? `<span class="gateBadge ${gateClass}">${gateStatus.replace('_', ' ')}</span>`
+    : '';
   document.getElementById('panelA').innerHTML = `
     <dt>County</dt><dd>${d.county}, ${d.state} <span class="muted">· FIPS ${fips}</span></dd>
     <dt>Tier</dt><dd><span class="tierBadge ${d.tier}">${d.tier}</span> ${d.quotable ? 'quotable' : 'not quotable'}</dd>
+    <dt>Per-customer gate</dt><dd>${gateChip || '<span class="muted">unavailable for this catalog</span>'}${pcCell?.coverage_gate_reason ? `<span class="muted">${gateReasonText(pcCell.coverage_gate_reason)}</span>` : ''}</dd>
     <dt>Deductible T</dt><dd>${T} hours</dd>
     <dt>Payout X</dt><dd>${fmt.money(X)}</dd>
     <dt>Expense ratio</dt><dd>${(er*100).toFixed(0)}%</dd>
@@ -1538,6 +1763,9 @@ function openDrilldown(fips, T, X, opts = {}) {
 
   // Panel B
   const qual = Math.round(sT * d.n_events_total);
+  const multBlock = (pcCell && gateStatus !== 'not_available')
+    ? `<dt>Cust. impact multiplier · mean</dt><dd>${fmt.pct4(pcCell.multiplier_mean)} <span class="muted">· median ${fmt.pct4(pcCell.multiplier_median)} · max ${fmt.pct4(pcCell.multiplier_max)}</span></dd>`
+    : '';
   document.getElementById('panelB').innerHTML = `
     <dt>Historical events</dt><dd>${fmt.num(d.n_events_total)}</dd>
     <dt>Observation window</dt><dd>${(d.observation_years||0).toFixed(1)} years</dd>
@@ -1547,36 +1775,104 @@ function openDrilldown(fips, T, X, opts = {}) {
     <dt>Qualifying events</dt><dd>${fmt.num(qual)}</dd>
     <dt>Duration p50 / p95</dt><dd>${d.duration_p50.toFixed(1)}h · ${d.duration_p95.toFixed(1)}h</dd>
     <dt>Duration max</dt><dd>${d.duration_max.toFixed(1)}h</dd>
+    ${multBlock}
   `;
 
-  // Panel C — premium chain
-  document.getElementById('panelC').innerHTML = `
+  // Panel C — premium chain. v0 chain on top, per-customer (shadow) below.
+  // Every dollar value carries an explicit "/ yr" unit so the annual nature
+  // of the number is unambiguous at every step (intermediate AND total).
+  const v0Chain = `
     <div class="chain-row">
       <span class="label">λ(T=${T}h) = N/yr × S(T)</span>
       <span class="op">${(d.n_per_year||0).toFixed(2)} × ${fmt.pct(sT)}</span>
-      <span class="val">${lam.toFixed(4)} /yr</span>
+      <span class="val">${lam.toFixed(4)} / yr</span>
     </div>
     <div class="chain-row">
       <span class="label">Pure premium = λ(T) × X</span>
       <span class="op">${lam.toFixed(4)} × ${fmt.money(X)}</span>
-      <span class="val">${fmt.moneyCents(pure)}</span>
+      <span class="val">${fmt.moneyCents(pure)} / yr</span>
     </div>
     <div class="chain-row">
       <span class="label">+ Uncertainty load (v0 stub)</span>
       <span class="op">+</span>
-      <span class="val">${fmt.moneyCents(0)}</span>
+      <span class="val">${fmt.moneyCents(0)} / yr</span>
     </div>
     <div class="chain-row">
       <span class="label">÷ (1 − expense − margin)</span>
       <span class="op">÷ ${denom.toFixed(2)}</span>
-      <span class="val">${fmt.moneyCents(pure / denom)}</span>
+      <span class="val">${fmt.moneyCents(pure / denom)} / yr</span>
     </div>
     <div class="chain-row total">
-      <span class="label">Retail annual premium</span>
+      <span class="label">Retail annual premium · v0 county trigger</span>
       <span class="op"></span>
-      <span class="val">${fmt.money(retail)}</span>
+      <span class="val">${fmt.money(retail)} / yr</span>
     </div>
   `;
+
+  let shadowSection = '';
+  if (!pcCell) {
+    shadowSection = `
+      <div class="chain-section">
+        <div class="chain-section-title"><span>Per-customer view (shadow)</span></div>
+        <div class="chain-empty">Per-customer view not loaded for this catalog. Re-run <code>curated_outage_data/pipelines/per_customer_rate/compute_per_customer_lambda.py</code> to regenerate.</div>
+      </div>
+    `;
+  } else if (gateStatus === 'not_available') {
+    shadowSection = `
+      <div class="chain-section">
+        <div class="chain-section-title">
+          <span>Per-customer view (shadow)</span>
+          <span class="gateBadge not-available">not available</span>
+        </div>
+        <div class="chain-empty">No per-customer estimate for this (county, T). Reason: <strong>${gateReasonText(pcCell.coverage_gate_reason)}</strong>.</div>
+      </div>
+    `;
+  } else {
+    const m = pcCell.multiplier_mean;
+    const lamCust = pcCell.lambda_customer_mean;
+    const pureCust = lamCust * X;
+    const retailCust = pureCust / denom;
+    const lamCustMedian = pcCell.lambda_customer_median;
+    const retailMedian = (lamCustMedian * X) / denom;
+    const lamCustMax = pcCell.lambda_customer_max;
+    const retailMax = (lamCustMax * X) / denom;
+    shadowSection = `
+      <div class="chain-section">
+        <div class="chain-section-title">
+          <span>Per-customer view (shadow)</span>
+          <span class="gateBadge ${gateClass}">${gateStatus.replace('_', ' ')}</span>
+        </div>
+        <div class="chain-section-note">Headline: mean of <code>mean_customers / MCC</code> over qualifying events. Not used in v0 pricing. ${gateStatus === 'caution' ? `<strong>Caution:</strong> ${gateReasonText(pcCell.coverage_gate_reason)}.` : ''}</div>
+        <div class="chain-row shadow">
+          <span class="label">customer-impact multiplier · mean</span>
+          <span class="op">E[mean_cust / MCC | dur ≥ T]</span>
+          <span class="val">${fmt.pct4(m)}</span>
+        </div>
+        <div class="chain-row shadow">
+          <span class="label">λ<sub>customer</sub>(T) = λ<sub>county</sub> × mult</span>
+          <span class="op">${lam.toFixed(4)} × ${fmt.pct4(m)}</span>
+          <span class="val">${lamCust.toFixed(6)} / yr</span>
+        </div>
+        <div class="chain-row shadow">
+          <span class="label">Pure (per-customer)</span>
+          <span class="op">${lamCust.toFixed(6)} × ${fmt.money(X)}</span>
+          <span class="val">${fmt.moneyCents(pureCust)} / yr</span>
+        </div>
+        <div class="chain-row shadow">
+          <span class="label">÷ (1 − expense − margin)</span>
+          <span class="op">÷ ${denom.toFixed(2)}</span>
+          <span class="val">${fmt.moneyCents(retailCust)} / yr</span>
+        </div>
+        <div class="chain-row total shadow">
+          <span class="label">Retail · per-customer (shadow)</span>
+          <span class="op"></span>
+          <span class="val">${fmt.moneyCents(retailCust)} / yr</span>
+        </div>
+        <div class="chain-section-note">Sensitivity at this X: median estimator → ${fmt.moneyCents(retailMedian)} / yr · max estimator → ${fmt.moneyCents(retailMax)} / yr.</div>
+      </div>
+    `;
+  }
+  document.getElementById('panelC').innerHTML = v0Chain + shadowSection;
 
   // Panel D
   const tierRow = state.tiers.get(fips);
@@ -1641,6 +1937,324 @@ function wireOnboarding() {
   });
 }
 
+// ============ METHODOLOGY LIBRARY ============
+// Live reader of docs/methodology/ files inside the dashboard. The folder
+// is the source of truth; the library is just a presentation layer over
+// it. Vendored marked.min.js (no CDN) renders the markdown.
+
+const LIBRARY_SECTIONS = {
+  'overview': {
+    title: 'What\'s in this library',
+    path: null,           // hand-rendered welcome page
+  },
+  'roadmap': {
+    title: 'Forward-looking roadmap',
+    path: './methodology/roadmap.md',
+  },
+  'per-customer-walkthrough': {
+    title: 'Per-customer view — end-to-end',
+    path: './methodology/per_customer_view_walkthrough.md',
+  },
+  'data-ingestion': {
+    title: 'Data ingestion',
+    path: './methodology/data_ingestion_methodology.md',
+  },
+  'event-catalog': {
+    title: 'Event catalog creation',
+    path: './methodology/event_catalog_creation_methodology.md',
+  },
+  'aggregation': {
+    title: 'Aggregation & annualization',
+    path: './methodology/aggregation_and_annualization_methodology.md',
+  },
+  'filtration': {
+    title: 'Filtration',
+    path: './methodology/filtration_methodology.md',
+  },
+  'pricing': {
+    title: 'Pricing',
+    path: './methodology/pricing_methodology.md',
+  },
+  'assumptions': {
+    title: 'Assumptions registry',
+    path: './methodology/assumptions.md',
+  },
+};
+
+const libraryState = {
+  current: 'overview',
+  cache: new Map(),    // section_key -> rendered HTML
+  open: false,
+};
+
+function openLibrary() {
+  const drawer = document.getElementById('libraryDrawer');
+  const backdrop = document.getElementById('libraryBackdrop');
+  if (!drawer || !backdrop) return;
+  backdrop.hidden = false;
+  // next frame so the hidden->visible transition can run
+  requestAnimationFrame(() => {
+    backdrop.classList.add('open');
+    drawer.classList.add('open');
+    drawer.setAttribute('aria-hidden', 'false');
+    libraryState.open = true;
+    if (!libraryState.cache.has(libraryState.current)) {
+      navigateLibrary(libraryState.current);
+    }
+  });
+}
+
+function closeLibrary() {
+  const drawer = document.getElementById('libraryDrawer');
+  const backdrop = document.getElementById('libraryBackdrop');
+  if (!drawer || !backdrop) return;
+  backdrop.classList.remove('open');
+  drawer.classList.remove('open');
+  drawer.setAttribute('aria-hidden', 'true');
+  libraryState.open = false;
+  setTimeout(() => { backdrop.hidden = true; }, 220);
+}
+
+function toggleLibraryExpand() {
+  const drawer = document.getElementById('libraryDrawer');
+  if (!drawer) return;
+  drawer.classList.toggle('expanded');
+}
+
+function setLibraryTitle(text) {
+  const t = document.getElementById('libraryTitle');
+  if (t) t.textContent = text;
+}
+
+function renderLibraryOverview() {
+  const sections = [
+    { key: 'roadmap', meta: 'What\'s next', desc: 'Forward-looking tracks organized by bias-correction vs forward-regime. Status, why it matters, what unlocks each one.' },
+    { key: 'per-customer-walkthrough', meta: 'Walkthrough', desc: 'End-to-end nuance-by-nuance walk through the per-customer shadow rate, with a worked Boone, MO example.' },
+    { key: 'pricing', meta: 'Pipeline · pricing', desc: 'The v0 pricing math (λ(T) → Pure → Retail) plus the per-customer view evidence.' },
+    { key: 'event-catalog', meta: 'Pipeline · events', desc: 'The event-construction algorithm (three knobs: threshold / gap tolerance / minimum duration).' },
+    { key: 'aggregation', meta: 'Pipeline · rate', desc: 'How per-event records roll up to per-county summaries and how the annualization denominator is defined.' },
+    { key: 'filtration', meta: 'Pipeline · tiers', desc: 'The five-gate Green / Amber / Red modelability classification (D1 through D5).' },
+    { key: 'data-ingestion', meta: 'Pipeline · sources', desc: 'How raw EAGLE-I data is acquired, and what sources we deliberately do not use as the base layer.' },
+    { key: 'assumptions', meta: 'Cross-cutting', desc: 'Stable-ID registry of every explicit assumption (A001–A010). Cite by ID; never restate.' },
+  ];
+  const cardsHtml = sections.map(s => `
+    <button type="button" class="welcome-card" data-section="${s.key}">
+      <div class="welcome-card-meta">${escapeHtml(s.meta)}</div>
+      <div class="welcome-card-title">${escapeHtml(LIBRARY_SECTIONS[s.key]?.title || s.key)}</div>
+      <div class="welcome-card-desc">${escapeHtml(s.desc)}</div>
+    </button>
+  `).join('');
+  return `
+    <div class="library-welcome">
+      <h1>Methodology library</h1>
+      <p>
+        A reading surface over the project's <code>docs/methodology/</code> folder.
+        Use the left nav to jump between pipeline-step methodology files,
+        walkthroughs, and the assumptions registry.
+      </p>
+      <p>
+        The folder is the source of truth — this library renders it live.
+        Any edit to a methodology file on disk shows up here on the next
+        section load.
+      </p>
+      <div class="welcome-grid">${cardsHtml}</div>
+    </div>
+  `;
+}
+
+function rewriteLibraryMarkdownLinks(html) {
+  // Methodology markdown uses relative paths like
+  //   [A001](assumptions.md#a001--...)
+  //   [walkthrough](per_customer_view_walkthrough.md)
+  //   [plan](../plan/per_customer_pricing_plan.md)
+  // For in-library links to other methodology files we want to navigate
+  // inside the library; everything else opens in a new tab.
+  const filenameToSection = {
+    'assumptions.md': 'assumptions',
+    'pricing_methodology.md': 'pricing',
+    'event_catalog_creation_methodology.md': 'event-catalog',
+    'aggregation_and_annualization_methodology.md': 'aggregation',
+    'filtration_methodology.md': 'filtration',
+    'data_ingestion_methodology.md': 'data-ingestion',
+    'per_customer_view_walkthrough.md': 'per-customer-walkthrough',
+    'roadmap.md': 'roadmap',
+  };
+  return html.replace(/<a\s+href="([^"]+)"([^>]*)>/g, (match, href, attrs) => {
+    if (/^https?:/i.test(href)) {
+      return `<a href="${href}"${attrs} target="_blank" rel="noopener">`;
+    }
+    // Strip optional ./ and any leading ../methodology/ prefix
+    const fileMatch = href.match(/([a-z_]+\.md)(#.*)?$/i);
+    if (fileMatch && filenameToSection[fileMatch[1]]) {
+      const section = filenameToSection[fileMatch[1]];
+      const hash = fileMatch[2] || '';
+      return `<a href="#" data-library-section="${section}" data-library-hash="${hash}"${attrs}>`;
+    }
+    // Plan files etc. — link out (won't resolve inside library)
+    return `<a href="${href}"${attrs} target="_blank" rel="noopener">`;
+  });
+}
+
+async function navigateLibrary(sectionKey) {
+  const config = LIBRARY_SECTIONS[sectionKey];
+  if (!config) return;
+  libraryState.current = sectionKey;
+
+  // Highlight the nav item
+  document.querySelectorAll('.library-nav-item').forEach(b => {
+    b.classList.toggle('current', b.dataset.section === sectionKey);
+  });
+  setLibraryTitle(config.title);
+
+  const content = document.getElementById('libraryContent');
+  if (!content) return;
+
+  // Overview is hand-rendered
+  if (sectionKey === 'overview' || !config.path) {
+    content.innerHTML = renderLibraryOverview();
+    content.scrollTop = 0;
+    return;
+  }
+
+  // Cache hit
+  if (libraryState.cache.has(sectionKey)) {
+    content.innerHTML = libraryState.cache.get(sectionKey);
+    content.scrollTop = 0;
+    return;
+  }
+
+  content.innerHTML = '<div class="library-loading">Loading…</div>';
+  try {
+    const resp = await fetch(config.path, { cache: 'no-store' });
+    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+    const md = await resp.text();
+    if (typeof marked === 'undefined') {
+      throw new Error('Markdown renderer (marked.min.js) failed to load.');
+    }
+    let html = marked.parse(md, { gfm: true, breaks: false });
+    html = rewriteLibraryMarkdownLinks(html);
+    libraryState.cache.set(sectionKey, html);
+    content.innerHTML = html;
+    content.scrollTop = 0;
+  } catch (err) {
+    console.error('library load failed:', err);
+    content.innerHTML = `<div class="library-error">Could not load this section: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ============ SIDEBAR · WHAT'S NEXT WIDGET ============
+// Compact roadmap surface in the sidebar. Mirrors docs/methodology/roadmap.md
+// at-a-glance. Click any item to open the library at the full roadmap.
+//
+// Statuses shown here MUST stay in sync with the roadmap.md doc — if a track
+// status changes there, change it here too. The library section is the long
+// form; this is the glanceable summary.
+
+const ROADMAP_ITEMS = [
+  {
+    name: 'Per-customer rate',
+    status: 'shadow',
+    desc: 'Bias-correction · live in dashboard',
+  },
+  {
+    name: 'Customer-impact graduation',
+    status: 'next',
+    desc: 'Bias-correction · post-deploy review + Phase 4 validation',
+  },
+  {
+    name: 'Trigger source alignment',
+    status: 'blocked',
+    desc: 'Bias-correction · blocked on vendor data',
+  },
+  {
+    name: 'Location basis',
+    status: 'research',
+    desc: 'Bias-correction · per-premise vs county',
+  },
+  {
+    name: 'Grid condition',
+    status: 'planned',
+    desc: 'Forward-regime · utility reliability + capex',
+  },
+  {
+    name: 'Hazard & weather',
+    status: 'planned',
+    desc: 'Forward-regime · storm regime + climate',
+  },
+];
+
+function renderRoadmapList() {
+  const list = document.getElementById('roadmapList');
+  if (!list) return;
+  list.innerHTML = ROADMAP_ITEMS.map(item => `
+    <button type="button" class="roadmap-item" data-library-section="roadmap" title="Open in library">
+      <span class="roadmap-status ${item.status}">${escapeHtml(item.status)}</span>
+      <div class="roadmap-item-body">
+        <div class="roadmap-name">${escapeHtml(item.name)}</div>
+        <div class="roadmap-desc">${escapeHtml(item.desc)}</div>
+      </div>
+    </button>
+  `).join('');
+}
+
+function wireLibrary() {
+  const trigger = document.getElementById('libraryBtn');
+  if (trigger) trigger.addEventListener('click', openLibrary);
+
+  const closeBtn = document.getElementById('libraryCloseBtn');
+  if (closeBtn) closeBtn.addEventListener('click', closeLibrary);
+
+  const expandBtn = document.getElementById('libraryExpandBtn');
+  if (expandBtn) expandBtn.addEventListener('click', toggleLibraryExpand);
+
+  const backdrop = document.getElementById('libraryBackdrop');
+  if (backdrop) backdrop.addEventListener('click', closeLibrary);
+
+  // Section nav (delegated so clicks on the welcome-card buttons, sidebar
+  // roadmap items, and inline library-deep-link buttons all work).
+  document.addEventListener('click', (e) => {
+    // 1. In-library nav items and welcome cards
+    const navBtn = e.target.closest('.library-nav-item, .welcome-card');
+    if (navBtn && navBtn.dataset.section) {
+      e.preventDefault();
+      navigateLibrary(navBtn.dataset.section);
+      return;
+    }
+    // 2. Buttons / links anywhere in the dashboard that point at a library
+    //    section via data-library-section (sidebar widget, eye-button "Read
+    //    more" links, "view all" buttons, etc.).
+    const deepLink = e.target.closest('[data-library-section]');
+    if (deepLink) {
+      e.preventDefault();
+      e.stopPropagation();
+      const section = deepLink.dataset.librarySection;
+      if (!libraryState.open) openLibrary();
+      navigateLibrary(section);
+      return;
+    }
+    // 3. Rewritten <a data-library-section> inside rendered markdown
+    const linkBtn = e.target.closest('a[data-library-section]');
+    if (linkBtn) {
+      e.preventDefault();
+      navigateLibrary(linkBtn.dataset.librarySection);
+      const hash = linkBtn.dataset.libraryHash;
+      if (hash) {
+        requestAnimationFrame(() => {
+          const target = document.querySelector(`#libraryContent ${hash.replace('#', '#')}`);
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
+    }
+  });
+
+  // ESC closes
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && libraryState.open) closeLibrary();
+  });
+}
+
 // ============ GO ============
 boot();
 wireOnboarding();
+wireLibrary();
+renderRoadmapList();

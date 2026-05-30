@@ -98,11 +98,21 @@ total_adjustment
 |---|---|---|---|
 | `credibility` | bias-correction | More years of data, hierarchical pooling | Folded into hierarchical baseline rate |
 | `regime` | bias-correction | Longer history with proper regime weighting | Baked into baseline as regime-weighted rate |
-| `customer_impact` | bias-correction | Event construction uses customer / `% MCC` threshold | Folded into `02_construct_events.py` |
+| `customer_impact` | bias-correction | Event construction uses customer / `% MCC` threshold | Folded into `02_construct_events.py`. **Status as of 2026-05-30: `shadow`** — per-customer shadow rate emitted by `curated_outage_data/pipelines/per_customer_rate/` per [Phase 2 of the per-customer pricing plan](per_customer_pricing_plan.md#phase-2-closure-2026-05-30). Not yet a numeric multiplier in pricing. |
 | `location_basis` | bias-correction | Feeder, circuit, or premise-level data | Baseline becomes premise-level, not county |
 | `trigger_alignment` | bias-correction | Overlap data with payout oracle | Baseline rebuilt directly on oracle events |
 | `grid_condition` | forward-regime | (does not shrink with data quality) | Stays as overlay; calibration improves only |
 | `hazard_weather` | forward-regime | (does not shrink with data quality) | Stays as overlay; resolution improves only |
+
+> **First candidate dataset for shrinkage:** the
+> [PowerOutage.US API analysis](../extra/poweroutage_us/) is the first concrete
+> external source being evaluated against these shrinkage criteria. Its
+> [modifier mapping](../extra/poweroutage_us/docs/04_modifier_mapping.md) ties
+> each API signal to a specific bias-correction modifier, and its
+> [first-look findings](../extra/poweroutage_us/docs/06_findings.md) already show
+> strong support for the `customer_impact` modifier (≈64% of live outages affect
+> ≤1 customer) and the data primitives for `location_basis` and
+> `trigger_alignment`.
 
 ### Shrinkage trajectory (conceptual)
 
@@ -210,6 +220,13 @@ Granularity issues to document before changing prices:
 
 ## Customer Impact Modifier
 
+> **Detailed plan:** the execution of this modifier — math validation,
+> shadow-rate pipeline, dashboard surface, external validation, and
+> graduation gate — is tracked in
+> [`per_customer_pricing_plan.md`](per_customer_pricing_plan.md). This
+> section keeps the modifier definition and lifecycle classification; the
+> phased build sits in the plan file.
+
 This is a new candidate modifier added because v0 event construction treats every
 positive-customer outage as one event, regardless of how many customers were
 affected. That makes `n_per_year` and `S(T)` denominator-sensitive to very small
@@ -269,14 +286,20 @@ retirement_path     = folded into price_engine/data/02_construct_events.py
 See [Modifier Lifecycle](#modifier-lifecycle) for how this fits into the broader
 retirement principle.
 
-### Initial status
+### Initial status — superseded by Phase 2 (2026-05-30)
 
 ```text
-customer_impact_modifier = 1.0          # validated neutral
-status                   = gate_only    # eligibility flag first, not a multiplier
+customer_impact_modifier = mean(mean_customers / MCC | duration >= T)   # per (FIPS, T, catalog)
+status                   = shadow                                         # emitted but not in pricing
 ```
 
-The first use is a non-quote gate, not a numeric premium uplift or discount.
+Pre-2026-05-30 baseline (kept for history): `1.0` / `gate_only`. Phase 2
+([per-customer pricing plan](per_customer_pricing_plan.md#phase-2-closure-2026-05-30))
+graduated this to a per-(FIPS, T) numeric value emitted alongside `lambda_county`,
+with a three-status coverage gate (`available` / `caution` / `not_available`)
+and an explicit `coverage_gate_reason` for non-available cells. The value is
+**not yet** used in v0 pricing math; that change requires Phase 5 governance
+approval.
 
 ### Activation rules (do not skip)
 

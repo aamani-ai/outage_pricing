@@ -34,3 +34,14 @@ curated_outage_data/data/processed/**
 curated_outage_data/outputs/**
 !curated_outage_data/data/README.md
 !curated_outage_data/outputs/README.md
+
+# NDA-scoped vendor evaluation materials — local-only, never push to a public
+# (or any non-NDA-protected) remote. Includes the PowerOutage.US trial folder
+# (vendor PDFs, raw API responses, derived analysis), the zipped archive, and
+# the outage_data exports folder that holds vendor-exported spreadsheets.
+docs/extra/poweroutage_us/
+docs/extra/poweroutage_us.zip
+docs/extra/outage_data/
+
+# Claude Code session state (local working memory; not part of project source).
+.claude/

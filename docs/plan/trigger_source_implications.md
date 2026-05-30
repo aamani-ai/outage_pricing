@@ -119,6 +119,13 @@ The key missing quantity is an alignment factor:
 lambda_trigger(fips, T) = lambda_eaglei(fips, T) * alignment_factor(fips, T)
 ```
 
+> **Sequencing note:** before the trigger-bridge factor can be calibrated,
+> the county→customer disconnect needs to be addressed so the baseline being
+> bridged is itself coherent. That work is sequenced in
+> [`per_customer_pricing_plan.md`](per_customer_pricing_plan.md). The
+> alignment factor described here applies to whichever lambda is published
+> as the baseline at the time of calibration.
+
 The alignment factor should be estimated from overlapping data, not guessed.
 Possible dimensions:
 

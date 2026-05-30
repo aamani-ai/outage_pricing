@@ -1,0 +1,4 @@
+# No external Python dependencies required.
+# The dashboard server (server.py) uses only the Python standard library.
+# This file exists so the Paketo Python buildpack detects this as a Python
+# project and installs a Python runtime for the container.

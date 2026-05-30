@@ -110,6 +110,13 @@ unavailable for trigger-adjusted pricing.
 
 ### Customer impact modifier (optional challenger)
 
+> **Phased plan:** execution lives in
+> [`per_customer_pricing_plan.md`](per_customer_pricing_plan.md). That plan
+> sequences the customer-impact track **before** any of the forward-looking
+> modifiers below, on the principle that you cannot honestly calibrate a
+> ±20% climate/grid/hazard modifier on top of a baseline that is 30-100× off
+> when read as per-customer.
+
 Source: county aggregates of event-level customer-impact signals
 (`max_customers`, `mean_customers`, `peak_out_pct_mcc`, planned
 `customer_minutes_out`).
