@@ -1868,8 +1868,7 @@ function openDrilldown(fips, T, X, opts = {}) {
           <span class="op"></span>
           <span class="val">${fmt.moneyCents(retailCust)} / yr</span>
         </div>
-        <div class="chain-section-note">Sensitivity at this X: median estimator → ${fmt.moneyCents(retailMedian)} / yr · max estimator → ${fmt.moneyCents(retailMax)} / yr.</div>
-        <button class="chain-cta" type="button" data-library-section="per-customer-walkthrough">Read the per-customer walkthrough →</button>
+        <div class="chain-section-note">Sensitivity at this X: median estimator → ${fmt.moneyCents(retailMedian)} / yr · max estimator → ${fmt.moneyCents(retailMax)} / yr. <button class="mode-note-link" type="button" data-library-section="per-customer-walkthrough">Read the walkthrough →</button></div>
       </div>
     `;
   }
