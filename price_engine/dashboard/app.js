@@ -1284,9 +1284,9 @@ function syncMatrixViewSeg() {
 }
 
 const matrixModeNotes = {
-  county: 'v0 baseline. Annual per-policy premium that triggers on any qualifying county-event ≥ T.',
-  customer: 'Shadow estimate of per-customer expected loss. Not currently used in pricing — see Per-Customer Pricing Plan.',
-  multiplier: 'Customer-impact multiplier per cell — `mean(mean_customers / MCC | duration ≥ T)`. Converts county-trigger rate to per-customer.',
+  county: 'v0 baseline. Annual per-policy premium that triggers on any qualifying county-event ≥ T. <button class="mode-note-link" type="button" data-library-section="pricing">Read the pricing methodology →</button>',
+  customer: 'Shadow estimate of per-customer expected loss. Not currently used in pricing. <button class="mode-note-link" type="button" data-library-section="per-customer-walkthrough">Read the per-customer walkthrough →</button>',
+  multiplier: 'Customer-impact multiplier per cell — <code>mean(mean_customers / MCC | duration ≥ T)</code>. Converts county-trigger rate to per-customer. <button class="mode-note-link" type="button" data-library-section="per-customer-walkthrough">Read the walkthrough →</button>',
 };
 
 const coverageGateInfo = {
@@ -1869,6 +1869,7 @@ function openDrilldown(fips, T, X, opts = {}) {
           <span class="val">${fmt.moneyCents(retailCust)} / yr</span>
         </div>
         <div class="chain-section-note">Sensitivity at this X: median estimator → ${fmt.moneyCents(retailMedian)} / yr · max estimator → ${fmt.moneyCents(retailMax)} / yr.</div>
+        <button class="chain-cta" type="button" data-library-section="per-customer-walkthrough">Read the per-customer walkthrough →</button>
       </div>
     `;
   }
