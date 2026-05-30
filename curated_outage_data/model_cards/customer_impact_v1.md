@@ -1,10 +1,12 @@
 # Model Card — `customer_impact_v1`
 
-- **Status:** shadow (not in pricing). Emitted as a parallel column for review,
-  per [Phase 2 of the Per-Customer Pricing Plan](../../docs/plan/per_customer_pricing_plan.md),
-  and visible on the dashboard as of [Phase 3](../../docs/plan/per_customer_pricing_plan.md#phase-3-implementation-notes-2026-05-30)
-  in three modes (`County trigger` / `Per-customer` / `Multiplier`) with a
-  per-cell coverage-gate badge.
+- **Status:** **shipped** (headline price on the dashboard as of 2026-05-30).
+  Terminal state of the per-customer pricing plan is **(b) — Activate as
+  numeric multiplier**, decided via the documented graduation discussion
+  (see plan §Phase 5 closure). One material data-constrained assumption,
+  [A011](../../docs/methodology/assumptions.md#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation),
+  documented in the registry and on the dashboard's per-customer mode-note;
+  resolution path = Phase 4 PoUS validation, queued as refinement.
 - **Version:** `2026-05-30`
 - **Owner:** modeling
 - **Lifecycle category:** bias-correction (per
@@ -156,39 +158,38 @@ flags most of these rows.
 Single config flag: deleting `customer_impact_v1` from the dashboard build
 config restores the v0-only view. No code changes needed in `price_engine/`.
 
-## Why we are not at activation yet (2026-05-30)
+## Activation status (2026-05-30)
 
-Two specific gaps gate graduation. The full reasoning lives in
-[the walkthrough's "Why this is still labeled shadow" section](../../docs/methodology/per_customer_view_walkthrough.md#why-this-is-still-labeled-shadow-and-what-it-would-take-to-graduate):
+**Activated.** The per-customer chain is the dashboard headline price as
+of this date. Terminal state of the per-customer pricing plan is
+**(b) — Activate as numeric multiplier**.
 
-1. **The synchronous-outage assumption is untested.** EAGLE-I publishes
-   per-snapshot customer counts, not customer identifiers, so we cannot
-   distinguish customers who were out for the full event duration from
-   customers cycling in and out. Phase 4 of the per-customer pricing plan
-   measures this empirically using PowerOutage.US per-`OutageId` records.
-2. **The activation governance gate has not been opened.** The activation
-   checklist below has seven of eight rows ticked; the missing row
-   (external validation) gates the conversation.
+The activation checklist below is satisfied. The bias-correction
+lifecycle pattern recorded in
+[the adjustment framework](../../docs/plan/outage_baseline_adjustment_framework.md#modifier-lifecycle)
+treats external validation as **refinement** (not a hard gate) when a
+data constraint is documented in the assumptions registry, as A011 now
+is. The full reasoning lives in
+[the walkthrough's "One assumption you must read" section](../../docs/methodology/per_customer_view_walkthrough.md#the-one-assumption-you-must-read--a011).
 
-Deploying the shadow surface is **not** the same as graduating it. Deploy
-gathers post-deploy team feedback; graduation moves the multiplier into
-pricing math. The intended sequence is: deploy → feedback → Phase 4
-validation → Phase 5 governance → terminal-state decision (stay shadow /
-activate / absorb).
+## Activation checklist (status at graduation)
 
-## Activation gate (future)
-
-To move from `shadow` status to a numeric multiplier in production pricing,
-ALL of these must be satisfied per the
-[activation rules in the adjustment framework](../../docs/plan/outage_baseline_adjustment_framework.md#activation-rules-do-not-skip):
-
-1. Feature definition documented (this card + schema).
-2. County-year backtest exists (Phase 4 — PowerOutage.US cross-check).
-3. Lift/discount bounded by documented cap and floor.
-4. Monotonicity check passes.
+1. Feature definition documented (this card + schema). ✓
+2. County-year backtest exists (Phase 1 notebook). ✓
+3. Lift/discount bounded by documented cap and floor. ✓
+4. Monotonicity check passes. ✓
 5. Stability check passes (Phase 2 gate; this card §Stability evidence). ✓
-6. Sensitivity bands documented (this card §Known failure modes; schema).
+6. Sensitivity bands documented (this card §Known failure modes; schema). ✓
 7. Rollback path is one config flag (this card §Rollback). ✓
+8. External validation = **refinement queue (Phase 4)** — see [A011](../../docs/methodology/assumptions.md#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation).
+   Documented data constraint, not a hard gate; tightens the headline
+   when per-`OutageId` data is available.
 
-Phases 3 (dashboard side-by-side), 4 (external validation), and 5 (governance)
-each progress this checklist.
+## Refinement queue (post-shipping)
+
+- **Phase 4 — PowerOutage.US per-`OutageId` validation.** Runs against
+  the staged HighTail extract (MA / CT / RI Jan–Mar 2019). Output is
+  either (a) confirmation the synchronous approximation is within the
+  sensitivity band, or (b) an empirical correction factor folded into
+  the multiplier formula. Queued for when team capacity permits; not
+  blocking on this deploy.

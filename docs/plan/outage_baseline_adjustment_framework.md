@@ -92,13 +92,32 @@ total_adjustment
   past. Even perfect history does not eliminate them; better data only
   calibrates them more tightly.
 
+### Activation pattern by category (refined 2026-05-30)
+
+The original modifier-lifecycle wrote a single uniform activation rule
+(graduate only after external validation). Shipping the per-customer
+bias-correction surfaced a useful distinction that is now part of the
+framework:
+
+| Category | Activation requirement | Why |
+|---|---|---|
+| **Bias-correction** | The underlying assumption is documented in the [assumptions registry](../methodology/assumptions.md) with a stated **resolution path**. External validation is **refinement** that tightens the assumption, not a hard gate. | Bias-correction reduces a known systematic error in v0. The corrected baseline is, by construction, more accurate than v0 in expectation. Gating it on external validation would keep the larger error in production while waiting on data that may take quarters to arrive. |
+| **Forward-regime** | External validation is required **before** the modifier enters pricing math. | Forward-regime modifiers project future conditions (climate, grid health, hazard) that the historical data does not directly evidence. Without external validation, the projection is unbounded — no amount of assumption documentation substitutes for empirical accuracy on the projection itself. |
+
+Concrete example of how this applies: the `customer_impact` modifier
+shipped on 2026-05-30 under the bias-correction rule once
+[A011](../methodology/assumptions.md#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation)
+was written into the registry. The future `grid_condition` and
+`hazard_weather` modifiers will still require external validation
+because they are forward-regime.
+
 ### Classification of current modifiers
 
 | Modifier | Category | Shrinks when | Retirement / absorption path |
 |---|---|---|---|
 | `credibility` | bias-correction | More years of data, hierarchical pooling | Folded into hierarchical baseline rate |
 | `regime` | bias-correction | Longer history with proper regime weighting | Baked into baseline as regime-weighted rate |
-| `customer_impact` | bias-correction | Event construction uses customer / `% MCC` threshold | Folded into `02_construct_events.py`. **Status as of 2026-05-30: `shadow`** — per-customer shadow rate emitted by `curated_outage_data/pipelines/per_customer_rate/` per [Phase 2 of the per-customer pricing plan](per_customer_pricing_plan.md#phase-2-closure-2026-05-30). Not yet a numeric multiplier in pricing. |
+| `customer_impact` | bias-correction | Event construction uses customer / `% MCC` threshold | **Status as of 2026-05-30: `shipped`** — per-customer chain is the dashboard headline price. Graduation terminal state **(b) Activate as numeric multiplier** chosen via documented discussion. Underlying data constraint captured in [A011](../methodology/assumptions.md#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation). Phase 4 (PoUS per-`OutageId` validation) queued as refinement. |
 | `location_basis` | bias-correction | Feeder, circuit, or premise-level data | Baseline becomes premise-level, not county |
 | `trigger_alignment` | bias-correction | Overlap data with payout oracle | Baseline rebuilt directly on oracle events |
 | `grid_condition` | forward-regime | (does not shrink with data quality) | Stays as overlay; calibration improves only |
@@ -286,20 +305,25 @@ retirement_path     = folded into price_engine/data/02_construct_events.py
 See [Modifier Lifecycle](#modifier-lifecycle) for how this fits into the broader
 retirement principle.
 
-### Initial status — superseded by Phase 2 (2026-05-30)
+### Status — graduated to numeric multiplier (2026-05-30)
 
 ```text
 customer_impact_modifier = mean(mean_customers / MCC | duration >= T)   # per (FIPS, T, catalog)
-status                   = shadow                                         # emitted but not in pricing
+status                   = shipped — headline price                       # bias-correction rule, A011 documents the data constraint
 ```
 
-Pre-2026-05-30 baseline (kept for history): `1.0` / `gate_only`. Phase 2
-([per-customer pricing plan](per_customer_pricing_plan.md#phase-2-closure-2026-05-30))
-graduated this to a per-(FIPS, T) numeric value emitted alongside `lambda_county`,
-with a three-status coverage gate (`available` / `caution` / `not_available`)
-and an explicit `coverage_gate_reason` for non-available cells. The value is
-**not yet** used in v0 pricing math; that change requires Phase 5 governance
-approval.
+History:
+
+1. Pre-2026-05-30 placeholder: `1.0` / `gate_only` — design.
+2. Phase 2 (per-customer pricing plan, 2026-05-30): graduated to a
+   per-(FIPS, T) numeric value emitted alongside `λ_county`, with the
+   three-status coverage gate (`available` / `caution` / `not_available`).
+3. Phase 5 (governance, same day): terminal state **(b) Activate as
+   numeric multiplier** chosen. Per-customer chain becomes the
+   dashboard headline price. The underlying data constraint is
+   documented in [A011](../methodology/assumptions.md#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation);
+   Phase 4 (PoUS per-`OutageId` validation) is queued as refinement
+   that tightens A011 when capacity permits.
 
 ### Activation rules (do not skip)
 

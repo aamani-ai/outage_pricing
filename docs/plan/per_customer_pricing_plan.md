@@ -4,11 +4,15 @@ Date: 2026-05-30
 
 ## Status
 
-Planning. **Does not change `price_engine/` v0 pricing math.** All work
-described here happens in `curated_outage_data/` as a documented challenger
-with explicit phase gates. v0 retail premiums on the dashboard remain
-unchanged until a governance decision lifts a numeric multiplier through the
-[modifier lifecycle](outage_baseline_adjustment_framework.md#modifier-lifecycle).
+**SHIPPED 2026-05-30.** Phases 1, 2, 3, and 5 closed. Phase 4 reframed
+as refinement (not a gate). Per-customer chain is the dashboard
+headline annual premium. v0 county-trigger remains accessible as a
+reference view. The full closure detail is in
+[Phase 5 — Graduation decision](#phase-5--graduation-decision-governance--closed-2026-05-30).
+
+(Original plan text below — kept verbatim for the audit trail. The
+phases were closed in sequence; Phase 5's decision retroactively
+reframes Phase 4.)
 
 ## Goal
 
@@ -445,46 +449,82 @@ Documentation update on phase exit:
   the mode-note; a popover variant could be added if the inline text is
   insufficient.
 
-### Phase 4 — External validation against PowerOutage.US per-outage data
+### Phase 4 — External validation against PowerOutage.US per-outage data  (refinement queue)
 
-Entry: Phase 3 gate passed. The HighTail historical extract is loaded under
-`docs/extra/poweroutage_us/data/historical_trial/` and PoUS notebook 03 has
-landed.
+**Reframed 2026-05-30:** Phase 4 is no longer a graduation gate. The
+Phase 5 governance decision shipped the per-customer chain under the
+bias-correction activation rule (registry-with-resolution-path,
+[A011](../methodology/assumptions.md#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation)).
+Phase 4 remains valuable as **refinement work** — it tightens A011 with
+empirical evidence — but does not block the price or any other
+downstream work.
 
-Deliverable: a side-by-side comparison for MA, CT, RI for Jan-Mar 2019:
+Entry (when team capacity permits): the HighTail historical extract
+is loaded under `docs/extra/poweroutage_us/data/historical_trial/`.
 
-- `lambda_customer(T)` from this plan (computed on the EAGLE-I 2019 slice).
-- `lambda_per_outage_customer(T)` from PowerOutage.US per-outage records
-  (each `OutageId` carries its own customer count and duration).
-- Disagreement bounded numerically; the source of any divergence is named
-  (e.g. event-construction grain, customer-count semantics, geographic
-  mismatch).
+Deliverable: a side-by-side comparison for MA, CT, RI for Jan–Mar 2019:
 
-Gate: the disagreement is within a written bound, or the bound is widened
-with a documented reason and the model card cap is tightened.
+- `λ_customer(T)` from this plan (computed on the EAGLE-I 2019 slice
+  via the synchronous approximation in A011).
+- `λ_per_outage_customer(T)` from PowerOutage.US per-`OutageId` records
+  (each carries its own customer count and duration — no synchronous
+  approximation needed).
+- Disagreement bounded numerically; the source of any divergence
+  named (event-construction grain, customer-count semantics,
+  geographic mismatch).
+
+Possible outputs:
+
+- (a) Disagreement within the sensitivity band already shown on the
+  dashboard (median ↔ max) → A011 is empirically confirmed; no formula
+  change; A011 status moves from "shipped with documented constraint" →
+  "shipped, externally validated."
+- (b) Disagreement larger than the sensitivity band, in a consistent
+  direction → derive an empirical correction factor for the multiplier;
+  update A011 and the model card; redeploy.
 
 Documentation update on phase exit:
-- This plan: record the bound and the cap.
-- [PowerOutage.US findings doc](../extra/poweroutage_us/docs/06_findings.md):
-  append a "Finding set N — Per-customer rate cross-check" entry.
 
-### Phase 5 — Graduation decision (governance gate)
+- This plan: record the bound and the empirical correction (if any).
+- A011: update status and add empirical evidence.
+- Model card: update activation checklist row 8 with the validation
+  outcome.
 
-Entry: Phase 4 gate passed.
+### Phase 5 — Graduation decision (governance)  ✅ Closed 2026-05-30
 
-Decision options:
+Entry: Phases 1–3 closed; team review of the shadow surface yielded a
+clear posture decision (documented in the discussion thread that closed
+this phase).
 
-1. **Stay shadow.** The shadow column remains side-by-side; v0 pricing
-   unchanged. Continue to monitor.
-2. **Activate as numeric modifier.** `customer_impact_modifier` graduates
-   from `shadow` to a capped, floored numeric multiplier on `lambda(T)`,
-   following the [activation rules](outage_baseline_adjustment_framework.md#activation-rules-do-not-skip).
-3. **Absorb into baseline.** Modify `02_construct_events.py` to apply a
-   severity threshold (e.g. drop events with `max_customers / MCC < epsilon`
-   or `max_customers < N`), retiring the modifier entirely. This is the
-   "absorbed into the baseline" path documented in the modifier lifecycle.
+Decision: **(b) Activate as numeric multiplier.**
 
-Gate: governance — this is not a code-only decision.
+Rationale (the discussion's core argument):
+
+- v0 ships with eight documented assumptions (A001–A008) — some
+  genuinely-untested, some placeholders, some known simplifications.
+  None are called "shadow"; they are documented and the engine ships.
+- The per-customer chain adds **exactly one** new assumption — the
+  synchronous-outage approximation, now [A011](../methodology/assumptions.md#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation).
+  It is a data-constrained measurement assumption with a clear
+  resolution path.
+- The per-customer chain that rests on A011 produces a number that
+  Phase 1 showed is **100×–4000× more accurate per customer** than v0's
+  county-trigger rate. Treating it as "shadow" while shipping v0 with
+  its larger systematic error would invert the accuracy ordering.
+- The bias-correction modifier lifecycle is therefore refined: the
+  registry-with-resolution-path pattern is the activation gate for
+  bias-correction modifiers (which reduce known measurement error).
+  Forward-regime modifiers still require external validation. See
+  [the refinement in the adjustment framework](outage_baseline_adjustment_framework.md#activation-pattern-by-category-refined-2026-05-30).
+
+Terminal state implemented:
+
+- Dashboard headline switches to per-customer view (default matrix mode,
+  primary chain in Panel C). v0 county-trigger remains accessible as a
+  reference view for sensitivity comparison.
+- `customer_impact_v1` model card status: `shipped`.
+- Phase 4 is reframed as **refinement work** — not a precondition for
+  shipping. It tightens A011 when per-`OutageId` data is available.
 
 ## How this interacts with future product layers
 

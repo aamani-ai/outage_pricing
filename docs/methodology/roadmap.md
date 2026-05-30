@@ -47,45 +47,25 @@ only calibrates them more tightly.
 
 ---
 
-## Bias-correction tracks
+## Shipped (this release)
 
-### Per-customer rate · **shadow · live now**
+### Per-customer rate · **shipped 2026-05-30 · headline price**
 
-- **What it does:** converts the v0 county-event rate into a
-  per-customer expected loss using `lambda_county × E[mean_customers /
-  MCC | duration ≥ T]`.
+- **What it does:** prices per insurable entity (one metered electric
+  account = one policy) using `λ_county × E[mean_customers / MCC |
+  duration ≥ T]`. This is the dashboard's headline annual premium.
 - **Why it matters:** closes the largest interpretation gap in v0 —
   pricing on a county-event rate while quoting per customer. The
-  per-customer view is the underwriter's primary read.
-- **Current state:** shipped to the dashboard as a side-by-side shadow
-  in three modes (`County trigger` / `Per-customer` / `Multiplier`),
-  with a coverage gate, sensitivity bands (mean / median / max), and a
-  bordered callout block in the drilldown's Premium chain.
-- **Plan:** [Per-Customer Pricing Plan](../plan/per_customer_pricing_plan.md).
+  per-customer view is the price.
+- **Graduation:** terminal state **(b) Activate as numeric multiplier**
+  was selected via the documented graduation discussion (see plan).
+  Refinement of the underlying [A011](assumptions.md#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation)
+  is queued as Phase 4 but is not gating.
+- **Plan:** [Per-Customer Pricing Plan](../plan/per_customer_pricing_plan.md) (Phases 1–3 and 5 closed; Phase 4 is refinement).
 - **Walkthrough:** [Per-customer view — end-to-end](per_customer_view_walkthrough.md).
-- **Model card:** [`customer_impact_v1`](../../curated_outage_data/model_cards/customer_impact_v1.md).
+- **Model card:** [`customer_impact_v1`](../../curated_outage_data/model_cards/customer_impact_v1.md) (status: shipped).
 
-### Customer impact graduation · **next gate (post-deploy review)**
-
-- **What it does:** moves the shadow per-customer multiplier from
-  *parallel display* to one of three terminal states — (a) stay shadow,
-  (b) activate as a numeric multiplier in production pricing under the
-  modifier-lifecycle activation rules, or (c) absorb into the v0
-  baseline by modifying event construction to apply a severity
-  threshold.
-- **Why it matters:** the shadow is informative but doesn't change what
-  we sell. Graduation is where the per-customer view either becomes
-  pricing or retires. The full reasoning for why the shadow label
-  persists is captured in
-  [the walkthrough's "Why this is still labeled shadow" section](per_customer_view_walkthrough.md#why-this-is-still-labeled-shadow-and-what-it-would-take-to-graduate).
-- **Sequencing (intentional):** deploy the current shadow state → gather
-  team feedback → Phase 4 (PowerOutage.US per-`OutageId` validation) to
-  bound the synchronous-outage assumption error → Phase 5 governance
-  gate → terminal-state decision (a / b / c).
-- **Current state:** shadow surface live in the dashboard; Phase 4 data
-  staged at `docs/extra/poweroutage_us/data/`; team review pending
-  post-deploy.
-- **Plan:** [Per-Customer Pricing Plan, Phases 4–5](../plan/per_customer_pricing_plan.md#phase-4--external-validation-against-poweroutageus-per-outage-data).
+## Bias-correction tracks (in flight)
 
 ### Trigger source alignment · **blocked on vendor**
 
@@ -183,18 +163,42 @@ only calibrates them more tightly.
 
 ## Sequencing principle
 
-The bias-correction tracks are sequenced **before** the forward-regime
+Bias-correction tracks are sequenced **before** the forward-regime
 tracks for a reason: a forward-regime modifier whose effect is at most
-±20% on `lambda(T)` cannot be honestly calibrated on top of a baseline
-that is 30-100× off when read as per-customer. Fix the denominator first
-(per-customer rate), then bridge to the live oracle (trigger alignment),
-then localize (location basis), and only *then* layer climate / grid
-condition on top.
+±20% on `λ(T)` cannot be honestly calibrated on top of a baseline that
+is 30–100× off when read as per-customer. Fix the denominator first
+(per-customer rate ✓ shipped), then bridge to the live oracle (trigger
+alignment), then localize (location basis), and only *then* layer
+climate / grid condition on top.
 
 ```text
-v0  →  + per-customer  →  + trigger alignment  →  + location basis  →  + grid condition  →  + hazard & weather
-        (shipped now)      (blocked on vendor)    (research)            (planned)            (planned)
+v0  →  ✓ per-customer  →  + trigger alignment  →  + location basis  →  + grid condition  →  + hazard & weather
+       (shipped 2026-05-30)  (blocked on vendor)    (research)            (planned)            (planned)
 ```
 
 The dashboard's `What's next` widget walks the team through that
 sequence at a glance.
+
+## A note on the activation lifecycle (refinement 2026-05-30)
+
+The original activation rules in the
+[adjustment framework](../plan/outage_baseline_adjustment_framework.md#modifier-lifecycle)
+were written as a single uniform pattern (graduate only after external
+validation). Shipping the per-customer track surfaced a useful
+distinction worth recording in the framework itself:
+
+- **Bias-correction modifiers** are measurement corrections on top of
+  v0. They reduce a known systematic error. For these, the right gate
+  is "is the underlying assumption documented in the registry with a
+  resolution path?" — exactly what we did for [A011](assumptions.md#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation).
+  External validation is **refinement** that tightens the assumption;
+  it is not a hard precondition for shipping the corrected baseline.
+- **Forward-regime modifiers** are projections — climate, grid
+  condition, hazard. They claim something about the future that the
+  past does not directly evidence. For these, the original rule stands:
+  external validation is required before they enter pricing math,
+  because no amount of assumption documentation substitutes for
+  empirical projection accuracy.
+
+This distinction has been folded into the
+[adjustment framework's modifier-lifecycle section](../plan/outage_baseline_adjustment_framework.md#modifier-lifecycle).
