@@ -955,6 +955,25 @@ table { border-collapse: collapse; width: 100%; }
   background: var(--surface-2);
   color: var(--ink-2);
 }
+.mode-note-link {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 2px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary-2);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+.mode-note-link:hover {
+  background: var(--primary);
+  color: var(--surface);
+}
 
 /* Matrix cell variants for per-customer / multiplier / coverage gate */
 .matrix-table td.shadow { background: var(--primary-soft); color: var(--primary-2); }
@@ -1052,6 +1071,24 @@ table { border-collapse: collapse; width: 100%; }
   font-family: var(--font-body);
   font-size: var(--text-xs);
   line-height: 1.45;
+}
+.chain-cta {
+  display: inline-flex;
+  align-items: center;
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: var(--surface);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.chain-cta:hover {
+  background: var(--primary-2);
 }
 
 /* =============== SIDEBAR · WHAT'S NEXT =============== */
