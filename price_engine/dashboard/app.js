@@ -2149,45 +2149,68 @@ async function navigateLibrary(sectionKey) {
 // status changes there, change it here too. The library section is the long
 // form; this is the glanceable summary.
 
-const ROADMAP_ITEMS = [
+// Three categorical buckets, in the order the team works through them.
+// The order is structural, not arbitrary: data-input adjustments first
+// (basis risk), then the live-oracle bridge (trigger alignment), then
+// forward signals layered on top. The "Why this order matters" section
+// of docs/methodology/roadmap.md captures the principle.
+const ROADMAP_GROUPS = [
   {
-    name: 'Per-customer rate',
-    status: 'shipped',
-    desc: 'Bias-correction · headline price (this release)',
+    title: 'Basis-risk adjustments',
+    items: [
+      {
+        name: 'Customer basis risk',
+        status: 'shipped',
+        desc: 'Adjusted via the per-customer chain (this release)',
+      },
+      {
+        name: 'Location basis risk',
+        status: 'research',
+        desc: 'Per-premise vs county-aggregate',
+      },
+    ],
   },
   {
-    name: 'Trigger source alignment',
-    status: 'blocked',
-    desc: 'Bias-correction · blocked on vendor data',
+    title: 'Trigger alignment',
+    items: [
+      {
+        name: 'Trigger source alignment',
+        status: 'blocked',
+        desc: 'Awaiting vendor / live-oracle data',
+      },
+    ],
   },
   {
-    name: 'Location basis',
-    status: 'research',
-    desc: 'Bias-correction · per-premise vs county',
-  },
-  {
-    name: 'Grid condition',
-    status: 'planned',
-    desc: 'Forward-regime · utility reliability + capex',
-  },
-  {
-    name: 'Hazard & weather',
-    status: 'planned',
-    desc: 'Forward-regime · storm regime + climate',
+    title: 'Forward-regime improvements',
+    items: [
+      {
+        name: 'Grid condition',
+        status: 'planned',
+        desc: 'Utility reliability + capex signals',
+      },
+      {
+        name: 'Hazard & weather',
+        status: 'planned',
+        desc: 'Storm regime + climate signals',
+      },
+    ],
   },
 ];
 
 function renderRoadmapList() {
   const list = document.getElementById('roadmapList');
   if (!list) return;
-  list.innerHTML = ROADMAP_ITEMS.map(item => `
-    <button type="button" class="roadmap-item" data-library-section="roadmap" title="Open in library">
-      <span class="roadmap-status ${item.status}">${escapeHtml(item.status)}</span>
-      <div class="roadmap-item-body">
-        <div class="roadmap-name">${escapeHtml(item.name)}</div>
-        <div class="roadmap-desc">${escapeHtml(item.desc)}</div>
-      </div>
-    </button>
+  list.innerHTML = ROADMAP_GROUPS.map(group => `
+    <div class="roadmap-group-title">${escapeHtml(group.title)}</div>
+    ${group.items.map(item => `
+      <button type="button" class="roadmap-item" data-library-section="roadmap" title="Open in library">
+        <span class="roadmap-status ${item.status}">${escapeHtml(item.status)}</span>
+        <div class="roadmap-item-body">
+          <div class="roadmap-name">${escapeHtml(item.name)}</div>
+          <div class="roadmap-desc">${escapeHtml(item.desc)}</div>
+        </div>
+      </button>
+    `).join('')}
   `).join('');
 }
 

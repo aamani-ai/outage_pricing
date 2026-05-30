@@ -1101,6 +1101,19 @@ table { border-collapse: collapse; width: 100%; }
   flex-direction: column;
   gap: 6px;
 }
+.roadmap-group-title {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  margin-top: var(--space-3);
+  margin-bottom: 2px;
+  padding: 0 2px;
+}
+.roadmap-list > .roadmap-group-title:first-child {
+  margin-top: 0;
+}
 .roadmap-item {
   display: grid;
   grid-template-columns: auto 1fr;

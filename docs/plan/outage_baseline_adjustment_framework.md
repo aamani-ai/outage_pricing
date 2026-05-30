@@ -96,20 +96,56 @@ total_adjustment
 
 The original modifier-lifecycle wrote a single uniform activation rule
 (graduate only after external validation). Shipping the per-customer
-bias-correction surfaced a useful distinction that is now part of the
-framework:
+basis-risk adjustment surfaced that the lifecycle actually needs to
+distinguish **three** activation patterns, one per bucket on the
+roadmap:
 
-| Category | Activation requirement | Why |
+| Bucket | Activation requirement | Why this pattern is right |
 |---|---|---|
-| **Bias-correction** | The underlying assumption is documented in the [assumptions registry](../methodology/assumptions.md) with a stated **resolution path**. External validation is **refinement** that tightens the assumption, not a hard gate. | Bias-correction reduces a known systematic error in v0. The corrected baseline is, by construction, more accurate than v0 in expectation. Gating it on external validation would keep the larger error in production while waiting on data that may take quarters to arrive. |
-| **Forward-regime** | External validation is required **before** the modifier enters pricing math. | Forward-regime modifiers project future conditions (climate, grid health, hazard) that the historical data does not directly evidence. Without external validation, the projection is unbounded — no amount of assumption documentation substitutes for empirical accuracy on the projection itself. |
+| **Basis-risk adjustments** | The underlying assumption is documented in the [assumptions registry](../methodology/assumptions.md) with a stated **resolution path**. External validation is **refinement** that tightens the assumption, not a hard gate. | A basis-risk adjustment is a derivation made from data we already have. It reduces a known systematic error in v0. The corrected baseline is, by construction, more accurate than v0 in expectation. Gating it on external validation would keep the larger error in production while waiting on data that may take quarters to arrive. |
+| **Trigger alignment** | A **contracted live feed** + **overlap data** so the bridge between the historical pricing source and the live payout oracle can be empirically calibrated. | Trigger alignment is not a derivation; it is a contract-data integration. The price needs to match the payout, and matching requires data only the contracted oracle can provide. There is no assumption to document the way around it — the bridge must be measured. |
+| **Forward-regime improvements** | External validation is required **before** the modifier enters pricing math. | Forward-regime modifiers project future conditions (climate, grid health, hazard) that the historical data does not directly evidence. Without external validation, the projection is unbounded — no amount of assumption documentation substitutes for empirical accuracy on the projection itself. |
 
-Concrete example of how this applies: the `customer_impact` modifier
-shipped on 2026-05-30 under the bias-correction rule once
-[A011](../methodology/assumptions.md#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation)
-was written into the registry. The future `grid_condition` and
-`hazard_weather` modifiers will still require external validation
-because they are forward-regime.
+Concrete examples of how this applies in the current roadmap:
+
+- **`customer_impact`** (basis-risk) shipped on 2026-05-30 under the
+  registry-with-resolution-path rule once
+  [A011](../methodology/assumptions.md#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation)
+  was written. **`location_basis`** (basis-risk) will follow the same
+  pattern once a documented premise-level assumption exists.
+- **`trigger_alignment`** will not ship until a contracted live feed
+  exists, regardless of how well its plan is written.
+- **`grid_condition`** and **`hazard_weather`** (forward-regime) will
+  still require external validation against forecast or held-out
+  evidence, because they are projection modifiers, not measurement
+  corrections.
+
+### Why the buckets are sequenced in this order
+
+The team works the buckets in the order **basis-risk → trigger
+alignment → forward-regime** for a structural reason that is worth
+recording explicitly so it survives team turnover:
+
+**Fix the data-input layer before improving the model on top of it.**
+
+A perfect climate or grid model layered on top of a baseline that is
+misaligned with the contract — e.g. county-event grain priced as if
+it were per-customer — doesn't compensate for that misalignment. It
+adds modelled signal to a misaligned starting point and produces a
+number that is harder to defend than the unadjusted v0. The
+downstream work would not be usable in the right way.
+
+The same logic governs the trigger-alignment bucket sitting between
+basis-risk and forward-regime: even with the data-input layer
+correctly derived, if the contract pays against a different event
+definition than the price is calibrated to, the live payouts and the
+priced rate diverge. Trigger alignment closes that loop before we
+layer on the forward-regime signals that depend on a coherent
+baseline beneath them.
+
+This principle is the reason the roadmap (and the dashboard's
+"What's next" widget) groups tracks into these three buckets rather
+than presenting them as a flat list.
 
 ### Classification of current modifiers
 

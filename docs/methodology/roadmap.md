@@ -15,24 +15,47 @@ The dashboard sidebar's **What's next** widget renders a compact summary
 of this list; the library's **Roadmap** section renders this full
 document.
 
-## Two modifier categories
+## Three categorical buckets
 
-Every track on this roadmap belongs to one of two families:
+Every track on this roadmap sits in one of three buckets, in the order
+the team works through them. The order is **structural, not arbitrary**
+— see [Why this order matters](#why-this-order-matters) for the
+principle that drives the sequence.
 
-```text
-total_adjustment
-  = bias_correction_modifiers     ← shrink with better data; can retire
-  * forward_regime_modifiers      ← structural; do NOT shrink with data quality
-```
+| Bucket | What it does | What unlocks each track |
+|---|---|---|
+| **Basis-risk adjustments** | Close the gap between what the data measures and what the contract sells. Make a derivation using what we already have. | A documented assumption in the [registry](assumptions.md) with a stated resolution path. The shipped per-customer chain is the prototype. |
+| **Trigger alignment** | Bridge between the historical pricing source (EAGLE-I) and the live payout oracle (vendor or utility OMS). Categorically different from basis-risk: not a derivation we can make, it's a contract-data integration. | A contracted live feed + overlap data so the bridge can be calibrated. |
+| **Forward-regime improvements** | Signals that project beyond what history evidences. Calibrate the future, not correct the present. | External validation against forecast or held-out evidence — same activation rule the original lifecycle described. |
 
-**Bias-correction modifiers** exist because the *measurement* of the
-baseline is imperfect. Better data on the relevant dimension makes them
-collapse toward 1.0 and eventually retire (absorbed into the baseline
-rate).
+## Why this order matters
 
-**Forward-regime modifiers** exist because the *future* may not look
-like the past. Even perfect history does not eliminate them; better data
-only calibrates them more tightly.
+The team's working principle, in one line: **fix the data-input layer
+before improving the model on top of it.**
+
+Concretely, that means the basis-risk adjustments are closed first
+(customer ✓, location next), the trigger alignment is bridged once the
+live-oracle data exists, and only **then** do the forward-regime
+modifiers (grid condition, hazard & weather) layer on top.
+
+The reason is structural, not stylistic: if the data-input grain
+doesn't match what the contract sells — e.g. county-event grain
+priced as if it were per-customer — no amount of forward modeling can
+compensate. A perfect climate or grid model layered on top of a
+baseline that is 100× off when read per-customer doesn't shrink that
+100× factor; it just adds modelled signal to a misaligned starting
+point. The downstream work would not be usable in the right way.
+
+The same logic applies to trigger alignment: even with all basis-risk
+adjustments closed, if the contract pays against a different event
+definition than the price is calibrated to, the live payouts and the
+priced rate diverge. Trigger alignment closes that loop before we
+layer on the forward-regime signals that depend on a coherent baseline
+beneath them.
+
+This is why the dashboard's sidebar groups tracks into these three
+buckets visually. The grouping is not just organizational — it
+encodes the *sequence* in which the team works.
 
 ## Track statuses
 
@@ -49,7 +72,7 @@ only calibrates them more tightly.
 
 ## Shipped (this release)
 
-### Per-customer rate · **shipped 2026-05-30 · headline price**
+### Customer basis risk · **shipped 2026-05-30 · headline price**
 
 - **What it does:** prices per insurable entity (one metered electric
   account = one policy) using `λ_county × E[mean_customers / MCC |
@@ -65,28 +88,9 @@ only calibrates them more tightly.
 - **Walkthrough:** [Per-customer view — end-to-end](per_customer_view_walkthrough.md).
 - **Model card:** [`customer_impact_v1`](../../curated_outage_data/model_cards/customer_impact_v1.md) (status: shipped).
 
-## Bias-correction tracks (in flight)
+## Basis-risk adjustments (in flight)
 
-### Trigger source alignment · **blocked on vendor**
-
-- **What it does:** measures and adjusts for the gap between
-  historical EAGLE-I event definitions and the live oracle that
-  determines payouts (Ting Insights, OMS, licensed PowerOutage.US live
-  feed, etc.). Without this, a live parametric product would be priced
-  against one event definition and paid against another.
-- **Why it matters:** this is a **blocker** for selling a live
-  parametric product, not a nice-to-have. The county-trigger contract
-  v0 prices isn't the contract a customer would actually buy in
-  production.
-- **Current state:** plan written; alignment-factor schema reserved.
-  No vendor contract or overlap data yet.
-- **Unlocks:** a contracted live oracle (Ting / PoUS / utility OMS)
-  with retention, audit, and methodology-change notice; followed by a
-  bridge-validation lab that compares pricing-catalog events to oracle
-  events over the same time/geography.
-- **Plan:** [Trigger Source Implications](../plan/trigger_source_implications.md).
-
-### Location basis · **research**
+### Location basis risk · **research**
 
 - **What it does:** adjusts for the gap between the *county-aggregate*
   event experience and the *insured premise's* experience. A policy on
@@ -104,7 +108,30 @@ only calibrates them more tightly.
 
 ---
 
-## Forward-regime tracks
+## Trigger alignment (blocked on vendor)
+
+### Trigger source alignment · **blocked on vendor**
+
+- **What it does:** bridges the gap between the historical pricing
+  source (EAGLE-I event definitions) and the live payout oracle (Ting
+  Insights, utility OMS, licensed PowerOutage.US live feed, etc.).
+  Without this, a live parametric product would be priced against one
+  event definition and paid against another.
+- **Why it is its own bucket:** unlike the basis-risk adjustments,
+  this is **not a derivation we can make** from data we already have.
+  It is a contract-data integration that requires a contracted live
+  feed and overlap data so the bridge can be calibrated.
+- **Current state:** plan written; alignment-factor schema reserved.
+  No vendor contract or overlap data yet.
+- **Unlocks:** a contracted live oracle (Ting / PoUS / utility OMS)
+  with retention, audit, and methodology-change notice; followed by a
+  bridge-validation lab that compares pricing-catalog events to oracle
+  events over the same time/geography.
+- **Plan:** [Trigger Source Implications](../plan/trigger_source_implications.md).
+
+---
+
+## Forward-regime improvements
 
 ### Grid condition · **planned**
 
@@ -161,23 +188,16 @@ only calibrates them more tightly.
 
 ---
 
-## Sequencing principle
-
-Bias-correction tracks are sequenced **before** the forward-regime
-tracks for a reason: a forward-regime modifier whose effect is at most
-±20% on `λ(T)` cannot be honestly calibrated on top of a baseline that
-is 30–100× off when read as per-customer. Fix the denominator first
-(per-customer rate ✓ shipped), then bridge to the live oracle (trigger
-alignment), then localize (location basis), and only *then* layer
-climate / grid condition on top.
+## Sequencing — visual summary
 
 ```text
-v0  →  ✓ per-customer  →  + trigger alignment  →  + location basis  →  + grid condition  →  + hazard & weather
-       (shipped 2026-05-30)  (blocked on vendor)    (research)            (planned)            (planned)
+v0  →  ✓ customer basis-risk  →  + location basis-risk  →  + trigger alignment  →  + grid condition  →  + hazard & weather
+       (shipped 2026-05-30)      (research)                 (blocked on vendor)    (planned)            (planned)
+       └── basis-risk adjustments ──┘   └── trigger alignment ──┘   └── forward-regime improvements ──┘
 ```
 
-The dashboard's `What's next` widget walks the team through that
-sequence at a glance.
+The dashboard's `What's next` widget visualises this sequence by
+grouping the tracks into the three buckets in the same order.
 
 ## A note on the activation lifecycle (refinement 2026-05-30)
 
