@@ -40,6 +40,23 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             return
         return super().do_GET()
 
+    def end_headers(self) -> None:  # noqa: N802 — stdlib API name
+        # Cache discipline: HTML pages always revalidate so the browser
+        # picks up a fresh build the next time it lands on the dashboard.
+        # JS/CSS/JSON are safe to cache for a day because they carry
+        # ?v=YYYYMMDD-N cache-bust query strings — a new build bumps the
+        # token and forces a fresh fetch via URL change.
+        #
+        # This prevents the "stale sidebar / stale matrix" class of bug
+        # where a returning user sees yesterday's HTML referencing
+        # yesterday's asset versions.
+        path = self.path.split("?", 1)[0].lower()
+        if path.endswith(("/", ".html", ".htm")):
+            self.send_header("Cache-Control", "no-cache, must-revalidate")
+        elif path.endswith((".js", ".css", ".json", ".svg", ".woff", ".woff2")):
+            self.send_header("Cache-Control", "public, max-age=86400")
+        super().end_headers()
+
 
 def main() -> None:
     port = int(os.environ.get("PORT", "8080"))
