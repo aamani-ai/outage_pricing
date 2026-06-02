@@ -196,6 +196,8 @@ This is separate from the current Green/Amber/Red data-centric tiering.
 
 ### Sensor-network trigger candidate
 
+- Consolidated competitive landscape reference:
+  [`docs/methodology/competitive_landscape.md`](../methodology/competitive_landscape.md)
 - Whisker Labs Ting Insights:
   https://www.whiskerlabs.com/ting-insights/
 - Whisker Labs technology overview:

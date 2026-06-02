@@ -5,6 +5,14 @@ Date: 2026-05-18
 Source reviewed:
 `docs/extra/outage_modeling_us/docs/trigger_sources_research.md`
 
+> **See also:** [`docs/methodology/competitive_landscape.md`](../methodology/competitive_landscape.md)
+> consolidates the live competitive picture (Adaptive Insurance /
+> GridProtect, Whisker Labs Ting, PowerOutage.US, adjacent-vertical
+> proof points) into a single canonical reference. This file remains
+> the source of truth for the *trigger-source-implications-for-pricing*
+> reasoning; the competitive-landscape doc is the strategic /
+> market-positioning view.
+
 ## Executive Read
 
 The research changes how we should think about the product architecture.

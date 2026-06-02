@@ -1978,6 +1978,10 @@ const LIBRARY_SECTIONS = {
     title: 'Assumptions registry',
     path: './methodology/assumptions.md',
   },
+  'competitive-landscape': {
+    title: 'Competitive landscape',
+    path: './methodology/competitive_landscape.md',
+  },
 };
 
 const libraryState = {
@@ -2027,7 +2031,8 @@ function setLibraryTitle(text) {
 
 function renderLibraryOverview() {
   const sections = [
-    { key: 'roadmap', meta: 'What\'s next', desc: 'Forward-looking tracks organized by bias-correction vs forward-regime. Status, why it matters, what unlocks each one.' },
+    { key: 'roadmap', meta: 'What\'s next', desc: 'Forward-looking tracks organized into three buckets — basis-risk adjustments, trigger alignment, forward-regime improvements. Status, why it matters, what unlocks each one.' },
+    { key: 'competitive-landscape', meta: 'Strategy', desc: 'Who else is in the parametric outage segment (Adaptive / GridProtect, Whisker Labs Ting, PowerOutage.US, adjacent-vertical proof points). How we position relative to each.' },
     { key: 'per-customer-walkthrough', meta: 'Walkthrough', desc: 'End-to-end nuance-by-nuance walk through the per-customer pricing chain, with a worked Boone, MO example.' },
     { key: 'pricing', meta: 'Pipeline · pricing', desc: 'The v0 pricing math (λ(T) → Pure → Retail) plus the per-customer view evidence.' },
     { key: 'event-catalog', meta: 'Pipeline · events', desc: 'The event-construction algorithm (three knobs: threshold / gap tolerance / minimum duration).' },
@@ -2077,6 +2082,7 @@ function rewriteLibraryMarkdownLinks(html) {
     'data_ingestion_methodology.md': 'data-ingestion',
     'per_customer_view_walkthrough.md': 'per-customer-walkthrough',
     'roadmap.md': 'roadmap',
+    'competitive_landscape.md': 'competitive-landscape',
   };
   return html.replace(/<a\s+href="([^"]+)"([^>]*)>/g, (match, href, attrs) => {
     if (/^https?:/i.test(href)) {

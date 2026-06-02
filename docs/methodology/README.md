@@ -49,6 +49,14 @@ Pedagogical walkthroughs (long-form, worked examples, nuance-surfaced):
   with a worked Boone, MO example. Read this if you need to explain the
   per-customer view to a new team member, a stakeholder, or a regulator.
 
+Strategic / market reference:
+
+- [`competitive_landscape.md`](competitive_landscape.md) — the
+  canonical reference for who else is in the parametric outage segment
+  (Adaptive Insurance / GridProtect, Whisker Labs Ting, PowerOutage.US,
+  adjacent-vertical proof points like Parametrix and Ki). How we
+  position relative to each. Refresh every 60–90 days.
+
 ## Status
 
 All files in this folder were created as skeletons on **2026-05-30**.
