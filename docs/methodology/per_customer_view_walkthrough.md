@@ -55,7 +55,7 @@ Anchor case for the rest of this document. Selecting the dashboard cell
 
 | Quantity | Value | Source |
 |---|---|---|
-| MCC (modeled county customers) | 121,913 | `MCC.csv`, Moehl et al. 2023 ([A008](assumptions.md#a008--mcc-is-a-static-per-county-customer-count)) |
+| MCC (modeled county customers) | 121,913 | `MCC.csv`, [Brelsford et al. 2024](https://www.nature.com/articles/s41597-024-03095-5) ([A008](assumptions.md#a008--mcc-is-a-static-per-county-customer-count)) |
 | Total events in 11.167-year window | 9,329 | EAGLE-I 45-min catalog ([A002](assumptions.md#a002--customers_out--0-is-the-inclusion-threshold-for-events), [A003](assumptions.md#a003--each-eagle-i-15-min-snapshot-represents-the-interval-t-t--15-min)) |
 | Qualifying events at T = 8 h | ~933 | events with `duration_hours ≥ 8` |
 | λ_county(T = 8 h) | 79.8765 / yr | `(n_events_total / observation_years) × S(T)` |
@@ -138,8 +138,9 @@ For Boone, MO with MCC = 121,913, a `mean_customers = 525` event yields
 ### Pros
 
 - **Dimensionally clean.** Both numerator and denominator are EAGLE-I
-  "customers" — metered electric accounts in the same sense ([A008](assumptions.md#a008--mcc-is-a-static-per-county-customer-count)).
-  The ratio is a pure fraction.
+  "customers" in the same source-defined sense ([A008](assumptions.md#a008--mcc-is-a-static-per-county-customer-count)).
+  The ratio is a pure fraction, internally consistent within each
+  utility's territory.
 - **Easy to communicate.** "About 0.43 % of the county's customer base was
   affected during this event."
 - **Comparable across counties of any size.** The ratio normalises away
@@ -148,13 +149,18 @@ For Boone, MO with MCC = 121,913, a `mean_customers = 525` event yields
 
 ### Cons
 
-- **"Customer" is not a person.** A customer is a metered electric account.
-  A 4-person household = 1 customer. A high-rise with separately metered
-  units = many customers. The ratio answers "share of accounts affected,"
-  not "share of people affected." Important when communicating with
-  product or marketing stakeholders.
+- **"Customer" is not a person, and not uniformly a meter.** Per
+  Brelsford et al. (the EAGLE-I paper), utilities define "customers"
+  *"in a range of different ways, most typically the electric meter, a
+  building, or a facility."* In the typical per-meter case, a 4-person
+  household = 1 customer, and a high-rise with separately metered units
+  = many customers. For utilities reporting per-building or per-facility,
+  the unit shifts. The ratio answers "share of utility-defined customers
+  affected," not "share of people affected" — important when communicating
+  with product or marketing stakeholders, and a cross-utility noise term
+  to flag for regulators.
 - **MCC is static** ([A008](assumptions.md#a008--mcc-is-a-static-per-county-customer-count)).
-  Moehl et al. 2023 published a single modelling vintage; the value does
+  The MCC dataset is a single 2023 modelling vintage; the value does
   not refresh per year. A county with rapid growth since the modelling
   year has an *under-stated* denominator, biasing the ratio UP. Phase 4 of
   the per-customer plan flags this for empirical measurement against
@@ -289,25 +295,38 @@ The default loads (ER = 0.20, TM = 0.15, UncLoad = 0) are inherited from
 ### One reading-level nuance
 
 The Retail figure is a *per-customer-per-year expected payout under the
-assumption that each policy is sold to one EAGLE-I "customer" — one
-metered account*. Not one person. Not one address. Not one feeder.
+assumption that each policy is sold to one EAGLE-I "customer" — most
+typically one metered account*. Not one person. Not one address. Not
+one feeder.
 
-A small business with one electric meter = one customer = one policy.
-A 200-unit apartment building with separately metered units = 200
-customers = 200 policies. A household with a single meter = one customer
-regardless of household size.
+In the typical per-meter reporting case:
+
+- A small business with one electric meter = one customer = one policy.
+- A 200-unit apartment building with separately metered units = 200
+  customers = 200 policies.
+- A household with a single meter = one customer regardless of household
+  size.
+
+For utilities reporting per-building or per-facility, the customer unit
+shifts and a 200-unit building may register as 1 customer rather than
+200. Both `customers_out` (EAGLE-I) and `MCC` use the same source
+convention so the ratio remains internally consistent — but cross-utility
+comparisons of the per-customer rate carry an additional unit-noise
+term ([A008](assumptions.md#a008--mcc-is-a-static-per-county-customer-count)).
 
 ### Customer = policyholder = single insurable entity
 
 The reason the per-customer view is the "right" pricing frame, and not
 just an academic transformation of the v0 number, is that EAGLE-I's
-"customer" unit aligns with the contract unit
-([A008](assumptions.md#a008--mcc-is-a-static-per-county-customer-count)).
+"customer" unit aligns naturally — though not perfectly — with the
+contract unit ([A008](assumptions.md#a008--mcc-is-a-static-per-county-customer-count)).
 Parametric outage insurance is sold per insurable entity — one policy
 per residence, one per business, one per industrial facility — and
-that entity is exactly what EAGLE-I and the MCC paper call a
+that entity is **most typically** what EAGLE-I and the MCC paper call a
 "customer": one metered electric account, one billed entity behind one
-meter.
+meter. Per Brelsford et al., some utilities instead report customers as
+buildings or facilities; in those cases the contract-unit alignment is
+looser but the within-utility math remains consistent.
 
 So:
 

@@ -13,7 +13,7 @@
   changes so soft-refresh always pulls the matching pair. Prevents the
   HTML/CSS/JS mismatch that has caused two "dashboard not loading" incidents.
 -->
-<link rel="stylesheet" href="./styles.css?v=20260531-1" />
+<link rel="stylesheet" href="./styles.css?v=20260603-2" />
 <link rel="icon" type="image/svg+xml" href="./assets/brand/outsure-favicon.svg" />
 </head>
 <body>
@@ -164,6 +164,7 @@
           <option value="lambda">λ at T=8h (events/yr)</option>
           <option value="retail">Retail premium · T=8h · X=$2,500</option>
           <option value="events">Event evidence · total events</option>
+          <option value="trend">Outage trend · 11yr · T=4h (descriptive)</option>
         </select>
       </div>
       <div class="spacer"></div>
@@ -346,6 +347,13 @@
         <ul class="diag" id="panelD"></ul>
         <div class="future-dims" id="panelFutureDims"></div>
       </div>
+
+      <div class="card span-2">
+        <div class="card-header">
+          <h3 class="card-title-sm">E · Outage trend <span class="card-title-sub">11-year window · descriptive layer</span></h3>
+        </div>
+        <div class="trend-block" id="panelE"></div>
+      </div>
     </div>
   </section>
 </main>
@@ -424,6 +432,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.16"></script>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="./vendor/marked.min.js?v=20260530-7"></script>
-<script src="./app.js?v=20260531-1" type="module"></script>
+<script src="./app.js?v=20260603-2" type="module"></script>
 </body>
 </html>

@@ -15,7 +15,9 @@ const state = {
   countiesGeo: null,
   eventEvidenceCache: new Map(),
   perCustomer: null,       // {meta: {...}, view: {fips_str: {T_str: {...}}}}
+  trend: null,             // {meta: {...}, view: {fips_str: {T_str: {...}}}} — county yearly trend (descriptive, not pricing)
   matrixView: 'customer', // 'county' | 'customer' | 'multiplier' — Per-customer is the more reliable default
+  trendT: 4,               // default duration threshold for the trend visualization (hours)
 };
 
 const fmt = {
@@ -28,6 +30,15 @@ const fmt = {
   num1: d3.format(',.1f'),
   num2: d3.format(',.2f'),
   num3: d3.format(',.3f'),
+};
+
+// Trend color palette — diverging, colorblind-friendly (ColorBrewer RdYlBu).
+// Used for the "Outage trend" map color mode and the detail-panel sparkline.
+const trendColors = {
+  worsening: '#d73027',           // strong red
+  stable: '#bbbbbb',              // neutral gray
+  improving: '#4575b4',           // strong blue
+  insufficient_data: '#e8e8e8',   // very light gray
 };
 
 const tierColors = {
@@ -492,10 +503,12 @@ async function loadCatalog(catalogId) {
   status.style.color = '';
 
   const perCustomerUrl = perCustomerViewUrl(catalog);
-  const [drillResp, tiersResp, perCustResp] = await Promise.all([
+  const trendUrl = countyYearlyTrendUrl(catalog);
+  const [drillResp, tiersResp, perCustResp, trendResp] = await Promise.all([
     fetch(catalog.paths.drilldown, { cache: 'no-store' }),
     fetch(catalog.paths.tiers, { cache: 'no-store' }),
     perCustomerUrl ? fetch(perCustomerUrl, { cache: 'no-store' }) : Promise.resolve(null),
+    trendUrl ? fetch(trendUrl, { cache: 'no-store' }) : Promise.resolve(null),
   ]);
   if (!drillResp.ok) throw new Error(`${catalog.label}: county_drilldown.json missing — build catalogs`);
   if (!tiersResp.ok) throw new Error(`${catalog.label}: county_tiers.csv missing — build catalogs`);
@@ -505,6 +518,7 @@ async function loadCatalog(catalogId) {
   state.drilldown = await drillResp.json();
   state.tiers = parseCsv(await tiersResp.text());
   state.perCustomer = (perCustResp && perCustResp.ok) ? await perCustResp.json() : null;
+  state.trend = (trendResp && trendResp.ok) ? await trendResp.json() : null;
   state.eventEvidenceCache.clear();
 
   const nCounties = Object.keys(state.drilldown).length;
@@ -967,6 +981,16 @@ function colorFor(fips, mode) {
     if (events == null || events <= 0) return { color: tierColors.grey(), tier: 'grey' };
     return { color: eventCountScale(events), tier: d.tier };
   }
+  if (mode === 'trend') {
+    // Descriptive map view — color by 11-year yearly-event-count trend
+    // classification at state.trendT (default T=4h). Diverging palette:
+    // red = worsening, gray = stable, blue = improving, very-light gray
+    // = insufficient data. NOT used in pricing.
+    const t = trendCell(fips, state.trendT);
+    if (!t || !t.trend_class) return { color: trendColors.insufficient_data, tier: d.tier };
+    const cls = t.trend_class;
+    return { color: trendColors[cls] || trendColors.insufficient_data, tier: d.tier };
+  }
   return { color: tierColors.grey(), tier: 'grey' };
 }
 
@@ -1002,6 +1026,16 @@ function renderMapLegend(mode) {
   } else if (mode === 'events') {
     const stops = [1, 50, 200, 1000, 10000].map(v => eventCountScale(v));
     el.innerHTML = rampLegendMarkup('Historical events', '1', '10k+', stops);
+  } else if (mode === 'trend') {
+    el.innerHTML = `
+      <span class="legend-kicker">Trend · T=${state.trendT}h · 11yr</span>
+      <div class="trend-legend">
+        <div><span class="sw" style="background:${trendColors.worsening}"></span>Worsening</div>
+        <div><span class="sw" style="background:${trendColors.stable}"></span>Stable</div>
+        <div><span class="sw" style="background:${trendColors.improving}"></span>Improving</div>
+        <div><span class="sw" style="background:${trendColors.insufficient_data}"></span>Insufficient data</div>
+      </div>
+      <div class="legend-filtered legend-trend-note">Descriptive only · not a pricing input</div>`;
   }
   renderLegendPopover(mode);
 }
@@ -1478,11 +1512,30 @@ function perCustomerViewUrl(catalog) {
   return drillPath.replace(/county_drilldown\.json$/, 'per_customer_view.json');
 }
 
+function countyYearlyTrendUrl(catalog) {
+  // Sibling URL for the descriptive county-yearly-trend view.
+  // Mirrored into the catalog pricing folder by compute_yearly_trend.py.
+  const drillPath = catalog?.paths?.drilldown;
+  if (!drillPath) return null;
+  return drillPath.replace(/county_drilldown\.json$/, 'county_yearly_trend.json');
+}
+
 function perCustomerCell(fips, T) {
   // Returns {lambda_county, multiplier_mean, multiplier_median, multiplier_max,
   //          lambda_customer_mean, ..., coverage_gate_status, coverage_gate_reason}
   // or null if the per-customer view is unavailable or the cell is missing.
   const view = state.perCustomer?.view;
+  if (!view) return null;
+  const perFips = view[String(fips)];
+  if (!perFips) return null;
+  return perFips[String(T)] || null;
+}
+
+function trendCell(fips, T) {
+  // Returns {years, yearly_counts, slope_events_per_year, sigma, t_stat,
+  //          trend_class, first5_mean, last5_mean, pct_change_first5_last5}
+  // or null if the trend view is unavailable or the cell is missing.
+  const view = state.trend?.view;
   if (!view) return null;
   const perFips = view[String(fips)];
   if (!perFips) return null;
@@ -1764,7 +1817,7 @@ function openDrilldown(fips, T, X, opts = {}) {
   // Panel B
   const qual = Math.round(sT * d.n_events_total);
   const multBlock = (pcCell && gateStatus !== 'not_available')
-    ? `<dt>Cust. impact multiplier · mean</dt><dd>${fmt.pct4(pcCell.multiplier_mean)} <span class="muted">· median ${fmt.pct4(pcCell.multiplier_median)} · max ${fmt.pct4(pcCell.multiplier_max)}</span></dd>`
+    ? `<dt>Cust. impact multiplier · mean</dt><dd>${fmt.pct4(pcCell.multiplier_mean)} <span class="muted" title="median = median across qualifying events of (mean_customers/MCC) — robust outlier-resistant version of the headline. max = mean across events of (max_customers/MCC) — peakedness stress test. Both are sensitivities, not the quoted price.">· median ${fmt.pct4(pcCell.multiplier_median)} · max ${fmt.pct4(pcCell.multiplier_max)}</span></dd>`
     : '';
   document.getElementById('panelB').innerHTML = `
     <dt>Historical events</dt><dd>${fmt.num(d.n_events_total)}</dd>
@@ -1905,6 +1958,9 @@ function openDrilldown(fips, T, X, opts = {}) {
     document.getElementById('panelD').innerHTML = '<li class="warn"><span></span><span><div class="d-label">No tier diagnostics</div></span><span></span></li>';
   }
 
+  // Panel E — Outage trend (descriptive layer)
+  renderTrendBlock(fips, T);
+
   // mark that drill-down has data so future switchView calls show the grid
   if (state.drilldown[fips]) state.drilldown[fips].lastCell = { T, X };
   switchView('drilldown', { push: false });
@@ -1912,6 +1968,135 @@ function openDrilldown(fips, T, X, opts = {}) {
 }
 function tierFromCls(c) { return c === 'pass' ? 'green' : c === 'warn' ? 'amber' : 'red'; }
 function tierClassFromStr(c) { return tierFromCls(c); }
+
+// ============================================================
+// Outage trend — Panel E
+// Descriptive layer. NOT a pricing input. Renders the per-county yearly
+// event-count trend at the requested T, with a regression line, ±1σ
+// band, and a categorical class chip.
+// ============================================================
+function renderTrendBlock(fips, T) {
+  const el = document.getElementById('panelE');
+  if (!el) return;
+
+  const t = trendCell(fips, T);
+  if (!t) {
+    el.innerHTML = '<div class="trend-empty">Trend data not loaded for this catalog.</div>';
+    return;
+  }
+  if (t.trend_class === 'insufficient_data') {
+    el.innerHTML = `<div class="trend-empty">Insufficient history at T=${T}h (fewer than 10 qualifying events in 2015-2025). Trend cannot be credibly fit.</div>`;
+    return;
+  }
+
+  const slope = t.slope_events_per_year;
+  const sigma = t.sigma;
+  const tstat = t.t_stat;
+  const cls = t.trend_class;
+  const pctChange = t.pct_change_first5_last5;
+  const years = t.years;
+  const counts = t.yearly_counts;
+
+  const trendLabel =
+    cls === 'worsening' ? '↗ Worsening' :
+    cls === 'improving' ? '↘ Improving' :
+    '→ Stable';
+
+  const sparkSvg = renderTrendSparkline(years, counts, slope, t.intercept, sigma);
+
+  const slopeText = slope != null
+    ? `<strong>${slope >= 0 ? '+' : ''}${slope.toFixed(2)}</strong> events/yr/yr`
+    : '—';
+  const sigmaText = (sigma != null && tstat != null)
+    ? `<span class="muted">(±${sigma.toFixed(2)}, t=${tstat.toFixed(2)})</span>`
+    : '';
+  const pctText = (pctChange != null)
+    ? `<span class="trend-pct-change">${pctChange >= 0 ? '+' : ''}${(pctChange * 100).toFixed(1)}% · last-5 vs first-5</span>`
+    : '';
+
+  el.innerHTML = `
+    <div class="trend-row">
+      <span class="trend-class trend-${cls}">${trendLabel}</span>
+      <span class="trend-slope">${slopeText} ${sigmaText}</span>
+      ${pctText}
+      <span class="trend-meta-tail muted">T=${T}h · ${years[0]}-${years[years.length - 1]} · 11-yr window</span>
+    </div>
+    ${sparkSvg}
+    <div class="trend-disclaimer">
+      <strong>Descriptive only.</strong> This trend is not a pricing input. It is the upstream data foundation for the forward-regime modifiers (grid_condition, hazard, weather), which will activate only after backtest evidence supports it. Note: part of the upward signal across counties may reflect EAGLE-I coverage improving over the years rather than actual outage rates rising — read the <button class="mode-note-link" type="button" data-library-section="outage-trend">outage-trend methodology →</button> for caveats.
+    </div>
+  `;
+}
+
+function renderTrendSparkline(years, counts, slope, intercept, sigma) {
+  // Compact, theme-aware SVG sparkline with regression line and ±1σ
+  // band overlaid on the raw yearly counts. Uses CSS variables for
+  // theming. The band is drawn as a parallelogram around the regression
+  // line, using sigma scaled to y-units approximated by sigma·(n/2).
+  const W = 520;
+  const H = 130;
+  const padL = 42;
+  const padR = 14;
+  const padT = 14;
+  const padB = 26;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+
+  if (!years || years.length === 0) return '';
+  const xMin = years[0];
+  const xMax = years[years.length - 1];
+  const xSpan = Math.max(1, xMax - xMin);
+  const maxCount = Math.max(...counts, 1);
+  const yMax = Math.max(1, Math.ceil(maxCount * 1.15));
+  const yMin = 0;
+
+  const xToPx = (x) => padL + ((x - xMin) / xSpan) * innerW;
+  const yToPx = (y) => padT + innerH - ((y - yMin) / (yMax - yMin)) * innerH;
+
+  const lineY1 = (intercept ?? 0) + (slope ?? 0) * xMin;
+  const lineY2 = (intercept ?? 0) + (slope ?? 0) * xMax;
+
+  // ±1σ band — sigma is the slope's std error, multiplied by ((n-1)/2)
+  // to scale into y-units for the visual band envelope.
+  let bandPath = '';
+  if (sigma != null && sigma > 0 && years.length > 2) {
+    const half = (xMax - xMin) / 2;
+    const sigY = sigma * half;
+    bandPath = `M ${xToPx(xMin)} ${yToPx(lineY1 + sigY)}
+                L ${xToPx(xMax)} ${yToPx(lineY2 + sigY)}
+                L ${xToPx(xMax)} ${yToPx(lineY2 - sigY)}
+                L ${xToPx(xMin)} ${yToPx(lineY1 - sigY)} Z`;
+  }
+
+  const dataPath = counts.map((c, i) =>
+    `${i === 0 ? 'M' : 'L'} ${xToPx(years[i]).toFixed(1)} ${yToPx(c).toFixed(1)}`
+  ).join(' ');
+
+  const dots = counts.map((c, i) =>
+    `<circle cx="${xToPx(years[i]).toFixed(1)}" cy="${yToPx(c).toFixed(1)}" r="3" class="trend-dot" />`
+  ).join('');
+
+  const xMid = Math.round((xMin + xMax) / 2);
+
+  return `
+    <div class="trend-spark">
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Outage trend over the 11-year window">
+        <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + innerH}" class="trend-axis" />
+        <line x1="${padL}" y1="${padT + innerH}" x2="${padL + innerW}" y2="${padT + innerH}" class="trend-axis" />
+        ${bandPath ? `<path d="${bandPath}" class="trend-sigma-band" />` : ''}
+        <line x1="${xToPx(xMin)}" y1="${yToPx(lineY1)}" x2="${xToPx(xMax)}" y2="${yToPx(lineY2)}" class="trend-regression-line" />
+        <path d="${dataPath}" class="trend-data-line" fill="none" />
+        ${dots}
+        <text x="${xToPx(xMin)}" y="${padT + innerH + 16}" class="trend-axis-label">${xMin}</text>
+        <text x="${xToPx(xMid)}" y="${padT + innerH + 16}" class="trend-axis-label trend-axis-label-mid" text-anchor="middle">${xMid}</text>
+        <text x="${xToPx(xMax)}" y="${padT + innerH + 16}" class="trend-axis-label trend-axis-label-end" text-anchor="end">${xMax}</text>
+        <text x="${padL - 6}" y="${padT + 10}" class="trend-axis-label trend-axis-label-y" text-anchor="end">${yMax}</text>
+        <text x="${padL - 6}" y="${padT + innerH + 2}" class="trend-axis-label trend-axis-label-y" text-anchor="end">0</text>
+        <text x="6" y="${padT + innerH / 2 + 4}" class="trend-axis-label trend-y-unit" text-anchor="start">events/yr</text>
+      </svg>
+    </div>
+  `;
+}
 
 // ============ ONBOARDING WIRES ============
 function wireOnboarding() {
@@ -1981,6 +2166,10 @@ const LIBRARY_SECTIONS = {
   'competitive-landscape': {
     title: 'Competitive landscape',
     path: './methodology/competitive_landscape.md',
+  },
+  'outage-trend': {
+    title: 'Outage trend — descriptive layer',
+    path: './methodology/fundamentals/outage_trend_fundamentals.md',
   },
 };
 
@@ -2083,6 +2272,7 @@ function rewriteLibraryMarkdownLinks(html) {
     'per_customer_view_walkthrough.md': 'per-customer-walkthrough',
     'roadmap.md': 'roadmap',
     'competitive_landscape.md': 'competitive-landscape',
+    'outage_trend_fundamentals.md': 'outage-trend',
   };
   return html.replace(/<a\s+href="([^"]+)"([^>]*)>/g, (match, href, attrs) => {
     if (/^https?:/i.test(href)) {
