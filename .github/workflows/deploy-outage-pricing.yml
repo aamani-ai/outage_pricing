@@ -26,24 +26,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve methodology symlink to a real copy
-        # The dashboard references docs/methodology/ via a symlink at
-        # price_engine/dashboard/methodology -> ../../docs/methodology. When
-        # `pack build` is invoked with --path price_engine/, the symlink
-        # target lives outside the build path. Replace the symlink with a
-        # real directory copy so the bundle is self-contained inside the
+      - name: Resolve docs symlinks to real copies
+        # The dashboard references docs/methodology/ and docs/plan/ via
+        # symlinks at price_engine/dashboard/{methodology,plan} which point
+        # outside the price_engine/ build path. When `pack build` is invoked
+        # with --path price_engine/, those symlink targets are not reachable
+        # from inside the build context. Replace each symlink with a real
+        # directory copy so the bundle is self-contained inside the
         # container image.
         run: |
           set -eu
-          if [ -L "${APP_PATH}/dashboard/methodology" ]; then
-            echo "Symlink detected; replacing with real copy from docs/methodology/"
-            rm "${APP_PATH}/dashboard/methodology"
-            cp -r docs/methodology "${APP_PATH}/dashboard/methodology"
-            ls -la "${APP_PATH}/dashboard/methodology/" | head -10
-          else
-            echo "No symlink at ${APP_PATH}/dashboard/methodology — assuming pre-resolved real directory."
-            ls -la "${APP_PATH}/dashboard/" | grep methodology || true
-          fi
+          for link_name in methodology plan; do
+            target_dir="${APP_PATH}/dashboard/${link_name}"
+            source_dir="docs/${link_name}"
+            if [ -L "${target_dir}" ]; then
+              echo "Symlink detected at ${target_dir}; replacing with real copy from ${source_dir}/"
+              rm "${target_dir}"
+              cp -r "${source_dir}" "${target_dir}"
+              ls -la "${target_dir}/" | head -10
+            elif [ -d "${target_dir}" ]; then
+              echo "Real directory already present at ${target_dir} — leaving as-is."
+            else
+              echo "No symlink or directory at ${target_dir} — skipping."
+            fi
+          done
 
       - name: Authenticate to Google Cloud
         uses: 'google-github-actions/auth@v3'
