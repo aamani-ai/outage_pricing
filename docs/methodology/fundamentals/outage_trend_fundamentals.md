@@ -79,6 +79,39 @@ Then:
 5. **It is descriptive, not prescriptive.** A "worsening" classification does NOT mean the county should be repriced upward. v0 pricing remains the full 11-year empirical baseline; the trend is informational evidence for *future* modifier work, not a pricing input.
 6. **MCC and per-customer caveats inherit.** The trend uses raw event counts, not per-customer counts, so the MCC-vintage and "customer unit varies by utility" caveats from EAGLE-I propagate forward into any future modifier built on top of the trend.
 
+## How to read the map view (the asymmetric-confound insight)
+
+When you pick "Outage trend · 11yr · T=4h (descriptive)" in the dashboard's **color by** dropdown, you'll see most of the CONUS painted red. **Do not interpret this as "the US grid is collapsing."** Three causes can each produce that red, and only two of them are real signal:
+
+| Cause | Affects red (worsening)? | Affects blue (improving)? |
+|---|---|---|
+| **Real climate worsening** (more storms, wildfire, heat) | ✅ can produce red | ✅ can mask blue |
+| **Real grid stress** (aging infra, demand growth) | ✅ can produce red | ✅ can mask blue |
+| **EAGLE-I coverage drift** (more utilities reporting now than in 2015) | ✅ can produce red | ❌ **cannot produce blue** |
+
+That last row is the load-bearing insight: **coverage drift only *adds* detected events over time.** It physically cannot manufacture a downward annual-event-count trend. So:
+
+> **Blue is reliable. Red is ambiguous.**
+
+A county can only land in the **improving** class if its annual event count actually went DOWN over the window — and that's a result coverage drift can't produce. Counties showing blue (PNW pockets near Seattle/Portland, NYC area, parts of New England, Imperial Valley CA, some Florida pockets) are **likely-real grid improvements** net of any coverage-drift confound.
+
+Counties showing **red** could be real climate / grid trend, could be coverage drift, or both. We cannot separate from EAGLE-I alone — see the [Outage Trend Validation Plan](../../plan/outage_trend_validation_plan.md) for the tracked work to do that separation.
+
+### Geographic patterns worth noting (descriptive, not actionable)
+
+- **Storm corridor (FL, TX, NC, LA, GA, SC)** — heavy red. Real-climate + coverage-drift probably both contributing. Hurricane Ian (FL 2022), Helene (NC/FL 2024), Beryl (TX 2024) all sit inside the window.
+- **Pacific Northwest** — heavy red with blue pockets around Seattle/Portland. Wildfire + PSPS plausibly the real driver.
+- **California** — mostly red, but Imperial Valley + parts of LA basin show notable blue clusters. PSPS adds complexity here.
+- **Northeast** — mixed. Blue clusters near NYC and parts of New England suggest real grid hardening / undergrounding.
+- **Rural Midwest** — stable patches alongside red. Less utility-coverage drift expected here, so the red that does show up is *more likely* real signal.
+
+### How to read this WITH a senior team or partner present
+
+1. **Lead with "blue is reliable, red is ambiguous"** — sets the right interpretive frame immediately.
+2. **Point at a specific blue county in their territory** (if any) — *"we can credibly say this county got better."* Concrete, defensible.
+3. **Acknowledge the red is suggestive** — *"across the country event counts are up; we cannot from this view alone separate climate from coverage drift; that's the next analysis."*
+4. **Anchor on the methodology limitation** — the trend is descriptive only and does NOT flow into pricing in v0. Pricing remains the full 11-year empirical baseline.
+
 ## Why this matters anyway
 
 Three concrete reasons we surface it even with the coverage-drift caveat:

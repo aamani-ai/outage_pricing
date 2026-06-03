@@ -2171,6 +2171,10 @@ const LIBRARY_SECTIONS = {
     title: 'Outage trend — descriptive layer',
     path: './methodology/fundamentals/outage_trend_fundamentals.md',
   },
+  'outage-trend-validation': {
+    title: 'Outage trend — validation plan',
+    path: './plan/outage_trend_validation_plan.md',
+  },
 };
 
 const libraryState = {
@@ -2273,6 +2277,7 @@ function rewriteLibraryMarkdownLinks(html) {
     'roadmap.md': 'roadmap',
     'competitive_landscape.md': 'competitive-landscape',
     'outage_trend_fundamentals.md': 'outage-trend',
+    'outage_trend_validation_plan.md': 'outage-trend-validation',
   };
   return html.replace(/<a\s+href="([^"]+)"([^>]*)>/g, (match, href, attrs) => {
     if (/^https?:/i.test(href)) {

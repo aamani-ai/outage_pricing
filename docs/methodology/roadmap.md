@@ -154,8 +154,19 @@ encodes the *sequence* in which the team works.
   ~early-window levels to ~92% by 2022) rather than real grid degradation.
   A coverage-stable subset backtest is the first thing to do before the
   trend is allowed into any pricing modifier.
+- **Asymmetric-confound principle:** coverage drift can only ADD
+  detected events over time, never subtract — so the "improving" (blue)
+  class is reliable while the "worsening" (red) class is ambiguous.
+  This shapes how the map should be read (see the methodology doc) and
+  how the validation work is sequenced (the improving class is the
+  cleanest signal to anchor on).
 - **Methodology:** [`fundamentals/outage_trend_fundamentals.md`](fundamentals/outage_trend_fundamentals.md).
   Schema: [`curated_outage_data/schemas/county_yearly_trend.md`](../../curated_outage_data/schemas/county_yearly_trend.md).
+- **Validation plan:** [`docs/plan/outage_trend_validation_plan.md`](../plan/outage_trend_validation_plan.md)
+  tracks five tracks for separating real signal from coverage drift
+  (coverage-stable subset · NOAA storm overlay · cross-T consistency ·
+  utility disaggregation · PoUS cross-check) with an explicit activation
+  gate before the trend can graduate into a pricing input.
 - **Unlocks:** the data substrate for the three planned forward-regime
   modifiers below.
 
