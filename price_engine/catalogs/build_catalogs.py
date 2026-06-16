@@ -79,6 +79,9 @@ def catalog_paths(catalog_id: str) -> dict[str, Path]:
         "premiums": root / "pricing" / "county_premiums.csv",
         "drilldown": root / "pricing" / "county_drilldown.json",
         "event_evidence": root / "pricing" / "event_evidence",
+        "yearly_trend": root / "pricing" / "county_yearly_trend.json",
+        "predictability": root / "pricing" / "county_predictability.json",
+        "lambda_shadow": root / "pricing" / "county_lambda_shadow.json",
         "catalog": root / "catalog.json",
     }
 
@@ -141,6 +144,24 @@ def build_catalog(spec: CatalogSpec, downstream_only: bool = False) -> dict:
         "--out-evidence-dir",
         str(paths["event_evidence"]),
     ])
+    run([
+        py,
+        "../curated_outage_data/pipelines/county_trend/compute_yearly_trend.py",
+        "--catalogs",
+        spec.id,
+    ])
+    run([
+        py,
+        "../curated_outage_data/pipelines/county_predictability/compute_county_predictability.py",
+        "--catalogs",
+        spec.id,
+    ])
+    run([
+        py,
+        "../curated_outage_data/pipelines/county_lambda_shadow/compute_county_lambda_shadow.py",
+        "--catalogs",
+        spec.id,
+    ])
 
     return write_catalog_json(spec)
 
@@ -182,6 +203,9 @@ def write_catalog_json(spec: CatalogSpec) -> dict:
             "drilldown": f"../catalogs/{spec.id}/pricing/county_drilldown.json",
             "tiers": f"../catalogs/{spec.id}/filtration/county_tiers.csv",
             "event_evidence": f"../catalogs/{spec.id}/pricing/event_evidence",
+            "yearly_trend": f"../catalogs/{spec.id}/pricing/county_yearly_trend.json",
+            "predictability": f"../catalogs/{spec.id}/pricing/county_predictability.json",
+            "lambda_shadow": f"../catalogs/{spec.id}/pricing/county_lambda_shadow.json",
             "events_meta": f"../catalogs/{spec.id}/data/events_meta.json",
             "annualization_meta": f"../catalogs/{spec.id}/data/annualization_meta.json",
             "catalog": f"../catalogs/{spec.id}/catalog.json",

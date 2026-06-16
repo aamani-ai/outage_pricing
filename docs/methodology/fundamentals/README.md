@@ -9,6 +9,8 @@ Short, self-contained explainers for non-implementers. Each is ~1.5–2 pages, w
 3. **[County-Trigger Pricing (v0)](county_trigger_pricing_fundamentals.md)** — the baseline pricing formula. The Alachua λ = 307.148490 anchor. The six things v0 explicitly does NOT do.
 4. **[Per-Customer Pricing](per_customer_pricing_fundamentals.md)** — the headline rate. Why it's 30–100× smaller than v0. The single load-bearing assumption ([A011](../assumptions.md)).
 5. **[Outage Trend (Descriptive)](outage_trend_fundamentals.md)** — per-county 11-year yearly-event-count slope. The data foundation for future forward-regime modifiers (grid_condition, hazard, weather). NOT a pricing input.
+6. **[Outage Predictability Pattern](outage_predictability_fundamentals.md)** — transparent labels for whether the simple annual trend line is usable, noisy, episodic, sparse, or better read as a step change. Descriptive layer.
+7. **[Lambda Shadow Pricing](lambda_shadow_pricing_fundamentals.md)** — candidate lambda and premium-pressure read if the trend/pattern layer were activated after validation. Shadow pricing, not active v0.
 
 ## How to use these
 

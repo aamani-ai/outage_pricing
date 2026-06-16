@@ -3,6 +3,12 @@
 const T_GRID = [2, 4, 8, 12, 24];
 const X_GRID = [500, 1000, 2500, 5000, 10000];
 
+const TREND_BANDS = [
+  { key: 'p10p90', label: 'P10-P90', z: 1.2815515655446004 },
+  { key: 'p5p95', label: 'P5-P95', z: 1.6448536269514722 },
+  { key: 'p1p99', label: 'P1-P99', z: 2.5758293035489004 },
+];
+
 const state = {
   manifest: null,
   catalogId: null,
@@ -16,8 +22,14 @@ const state = {
   eventEvidenceCache: new Map(),
   perCustomer: null,       // {meta: {...}, view: {fips_str: {T_str: {...}}}}
   trend: null,             // {meta: {...}, view: {fips_str: {T_str: {...}}}} — county yearly trend (descriptive, not pricing)
+  predictability: null,     // {meta, summary, view} — pattern/predictability descriptive layer
+  lambdaShadow: null,       // {meta, summary, view} — candidate lambda shadow-pricing layer
   matrixView: 'customer', // 'county' | 'customer' | 'multiplier' — Per-customer is the more reliable default
   trendT: 4,               // default duration threshold for the trend visualization (hours)
+  trendBand: 'p10p90',      // residual prediction band for descriptive outlier marking
+  mapTrendFips: null,
+  mapTrendPanelManual: false,
+  mapTrendPanelPos: null,
 };
 
 const fmt = {
@@ -39,6 +51,16 @@ const trendColors = {
   stable: '#bbbbbb',              // neutral gray
   improving: '#4575b4',           // strong blue
   insufficient_data: '#e8e8e8',   // very light gray
+};
+
+const patternColors = {
+  smooth_trend: '#2a9d8f',
+  stable_regular: '#8ab17d',
+  stable_noisy: '#b8b7a3',
+  volatile_trend: '#e9c46a',
+  step_change: '#f4a261',
+  episodic: '#e76f51',
+  sparse: '#e8e8e8',
 };
 
 const tierColors = {
@@ -250,6 +272,8 @@ async function boot() {
   renderEvidenceHeader();
   wireTabs();
   wireMatrixControls();
+  wireTrendThresholdControls();
+  wireTrendBandControls();
   wireSearch();
   wireInlineInfo();
   wireLegendInfo();
@@ -519,7 +543,12 @@ async function loadCatalog(catalogId) {
   state.tiers = parseCsv(await tiersResp.text());
   state.perCustomer = (perCustResp && perCustResp.ok) ? await perCustResp.json() : null;
   state.trend = (trendResp && trendResp.ok) ? await trendResp.json() : null;
+  state.predictability = null;
+  state.lambdaShadow = null;
   state.eventEvidenceCache.clear();
+  state.mapTrendFips = null;
+  syncTrendThresholdControls();
+  syncTrendBandControls();
 
   const nCounties = Object.keys(state.drilldown).length;
   status.textContent = `${fmt.num(nCounties)} counties · ${catalog.short_label || catalog.label}`;
@@ -527,6 +556,50 @@ async function loadCatalog(catalogId) {
   populateSidebar();
   renderSearchResults();
   refreshMapColors();
+  loadPredictabilityLayer(catalog);
+  loadLambdaShadowLayer(catalog);
+}
+
+async function loadPredictabilityLayer(catalog) {
+  const predictabilityUrl = countyPredictabilityUrl(catalog);
+  if (!predictabilityUrl) return;
+
+  const catalogId = catalog.id;
+  try {
+    const resp = await fetch(predictabilityUrl, { cache: 'no-store' });
+    if (!resp.ok) return;
+    const payload = await resp.json();
+    if (state.catalogId !== catalogId) return;
+
+    state.predictability = payload;
+    if (document.getElementById('mapColorBy')?.value === 'pattern') refreshMapColors();
+    if (state.mapTrendFips) renderMapTrendPanel(state.mapTrendFips, null, { force: true });
+    if (state.selectedFips && state.view === 'matrix') renderMatrixTrend(state.selectedFips);
+    if (state.selectedFips && state.view === 'drilldown') renderTrendBlock(state.selectedFips, state.trendT, 'panelE');
+  } catch (err) {
+    console.warn(`${catalog.label}: county_predictability.json failed`, err);
+  }
+}
+
+async function loadLambdaShadowLayer(catalog) {
+  const lambdaShadowUrl = countyLambdaShadowUrl(catalog);
+  if (!lambdaShadowUrl) return;
+
+  const catalogId = catalog.id;
+  try {
+    const resp = await fetch(lambdaShadowUrl, { cache: 'no-store' });
+    if (!resp.ok) return;
+    const payload = await resp.json();
+    if (state.catalogId !== catalogId) return;
+
+    state.lambdaShadow = payload;
+    if (document.getElementById('mapColorBy')?.value === 'shadow') refreshMapColors();
+    if (state.mapTrendFips) renderMapTrendPanel(state.mapTrendFips, null, { force: true });
+    if (state.selectedFips && state.view === 'matrix') renderMatrixTrend(state.selectedFips);
+    if (state.selectedFips && state.view === 'drilldown') renderTrendBlock(state.selectedFips, state.trendT, 'panelE');
+  } catch (err) {
+    console.warn(`${catalog.label}: county_lambda_shadow.json failed`, err);
+  }
 }
 
 function wireCatalogSelect() {
@@ -991,6 +1064,17 @@ function colorFor(fips, mode) {
     const cls = t.trend_class;
     return { color: trendColors[cls] || trendColors.insufficient_data, tier: d.tier };
   }
+  if (mode === 'pattern') {
+    const p = predictabilityCell(fips, state.trendT);
+    if (!p || !p.pattern_group) return { color: patternColors.sparse, tier: d.tier };
+    return { color: patternColors[p.pattern_group] || patternColors.sparse, tier: d.tier };
+  }
+  if (mode === 'shadow') {
+    const s = lambdaShadowCell(fips, state.trendT);
+    const factor = s?.adjustment_factor;
+    if (factor == null) return { color: tierColors.grey(), tier: d.tier };
+    return { color: lambdaShadowFactorScale(factor), tier: d.tier };
+  }
   return { color: tierColors.grey(), tier: 'grey' };
 }
 
@@ -998,6 +1082,10 @@ function colorFor(fips, mode) {
 const lambdaScale = d3.scaleSequential(d3.interpolateYlOrRd).domain([0, 50]).clamp(true);
 const premiumScale = d3.scaleSequentialLog(d3.interpolateYlOrRd).domain([500, 50000]).clamp(true);
 const eventCountScale = d3.scaleSequentialLog(d3.interpolateYlGnBu).domain([1, 10000]).clamp(true);
+const lambdaShadowFactorScale = d3.scaleLinear()
+  .domain([0.75, 1.0, 2.0])
+  .range(['#4575b4', '#f7f7f7', '#d73027'])
+  .clamp(true);
 
 function refreshMapColors() {
   if (!state.countiesGeo) return;
@@ -1035,7 +1123,27 @@ function renderMapLegend(mode) {
         <div><span class="sw" style="background:${trendColors.improving}"></span>Improving</div>
         <div><span class="sw" style="background:${trendColors.insufficient_data}"></span>Insufficient data</div>
       </div>
-      <div class="legend-filtered legend-trend-note">Descriptive only · not a pricing input</div>`;
+      <div class="legend-filtered legend-trend-note">Descriptive signal · feeds shadow λ</div>`;
+  } else if (mode === 'pattern') {
+    el.innerHTML = `
+      <span class="legend-kicker">Pattern · T=${state.trendT}h · 11yr</span>
+      <div class="trend-legend pattern-legend">
+        <div><span class="sw" style="background:${patternColors.smooth_trend}"></span>Smooth trend</div>
+        <div><span class="sw" style="background:${patternColors.step_change}"></span>Step-change</div>
+        <div><span class="sw" style="background:${patternColors.volatile_trend}"></span>Volatile trend</div>
+        <div><span class="sw" style="background:${patternColors.episodic}"></span>Episodic</div>
+        <div><span class="sw" style="background:${patternColors.stable_regular}"></span>Stable regular</div>
+        <div><span class="sw" style="background:${patternColors.sparse}"></span>Sparse</div>
+      </div>
+      <div class="legend-filtered legend-trend-note">Linear-trend usability · feeds shadow λ</div>`;
+  } else if (mode === 'shadow') {
+    const stops = [0.75, 0.9, 1.0, 1.25, 2.0].map(v => lambdaShadowFactorScale(v));
+    el.innerHTML = `
+      <span class="legend-kicker">Shadow λ factor · T=${state.trendT}h</span>
+      <span>0.75x</span>
+      <div class="ramp" style="background:linear-gradient(to right,${stops.join(',')})"></div>
+      <span>2.0x+</span>
+      <div class="legend-filtered legend-trend-note">Candidate price pressure · not active v0</div>`;
   }
   renderLegendPopover(mode);
 }
@@ -1063,6 +1171,58 @@ function legendMetricRows(rows) {
   `;
 }
 
+function patternImpactRows() {
+  const rows = [
+    [
+      'Smooth trend',
+      'Direction is clear and residual noise is low.',
+      'Candidate rule: blend λ toward the fitted trend. Worsening raises premium pressure; improving allows a guarded discount.',
+    ],
+    [
+      'Step-change',
+      'The 11-year history looks like an early/late regime shift.',
+      'Candidate rule: use recent-regime λ instead of trusting the full-period average. Up shifts raise; down shifts are capped.',
+    ],
+    [
+      'Volatile trend',
+      'Direction exists, but residual noise, outliers, or weak fit makes the line less reliable.',
+      'Candidate rule: light λ blend only, plus review. Noisy improving gets only a small capped discount; noisy worsening gets modest uplift.',
+    ],
+    [
+      'Episodic',
+      'One or two years dominate the history.',
+      'Candidate rule: do not trend-adjust λ yet. Keep average and route to hazard/storm context or uncertainty-load review.',
+    ],
+    [
+      'Stable regular/noisy',
+      'Flat direction, split by year-to-year residual noise.',
+      'Candidate rule: stable regular keeps λ_v0. Stable noisy keeps λ_v0 but flags confidence/uncertainty-load review.',
+    ],
+    [
+      'Sparse',
+      'Too few qualifying events for a stable pattern label.',
+      'Candidate rule: no trend adjustment. Use v0 modelability, credibility fallback, or no-quote gate.',
+    ],
+  ];
+
+  return `
+    <div class="pattern-impact-list">
+      <div class="pattern-impact-head">
+        <span>Pattern</span>
+        <span>Data signal</span>
+        <span>Pricing read</span>
+      </div>
+      ${rows.map(row => `
+        <div>
+          <strong>${row[0]}</strong>
+          <span>${row[1]}</span>
+          <span>${row[2]}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
 function renderLegendPopover(mode) {
   const pop = document.getElementById('legendPopover');
   const btn = document.getElementById('legendInfo');
@@ -1073,6 +1233,9 @@ function renderLegendPopover(mode) {
     lambda: 'Explain annual trigger-rate layer',
     retail: 'Explain retail premium layer',
     events: 'Explain event evidence layer',
+    trend: 'Explain outage trend layer',
+    pattern: 'Explain predictability pattern layer',
+    shadow: 'Explain shadow lambda adjustment layer',
   };
   if (btn) btn.setAttribute('aria-label', labels[mode] || 'Explain map layer');
 
@@ -1126,6 +1289,38 @@ function renderLegendPopover(mode) {
         ['For a specific T', 'Qualifying event count at that T also matters; this map is the national overview layer.'],
       ])}
       <p class="pop-note">Grey still means hidden by filters, missing engine record, or not evaluated in v0.</p>
+    `;
+  } else if (mode === 'trend') {
+    pop.innerHTML = `
+      <div class="pop-title">Annual outage trend</div>
+      <p class="pop-lede">Colors show the 2015-2025 trend class for annual qualifying outage counts at <strong>T = ${state.trendT}h</strong>. Change <strong>trend T</strong> in the toolbar to inspect another threshold.</p>
+      ${legendMetricRows([
+        ['Worsening', 'Fitted slope is meaningfully positive under the current descriptive t-stat gate.'],
+        ['Stable', 'Fitted slope is within the noise band.'],
+        ['Improving', 'Fitted slope is meaningfully negative.'],
+        ['Insufficient', 'Fewer than 10 qualifying events in the 11-year trend window; raw annual counts may still be visible in the county panel.'],
+      ])}
+      <p class="pop-note">This does not mutate active v0 premiums. It feeds the shadow λ layer, where trend/pattern evidence becomes an auditable candidate pricing move after validation.</p>
+    `;
+  } else if (mode === 'pattern') {
+    pop.innerHTML = `
+      <div class="pop-title">Predictability pattern</div>
+      <p class="pop-lede">Colors show how usable the simple annual trend line looks for each county at <strong>T = ${state.trendT}h</strong>. This separates direction from reliability.</p>
+      ${patternImpactRows()}
+      <p class="pop-note"><strong>Pricing handoff:</strong> this pattern does not directly mutate v0. It selects the candidate lambda rule shown in the shadow λ layer: keep average, blend toward trend, use recent regime, or require review. <button class="mode-note-link" type="button" data-library-section="outage-predictability">Read pattern methodology →</button></p>
+    `;
+  } else if (mode === 'shadow') {
+    pop.innerHTML = `
+      <div class="pop-title">Shadow λ adjustment</div>
+      <p class="pop-lede">Colors show the candidate lambda factor at <strong>T = ${state.trendT}h</strong> if the trend/pattern rules were activated after validation. Red means upward premium pressure; blue means guarded downward pressure.</p>
+      ${legendMetricRows([
+        ['Factor', 'lambda_candidate / lambda_v0. Premium moves by the same percentage because premium is linear in lambda.'],
+        ['Upward pressure', 'Smooth worsening, step-change up, or volatile worsening can blend v0 lambda upward.'],
+        ['Downward pressure', 'Smooth improving or step-change down can blend down, but discounts are capped.'],
+        ['No movement', 'Stable regular, episodic, sparse, and noisy cases generally keep lambda_v0 and move to review/load logic.'],
+        ['Boundary', 'This is a shadow-pricing diagnostic. The premium matrix remains active v0 unless this method is backtested and promoted.'],
+      ])}
+      <p class="pop-note">Use this layer to find where current historical-average pricing may be stale, not as a final price filing rule. <button class="mode-note-link" type="button" data-library-section="lambda-shadow-pricing">Read shadow-pricing methodology →</button></p>
     `;
   }
 }
@@ -1214,6 +1409,12 @@ function wireMapFilters() {
 let hoverFips = null;
 function wireMapHover() {
   const tip = document.getElementById('hoverTip');
+  const stage = document.querySelector('.map-stage');
+  if (stage) {
+    stage.addEventListener('mouseleave', clearMapTrendPanel);
+  }
+  window.addEventListener('resize', clampOpenMapTrendPanel);
+
   map.on('mousemove', 'counties-fill', (e) => {
     const f = e.features[0];
     const fips = String(f.id);
@@ -1242,6 +1443,7 @@ function wireMapHover() {
     tip.style.left = (e.originalEvent.clientX + 14) + 'px';
     tip.style.top  = (e.originalEvent.clientY + 14) + 'px';
     tip.classList.remove('hidden');
+    renderMapTrendPanel(fips, e.originalEvent);
   });
   map.on('mouseleave', 'counties-fill', () => {
     if (hoverFips != null) map.setFeatureState({ source: 'counties', id: hoverFips }, { hover: false });
@@ -1254,8 +1456,165 @@ function wireMapHover() {
 function wireMapClick() {
   map.on('click', 'counties-fill', (e) => {
     const fips = String(e.features[0].id);
-    if (state.drilldown[fips]) openMatrix(fips);
+    if (state.drilldown[fips]) {
+      renderMapTrendPanel(fips, e.originalEvent, { force: true });
+      openMatrix(fips);
+    }
   });
+}
+
+function renderMapTrendPanel(fips, anchorEvent = null, opts = {}) {
+  const panel = document.getElementById('mapTrendPanel');
+  const d = state.drilldown?.[fips];
+  if (!panel || !d) return;
+
+  state.mapTrendFips = String(fips);
+  const wasHidden = panel.hidden;
+  panel.hidden = false;
+
+  const shouldRender =
+    opts.force ||
+    panel.dataset.fips !== String(fips) ||
+    panel.dataset.trendT !== String(state.trendT) ||
+    panel.dataset.trendBand !== state.trendBand;
+
+  if (shouldRender) {
+    panel.dataset.fips = String(fips);
+    panel.dataset.trendT = String(state.trendT);
+    panel.dataset.trendBand = state.trendBand;
+    panel.innerHTML = `
+      <div class="map-trend-head">
+        <div class="map-trend-title">
+          <div class="map-trend-eyebrow">Annual outage series</div>
+          <strong>${escapeHtml(d.county)}, ${escapeHtml(d.state)}</strong>
+          <span>FIPS ${escapeHtml(String(fips))} · T=${state.trendT}h</span>
+        </div>
+        <div class="map-trend-actions">
+          <span class="tip-tier ${d.tier}">${escapeHtml(d.tier)}</span>
+          <button class="map-trend-close" type="button" aria-label="Close annual outage series">×</button>
+        </div>
+      </div>
+      <div class="trend-block map-trend-block" id="mapTrendBlock"></div>
+    `;
+    panel.querySelector('.map-trend-close')?.addEventListener('click', clearMapTrendPanel);
+    wireMapTrendPanelDrag(panel);
+    renderTrendBlock(fips, state.trendT, 'mapTrendBlock', {
+      compact: true,
+      showDisclaimer: false,
+      emptyPrefix: `${d.county}, ${d.state}`,
+    });
+  }
+
+  if (state.mapTrendPanelManual) {
+    positionMapTrendPanel();
+  } else if (wasHidden || shouldRender || opts.reposition) {
+    positionMapTrendPanel(anchorEvent);
+  }
+}
+
+function clampMapTrendPanelPosition(panel, left, top) {
+  const stage = document.querySelector('.map-stage');
+  if (!stage || !panel) return { left: 0, top: 0 };
+  const margin = 12;
+  const maxLeft = Math.max(margin, stage.clientWidth - panel.offsetWidth - margin);
+  const maxTop = Math.max(margin, stage.clientHeight - panel.offsetHeight - margin);
+  return {
+    left: Math.min(Math.max(margin, left), maxLeft),
+    top: Math.min(Math.max(margin, top), maxTop),
+  };
+}
+
+function setMapTrendPanelPosition(panel, left, top) {
+  const pos = clampMapTrendPanelPosition(panel, left, top);
+  panel.classList.add('is-floating');
+  panel.style.left = `${pos.left}px`;
+  panel.style.top = `${pos.top}px`;
+  panel.style.right = 'auto';
+  panel.style.bottom = 'auto';
+  state.mapTrendPanelPos = pos;
+}
+
+function positionMapTrendPanel(anchorEvent = null) {
+  const panel = document.getElementById('mapTrendPanel');
+  const stage = document.querySelector('.map-stage');
+  if (!panel || !stage || panel.hidden) return;
+
+  if (state.mapTrendPanelManual && state.mapTrendPanelPos) {
+    setMapTrendPanelPosition(panel, state.mapTrendPanelPos.left, state.mapTrendPanelPos.top);
+    return;
+  }
+
+  const stageRect = stage.getBoundingClientRect();
+  const gap = 18;
+  const anchorX = anchorEvent ? anchorEvent.clientX - stageRect.left : stage.clientWidth - gap;
+  const anchorY = anchorEvent ? anchorEvent.clientY - stageRect.top : stage.clientHeight - gap;
+  const placeLeft = anchorX > stage.clientWidth * 0.58;
+  const placeAbove = anchorY > stage.clientHeight * 0.56;
+  const desiredLeft = placeLeft ? anchorX - panel.offsetWidth - gap : anchorX + gap;
+  const desiredTop = placeAbove ? anchorY - panel.offsetHeight - gap : anchorY + gap;
+  setMapTrendPanelPosition(panel, desiredLeft, desiredTop);
+}
+
+function clampOpenMapTrendPanel() {
+  const panel = document.getElementById('mapTrendPanel');
+  if (!panel || panel.hidden || !state.mapTrendPanelPos) return;
+  setMapTrendPanelPosition(panel, state.mapTrendPanelPos.left, state.mapTrendPanelPos.top);
+}
+
+function wireMapTrendPanelDrag(panel) {
+  const handle = panel.querySelector('.map-trend-head');
+  if (!handle) return;
+
+  handle.addEventListener('pointerdown', event => {
+    if (event.target.closest('button, a, select, input')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const panelRect = panel.getBoundingClientRect();
+    const stage = document.querySelector('.map-stage');
+    if (!stage) return;
+
+    const stageRect = stage.getBoundingClientRect();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startLeft = panelRect.left - stageRect.left;
+    const startTop = panelRect.top - stageRect.top;
+    state.mapTrendPanelManual = true;
+    panel.classList.add('is-dragging');
+    handle.setPointerCapture?.(event.pointerId);
+
+    const onMove = moveEvent => {
+      setMapTrendPanelPosition(
+        panel,
+        startLeft + moveEvent.clientX - startX,
+        startTop + moveEvent.clientY - startY
+      );
+    };
+    const onUp = () => {
+      panel.classList.remove('is-dragging');
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+  });
+}
+
+function clearMapTrendPanel() {
+  const panel = document.getElementById('mapTrendPanel');
+  if (!panel) return;
+  state.mapTrendFips = null;
+  state.mapTrendPanelManual = false;
+  state.mapTrendPanelPos = null;
+  panel.hidden = true;
+  panel.classList.remove('is-floating', 'is-dragging');
+  panel.removeAttribute('style');
+  delete panel.dataset.fips;
+  delete panel.dataset.trendT;
+  delete panel.dataset.trendBand;
+  panel.innerHTML = '<div class="map-trend-empty">Hover a county to inspect annual qualifying outage counts.</div>';
 }
 
 // ============ MATRIX ============
@@ -1482,6 +1841,7 @@ function renderMatrix(fips) {
 
   renderMatrixLegend();
   syncMatrixViewSeg();
+  renderMatrixTrend(fips);
 
   // defer chart rendering one frame to ensure containers have non-zero width
   requestAnimationFrame(() => {
@@ -1490,6 +1850,18 @@ function renderMatrix(fips) {
   });
   renderEventEvidence(fips);
   updateCrumbs();
+}
+
+function renderMatrixTrend(fips) {
+  const d = state.drilldown?.[fips];
+  const sub = document.getElementById('matrixTrendSub');
+  if (sub && d) {
+    sub.textContent = `${d.county}, ${d.state} · qualifying events by calendar year at T=${state.trendT}h`;
+  }
+  renderTrendBlock(fips, state.trendT, 'matrixTrendBlock', {
+    showDisclaimer: false,
+    emptyPrefix: d ? `${d.county}, ${d.state}` : 'Selected county',
+  });
 }
 
 function eventEvidenceBasePath() {
@@ -1515,9 +1887,24 @@ function perCustomerViewUrl(catalog) {
 function countyYearlyTrendUrl(catalog) {
   // Sibling URL for the descriptive county-yearly-trend view.
   // Mirrored into the catalog pricing folder by compute_yearly_trend.py.
+  if (catalog?.paths?.yearly_trend) return catalog.paths.yearly_trend;
   const drillPath = catalog?.paths?.drilldown;
   if (!drillPath) return null;
   return drillPath.replace(/county_drilldown\.json$/, 'county_yearly_trend.json');
+}
+
+function countyPredictabilityUrl(catalog) {
+  if (catalog?.paths?.predictability) return catalog.paths.predictability;
+  const drillPath = catalog?.paths?.drilldown;
+  if (!drillPath) return null;
+  return drillPath.replace(/county_drilldown\.json$/, 'county_predictability.json');
+}
+
+function countyLambdaShadowUrl(catalog) {
+  if (catalog?.paths?.lambda_shadow) return catalog.paths.lambda_shadow;
+  const drillPath = catalog?.paths?.drilldown;
+  if (!drillPath) return null;
+  return drillPath.replace(/county_drilldown\.json$/, 'county_lambda_shadow.json');
 }
 
 function perCustomerCell(fips, T) {
@@ -1540,6 +1927,126 @@ function trendCell(fips, T) {
   const perFips = view[String(fips)];
   if (!perFips) return null;
   return perFips[String(T)] || null;
+}
+
+function predictabilityCell(fips, T) {
+  const view = state.predictability?.view;
+  if (!view) return null;
+  const perFips = view[String(fips)];
+  if (!perFips) return null;
+  return perFips[String(T)] || null;
+}
+
+function predictabilitySummary(fips) {
+  return state.predictability?.summary?.[String(fips)] || null;
+}
+
+function lambdaShadowCell(fips, T) {
+  const view = state.lambdaShadow?.view;
+  if (!view) return null;
+  const perFips = view[String(fips)];
+  if (!perFips) return null;
+  return perFips[String(T)] || null;
+}
+
+function lambdaShadowSummary(fips) {
+  return state.lambdaShadow?.summary?.[String(fips)] || null;
+}
+
+function availableTrendThresholds() {
+  const grid = state.trend?.meta?.T_grid;
+  return Array.isArray(grid) && grid.length ? grid : T_GRID;
+}
+
+function trendThresholdOptionsMarkup(selected = state.trendT) {
+  return availableTrendThresholds().map(T =>
+    `<option value="${T}"${Number(T) === Number(selected) ? ' selected' : ''}>${T}h</option>`
+  ).join('');
+}
+
+function syncTrendThresholdControls() {
+  const options = trendThresholdOptionsMarkup(state.trendT);
+  ['trendThreshold', 'matrixTrendThreshold', 'drillTrendThreshold'].forEach(id => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    select.innerHTML = options;
+    select.value = String(state.trendT);
+  });
+
+  const trendOption = document.querySelector('#mapColorBy option[value="trend"]');
+  if (trendOption) {
+    trendOption.textContent = `Outage trend · 11yr · T=${state.trendT}h (descriptive)`;
+  }
+  const patternOption = document.querySelector('#mapColorBy option[value="pattern"]');
+  if (patternOption) {
+    patternOption.textContent = `Predictability pattern · T=${state.trendT}h (descriptive)`;
+  }
+  const shadowOption = document.querySelector('#mapColorBy option[value="shadow"]');
+  if (shadowOption) {
+    shadowOption.textContent = `Shadow λ adjustment · T=${state.trendT}h`;
+  }
+}
+
+function setTrendThreshold(T) {
+  const next = Number(T);
+  if (!availableTrendThresholds().includes(next)) return;
+  state.trendT = next;
+  syncTrendThresholdControls();
+  refreshMapColors();
+
+  if (state.mapTrendFips) renderMapTrendPanel(state.mapTrendFips);
+  if (state.selectedFips && state.view === 'matrix') renderMatrixTrend(state.selectedFips);
+  if (state.selectedFips && state.view === 'drilldown') renderTrendBlock(state.selectedFips, state.trendT, 'panelE');
+}
+
+function wireTrendThresholdControls() {
+  ['trendThreshold', 'matrixTrendThreshold', 'drillTrendThreshold'].forEach(id => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    select.addEventListener('change', () => setTrendThreshold(select.value));
+  });
+  syncTrendThresholdControls();
+}
+
+function trendBandConfig(key = state.trendBand) {
+  return TREND_BANDS.find(b => b.key === key) || TREND_BANDS[0];
+}
+
+function trendBandOptionsMarkup(selected = state.trendBand) {
+  return TREND_BANDS.map(b =>
+    `<option value="${b.key}"${b.key === selected ? ' selected' : ''}>${b.label}</option>`
+  ).join('');
+}
+
+function syncTrendBandControls() {
+  const cfg = trendBandConfig();
+  state.trendBand = cfg.key;
+  const options = trendBandOptionsMarkup(cfg.key);
+  ['trendBand', 'matrixTrendBand', 'drillTrendBand'].forEach(id => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    select.innerHTML = options;
+    select.value = cfg.key;
+  });
+}
+
+function setTrendBand(key) {
+  const cfg = trendBandConfig(key);
+  state.trendBand = cfg.key;
+  syncTrendBandControls();
+
+  if (state.mapTrendFips) renderMapTrendPanel(state.mapTrendFips);
+  if (state.selectedFips && state.view === 'matrix') renderMatrixTrend(state.selectedFips);
+  if (state.selectedFips && state.view === 'drilldown') renderTrendBlock(state.selectedFips, state.trendT, 'panelE');
+}
+
+function wireTrendBandControls() {
+  ['trendBand', 'matrixTrendBand', 'drillTrendBand'].forEach(id => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    select.addEventListener('change', () => setTrendBand(select.value));
+  });
+  syncTrendBandControls();
 }
 
 async function loadEventEvidence(fips) {
@@ -1958,8 +2465,12 @@ function openDrilldown(fips, T, X, opts = {}) {
     document.getElementById('panelD').innerHTML = '<li class="warn"><span></span><span><div class="d-label">No tier diagnostics</div></span><span></span></li>';
   }
 
-  // Panel E — Outage trend (descriptive layer)
-  renderTrendBlock(fips, T);
+  // Panel E — Outage trend (descriptive layer). Align with the clicked
+  // contract threshold, then keep the selector live for sensitivity checks.
+  state.trendT = T;
+  syncTrendThresholdControls();
+  refreshMapColors();
+  renderTrendBlock(fips, state.trendT, 'panelE');
 
   // mark that drill-down has data so future switchView calls show the grid
   if (state.drilldown[fips]) state.drilldown[fips].lastCell = { T, X };
@@ -1972,20 +2483,183 @@ function tierClassFromStr(c) { return tierFromCls(c); }
 // ============================================================
 // Outage trend — Panel E
 // Descriptive layer. NOT a pricing input. Renders the per-county yearly
-// event-count trend at the requested T, with a regression line, ±1σ
-// band, and a categorical class chip.
+// event-count trend at the requested T, with a regression line, residual
+// percentile band, outlier markers, and a categorical class chip.
 // ============================================================
-function renderTrendBlock(fips, T) {
-  const el = document.getElementById('panelE');
+function patternLabelText(label) {
+  const labels = {
+    smooth_worsening: 'Smooth worsening',
+    volatile_worsening: 'Volatile worsening',
+    step_change_up: 'Step-change up',
+    smooth_improving: 'Smooth improving',
+    volatile_improving: 'Volatile improving',
+    step_change_down: 'Step-change down',
+    stable_predictable: 'Stable regular',
+    stable_noisy: 'Stable noisy',
+    episodic_spiky: 'Episodic / spiky',
+    sparse_low_history: 'Sparse history',
+  };
+  return labels[label] || label || 'No pattern';
+}
+
+function patternGroupText(group) {
+  const labels = {
+    smooth_trend: 'smooth trend',
+    volatile_trend: 'volatile trend',
+    step_change: 'step-change',
+    episodic: 'episodic',
+    stable_regular: 'stable regular',
+    stable_noisy: 'stable noisy',
+    sparse: 'sparse',
+  };
+  return labels[group] || group || 'pattern';
+}
+
+function fmtPct0(value) {
+  return value == null ? '—' : `${(value * 100).toFixed(0)}%`;
+}
+
+function fmtPct1(value) {
+  return value == null ? '—' : `${(value * 100).toFixed(1)}%`;
+}
+
+function fmtLambda(value) {
+  return value == null ? '—' : `${fmt.num2(value)}/yr`;
+}
+
+function fmtSignedPct0(value) {
+  if (value == null) return '—';
+  const pct = value * 100;
+  return `${pct >= 0 ? '+' : ''}${pct.toFixed(0)}%`;
+}
+
+function pricingActionText(action) {
+  const labels = {
+    keep_v0_average: 'keep v0 average',
+    trend_blend_up: 'blend up to trend',
+    trend_blend_down_guarded: 'guarded trend discount',
+    recent_regime_up: 'use recent regime',
+    recent_regime_down_guarded: 'guarded recent-regime discount',
+    light_trend_blend_up_review: 'light upward blend + review',
+    light_trend_blend_down_review: 'light downward blend + review',
+    keep_v0_average_uncertainty_review: 'keep average + uncertainty review',
+    hazard_context_required: 'hazard context required',
+    no_trend_adjustment_sparse: 'no trend adjustment',
+    missing_v0_lambda: 'missing v0 lambda',
+  };
+  return labels[action] || action || 'shadow read';
+}
+
+function renderShadowPricingImpact(fips, T, opts = {}) {
+  const s = lambdaShadowCell(fips, T);
+  if (!s) return '';
+  const compact = opts.compact ? ' shadow-impact-compact' : '';
+  const factor = s.adjustment_factor;
+  const delta = s.adjustment_pct;
+  const factorText = factor == null ? '—' : `${fmt.num2(factor)}x`;
+  const deltaText = fmtSignedPct0(delta);
+  const retailDelta = s.retail_delta_x2500;
+  const retailText = retailDelta == null ? '—' : `${retailDelta >= 0 ? '+' : ''}${fmt.money(retailDelta)}`;
+  const cap = s.cap_applied ? ' · capped' : '';
+  const loadHint = s.uncertainty_load_hint_pct ? ` · load hint ${fmtPct0(s.uncertainty_load_hint_pct)}` : '';
+  const reason = s.reason || 'Shadow pricing reason unavailable.';
+
+  return `
+    <div class="shadow-impact${compact}">
+      <div class="shadow-impact-head">
+        <span>Shadow pricing impact</span>
+        <strong>${escapeHtml(deltaText)}</strong>
+      </div>
+      <div class="shadow-impact-grid">
+        <div><span>λ v0</span><strong>${fmtLambda(s.lambda_v0)}</strong></div>
+        <div><span>λ candidate</span><strong>${fmtLambda(s.lambda_candidate)}</strong></div>
+        <div><span>Factor</span><strong>${escapeHtml(factorText)}</strong></div>
+        <div><span>$2.5k retail Δ</span><strong>${escapeHtml(retailText)}</strong></div>
+      </div>
+      <div class="shadow-impact-action">
+        <strong>${escapeHtml(pricingActionText(s.pricing_action))}</strong>
+        <span>${escapeHtml(s.confidence || 'unknown')} confidence${cap}${loadHint}</span>
+      </div>
+      <div class="shadow-impact-note">${escapeHtml(reason)}</div>
+    </div>
+  `;
+}
+
+function renderPredictabilityBlock(fips, T, opts = {}) {
+  const p = predictabilityCell(fips, T);
+  if (!p) return '';
+  const summary = predictabilitySummary(fips);
+  const shadowSummary = lambdaShadowSummary(fips);
+  const compact = opts.compact ? ' pattern-summary-compact' : '';
+  const group = p.pattern_group || 'sparse';
+  const score = p.predictability_score == null ? '—' : `${Math.round(p.predictability_score)}/100`;
+  const rating = p.predictability_rating || 'unknown';
+  const crossT = summary
+    ? `${summary.predictable_threshold_count || 0}/${summary.sufficient_thresholds || 0} usable T · ${fmtPct0(summary.trend_consistency_score)} trend consistency`
+    : 'cross-T summary unavailable';
+  const shadowCrossT = shadowSummary
+    ? `${shadowSummary.adjusted_threshold_count || 0} adjusted T · max ${shadowSummary.max_adjustment_factor == null ? '—' : `${fmt.num2(shadowSummary.max_adjustment_factor)}x`}`
+    : 'shadow summary unavailable';
+  return `
+    <div class="pattern-summary${compact}">
+      <div class="pattern-summary-main">
+        <span class="pattern-chip pattern-${group}">${escapeHtml(patternLabelText(p.pattern_label))}</span>
+        <strong>${escapeHtml(score)}</strong>
+        <span>${escapeHtml(rating)} linear usability</span>
+      </div>
+      <div class="pattern-summary-grid">
+        <div><span>Residual CV</span><strong>${p.residual_cv == null ? '—' : fmt.num2(p.residual_cv)}</strong></div>
+        <div><span>Outliers</span><strong>${p.outlier_count_p10p90 ?? '—'}</strong></div>
+        <div><span>Peak share</span><strong>${fmtPct0(p.peak_share_total)}</strong></div>
+        <div><span>Cross-T</span><strong>${escapeHtml(crossT)}</strong></div>
+      </div>
+      ${renderShadowPricingImpact(fips, T, opts)}
+      <div class="pattern-summary-note">
+        ${escapeHtml(patternGroupText(group))} · shadow summary: ${escapeHtml(shadowCrossT)}
+      </div>
+    </div>
+  `;
+}
+
+function trendResidualBand(years, counts, slope, intercept, bandKey = state.trendBand) {
+  const hasFit = slope != null && intercept != null && Array.isArray(years) && years.length > 2;
+  if (!hasFit || !Array.isArray(counts) || counts.length !== years.length) {
+    return { hasBand: false, config: trendBandConfig(bandKey), points: [], outlierCount: 0 };
+  }
+
+  const config = trendBandConfig(bandKey);
+  const points = years.map((year, i) => {
+    const count = +counts[i] || 0;
+    const fitted = intercept + slope * year;
+    return { year, count, fitted, residual: count - fitted };
+  });
+  const rss = points.reduce((acc, p) => acc + p.residual * p.residual, 0);
+  const residualSigma = Math.sqrt(rss / Math.max(1, points.length - 2));
+  if (!Number.isFinite(residualSigma) || residualSigma <= 0) {
+    return { hasBand: false, config, points, outlierCount: 0 };
+  }
+
+  const offset = config.z * residualSigma;
+  let outlierCount = 0;
+  points.forEach(p => {
+    p.lower = p.fitted - offset;
+    p.upper = p.fitted + offset;
+    p.isOutlier = p.count < p.lower || p.count > p.upper;
+    if (p.isOutlier) outlierCount += 1;
+  });
+
+  return { hasBand: true, config, points, residualSigma, offset, outlierCount };
+}
+
+function renderTrendBlock(fips, T, targetId = 'panelE', opts = {}) {
+  const el = document.getElementById(targetId);
   if (!el) return;
 
   const t = trendCell(fips, T);
+  const d = state.drilldown?.[fips];
+  const countyLabel = opts.emptyPrefix || (d ? `${d.county}, ${d.state}` : 'Selected county');
   if (!t) {
-    el.innerHTML = '<div class="trend-empty">Trend data not loaded for this catalog.</div>';
-    return;
-  }
-  if (t.trend_class === 'insufficient_data') {
-    el.innerHTML = `<div class="trend-empty">Insufficient history at T=${T}h (fewer than 10 qualifying events in 2015-2025). Trend cannot be credibly fit.</div>`;
+    el.innerHTML = `<div class="trend-empty">${escapeHtml(countyLabel)} has no annual series loaded for T=${T}h in this catalog.</div>`;
     return;
   }
 
@@ -1996,43 +2670,103 @@ function renderTrendBlock(fips, T) {
   const pctChange = t.pct_change_first5_last5;
   const years = t.years;
   const counts = t.yearly_counts;
+  const total = t.total_events_in_window ?? counts.reduce((acc, c) => acc + (+c || 0), 0);
+  const compactClass = opts.compact ? ' trend-compact' : '';
+  const band = trendResidualBand(years, counts, slope, t.intercept, state.trendBand);
 
   const trendLabel =
     cls === 'worsening' ? '↗ Worsening' :
     cls === 'improving' ? '↘ Improving' :
+    cls === 'insufficient_data' ? 'Insufficient' :
     '→ Stable';
 
-  const sparkSvg = renderTrendSparkline(years, counts, slope, t.intercept, sigma);
+  const sparkSvg = renderTrendSparkline(years, counts, slope, t.intercept, band, cls);
 
   const slopeText = slope != null
     ? `<strong>${slope >= 0 ? '+' : ''}${slope.toFixed(2)}</strong> events/yr/yr`
     : '—';
   const sigmaText = (sigma != null && tstat != null)
-    ? `<span class="muted">(±${sigma.toFixed(2)}, t=${tstat.toFixed(2)})</span>`
+    ? `<span class="muted">(slope se ±${sigma.toFixed(2)}, t=${tstat.toFixed(2)})</span>`
     : '';
   const pctText = (pctChange != null)
     ? `<span class="trend-pct-change">${pctChange >= 0 ? '+' : ''}${(pctChange * 100).toFixed(1)}% · last-5 vs first-5</span>`
     : '';
+  const bandText = band.hasBand
+    ? `<span class="trend-band-label">${band.config.label} residual band · ${band.outlierCount} outlier${band.outlierCount === 1 ? '' : 's'}</span>`
+    : '';
+  const first5 = t.first5_mean == null ? '—' : fmt.num1(t.first5_mean);
+  const last5 = t.last5_mean == null ? '—' : fmt.num1(t.last5_mean);
+  const fitNote = cls === 'insufficient_data'
+    ? `<span class="trend-fit-note">Fewer than 10 qualifying events in the 2015-2025 window. Raw annual counts are shown; fitted slope is suppressed.</span>`
+    : '';
+  const disclaimer = opts.showDisclaimer === false ? '' : `
+    <div class="trend-disclaimer">
+      <strong>Shadow-pricing boundary.</strong> This trend does not mutate active v0 premiums. It feeds the candidate shadow λ layer, which can be promoted only after backtest evidence supports activation. Note: part of the upward signal across counties may reflect EAGLE-I coverage improving over the years rather than actual outage rates rising — read the <button class="mode-note-link" type="button" data-library-section="outage-trend">outage-trend methodology →</button> for caveats.
+    </div>
+  `;
 
   el.innerHTML = `
-    <div class="trend-row">
+    <div class="trend-row${compactClass}">
       <span class="trend-class trend-${cls}">${trendLabel}</span>
       <span class="trend-slope">${slopeText} ${sigmaText}</span>
       ${pctText}
+      ${bandText}
       <span class="trend-meta-tail muted">T=${T}h · ${years[0]}-${years[years.length - 1]} · 11-yr window</span>
     </div>
+    <div class="trend-stat-strip">
+      <div><span>Total</span><strong>${fmt.num(total)}</strong></div>
+      <div><span>First 5yr avg</span><strong>${first5}</strong></div>
+      <div><span>Last 5yr avg</span><strong>${last5}</strong></div>
+      <div><span>Peak year</span><strong>${trendPeakLabel(years, counts)}</strong></div>
+    </div>
+    ${renderPredictabilityBlock(fips, T, opts)}
     ${sparkSvg}
-    <div class="trend-disclaimer">
-      <strong>Descriptive only.</strong> This trend is not a pricing input. It is the upstream data foundation for the forward-regime modifiers (grid_condition, hazard, weather), which will activate only after backtest evidence supports it. Note: part of the upward signal across counties may reflect EAGLE-I coverage improving over the years rather than actual outage rates rising — read the <button class="mode-note-link" type="button" data-library-section="outage-trend">outage-trend methodology →</button> for caveats.
+    ${renderTrendYearGrid(years, counts, band)}
+    ${fitNote}
+    ${disclaimer}
+  `;
+}
+
+function trendPeakLabel(years, counts) {
+  if (!years?.length || !counts?.length) return '—';
+  let maxIdx = 0;
+  for (let i = 1; i < counts.length; i += 1) {
+    if ((+counts[i] || 0) > (+counts[maxIdx] || 0)) maxIdx = i;
+  }
+  return `${years[maxIdx]} · ${fmt.num(+counts[maxIdx] || 0)}`;
+}
+
+function renderTrendYearGrid(years, counts, band = null) {
+  if (!years?.length || !counts?.length) return '';
+  const maxCount = Math.max(...counts.map(c => +c || 0), 1);
+  const outlierYears = new Set((band?.points || []).filter(p => p.isOutlier).map(p => p.year));
+  return `
+    <div class="trend-year-grid" aria-label="Annual qualifying event counts">
+      ${years.map((year, i) => {
+        const count = +counts[i] || 0;
+        const pct = Math.max(4, (count / maxCount) * 100);
+        const isOutlier = outlierYears.has(year);
+        return `
+          <div class="trend-year-cell${isOutlier ? ' trend-year-outlier' : ''}">
+            <span>${year}</span>
+            <strong>${fmt.num(count)}</strong>
+            <i style="height:${pct.toFixed(1)}%"></i>
+          </div>
+        `;
+      }).join('')}
     </div>
   `;
 }
 
-function renderTrendSparkline(years, counts, slope, intercept, sigma) {
-  // Compact, theme-aware SVG sparkline with regression line and ±1σ
-  // band overlaid on the raw yearly counts. Uses CSS variables for
-  // theming. The band is drawn as a parallelogram around the regression
-  // line, using sigma scaled to y-units approximated by sigma·(n/2).
+function trendBandFill(cls) {
+  if (cls === 'improving') return 'rgba(69, 117, 180, 0.10)';
+  if (cls === 'stable') return 'rgba(120, 120, 120, 0.10)';
+  return 'rgba(215, 48, 39, 0.10)';
+}
+
+function renderTrendSparkline(years, counts, slope, intercept, band = null, cls = 'worsening') {
+  // Compact, theme-aware SVG sparkline with regression line and a residual
+  // prediction band overlaid on the raw yearly counts.
   const W = 520;
   const H = 130;
   const padL = 42;
@@ -2047,34 +2781,41 @@ function renderTrendSparkline(years, counts, slope, intercept, sigma) {
   const xMax = years[years.length - 1];
   const xSpan = Math.max(1, xMax - xMin);
   const maxCount = Math.max(...counts, 1);
-  const yMax = Math.max(1, Math.ceil(maxCount * 1.15));
+  const bandUpperMax = band?.hasBand
+    ? Math.max(...band.points.map(p => Number.isFinite(p.upper) ? p.upper : 0))
+    : 0;
+  const yMax = Math.max(1, Math.ceil(Math.max(maxCount, bandUpperMax) * 1.15));
   const yMin = 0;
+  const hasFit = slope != null && intercept != null;
 
   const xToPx = (x) => padL + ((x - xMin) / xSpan) * innerW;
   const yToPx = (y) => padT + innerH - ((y - yMin) / (yMax - yMin)) * innerH;
 
-  const lineY1 = (intercept ?? 0) + (slope ?? 0) * xMin;
-  const lineY2 = (intercept ?? 0) + (slope ?? 0) * xMax;
+  const lineY1 = hasFit ? intercept + slope * xMin : null;
+  const lineY2 = hasFit ? intercept + slope * xMax : null;
 
-  // ±1σ band — sigma is the slope's std error, multiplied by ((n-1)/2)
-  // to scale into y-units for the visual band envelope.
   let bandPath = '';
-  if (sigma != null && sigma > 0 && years.length > 2) {
-    const half = (xMax - xMin) / 2;
-    const sigY = sigma * half;
-    bandPath = `M ${xToPx(xMin)} ${yToPx(lineY1 + sigY)}
-                L ${xToPx(xMax)} ${yToPx(lineY2 + sigY)}
-                L ${xToPx(xMax)} ${yToPx(lineY2 - sigY)}
-                L ${xToPx(xMin)} ${yToPx(lineY1 - sigY)} Z`;
+  if (hasFit && band?.hasBand) {
+    const first = band.points[0];
+    const last = band.points[band.points.length - 1];
+    bandPath = `M ${xToPx(first.year)} ${yToPx(Math.max(yMin, first.upper))}
+                L ${xToPx(last.year)} ${yToPx(Math.max(yMin, last.upper))}
+                L ${xToPx(last.year)} ${yToPx(Math.max(yMin, last.lower))}
+                L ${xToPx(first.year)} ${yToPx(Math.max(yMin, first.lower))} Z`;
   }
 
   const dataPath = counts.map((c, i) =>
     `${i === 0 ? 'M' : 'L'} ${xToPx(years[i]).toFixed(1)} ${yToPx(c).toFixed(1)}`
   ).join(' ');
 
-  const dots = counts.map((c, i) =>
-    `<circle cx="${xToPx(years[i]).toFixed(1)}" cy="${yToPx(c).toFixed(1)}" r="3" class="trend-dot" />`
-  ).join('');
+  const bandPointsByYear = new Map((band?.points || []).map(p => [p.year, p]));
+  const dots = counts.map((c, i) => {
+    const point = bandPointsByYear.get(years[i]);
+    const outlierTitle = point?.isOutlier
+      ? `<title>${years[i]}: ${fmt.num(+c || 0)} annual events outside ${band.config.label}</title>`
+      : '';
+    return `<circle cx="${xToPx(years[i]).toFixed(1)}" cy="${yToPx(c).toFixed(1)}" r="${point?.isOutlier ? 4.2 : 3}" class="trend-dot${point?.isOutlier ? ' trend-outlier-dot' : ''}">${outlierTitle}</circle>`;
+  }).join('');
 
   const xMid = Math.round((xMin + xMax) / 2);
 
@@ -2083,8 +2824,8 @@ function renderTrendSparkline(years, counts, slope, intercept, sigma) {
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Outage trend over the 11-year window">
         <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + innerH}" class="trend-axis" />
         <line x1="${padL}" y1="${padT + innerH}" x2="${padL + innerW}" y2="${padT + innerH}" class="trend-axis" />
-        ${bandPath ? `<path d="${bandPath}" class="trend-sigma-band" />` : ''}
-        <line x1="${xToPx(xMin)}" y1="${yToPx(lineY1)}" x2="${xToPx(xMax)}" y2="${yToPx(lineY2)}" class="trend-regression-line" />
+        ${bandPath ? `<path d="${bandPath}" class="trend-residual-band" fill="${trendBandFill(cls)}" stroke="none" />` : ''}
+        ${hasFit ? `<line x1="${xToPx(xMin)}" y1="${yToPx(lineY1)}" x2="${xToPx(xMax)}" y2="${yToPx(lineY2)}" class="trend-regression-line" />` : ''}
         <path d="${dataPath}" class="trend-data-line" fill="none" />
         ${dots}
         <text x="${xToPx(xMin)}" y="${padT + innerH + 16}" class="trend-axis-label">${xMin}</text>
@@ -2092,7 +2833,7 @@ function renderTrendSparkline(years, counts, slope, intercept, sigma) {
         <text x="${xToPx(xMax)}" y="${padT + innerH + 16}" class="trend-axis-label trend-axis-label-end" text-anchor="end">${xMax}</text>
         <text x="${padL - 6}" y="${padT + 10}" class="trend-axis-label trend-axis-label-y" text-anchor="end">${yMax}</text>
         <text x="${padL - 6}" y="${padT + innerH + 2}" class="trend-axis-label trend-axis-label-y" text-anchor="end">0</text>
-        <text x="6" y="${padT + innerH / 2 + 4}" class="trend-axis-label trend-y-unit" text-anchor="start">events/yr</text>
+        <text x="6" y="${padT + innerH / 2 + 4}" class="trend-axis-label trend-y-unit" text-anchor="start">annual events</text>
       </svg>
     </div>
   `;
@@ -2171,6 +2912,14 @@ const LIBRARY_SECTIONS = {
     title: 'Outage trend — descriptive layer',
     path: './methodology/fundamentals/outage_trend_fundamentals.md',
   },
+  'outage-predictability': {
+    title: 'Outage predictability pattern',
+    path: './methodology/fundamentals/outage_predictability_fundamentals.md',
+  },
+  'lambda-shadow-pricing': {
+    title: 'Lambda shadow pricing',
+    path: './methodology/fundamentals/lambda_shadow_pricing_fundamentals.md',
+  },
   'outage-trend-validation': {
     title: 'Outage trend — validation plan',
     path: './plan/outage_trend_validation_plan.md',
@@ -2228,6 +2977,8 @@ function renderLibraryOverview() {
     { key: 'competitive-landscape', meta: 'Strategy', desc: 'Who else is in the parametric outage segment (Adaptive / GridProtect, Whisker Labs Ting, PowerOutage.US, adjacent-vertical proof points). How we position relative to each.' },
     { key: 'per-customer-walkthrough', meta: 'Walkthrough', desc: 'End-to-end nuance-by-nuance walk through the per-customer pricing chain, with a worked Boone, MO example.' },
     { key: 'pricing', meta: 'Pipeline · pricing', desc: 'The v0 pricing math (λ(T) → Pure → Retail) plus the per-customer view evidence.' },
+    { key: 'outage-predictability', meta: 'Trend · confidence', desc: 'Pattern labels for whether a county trend is smooth, noisy, episodic, sparse, or better read as a step change.' },
+    { key: 'lambda-shadow-pricing', meta: 'Trend · shadow pricing', desc: 'Candidate λ and premium-pressure rules if trend/pattern evidence is activated after validation.' },
     { key: 'event-catalog', meta: 'Pipeline · events', desc: 'The event-construction algorithm (three knobs: threshold / gap tolerance / minimum duration).' },
     { key: 'aggregation', meta: 'Pipeline · rate', desc: 'How per-event records roll up to per-county summaries and how the annualization denominator is defined.' },
     { key: 'filtration', meta: 'Pipeline · tiers', desc: 'The five-gate Green / Amber / Red modelability classification (D1 through D5).' },
@@ -2277,6 +3028,8 @@ function rewriteLibraryMarkdownLinks(html) {
     'roadmap.md': 'roadmap',
     'competitive_landscape.md': 'competitive-landscape',
     'outage_trend_fundamentals.md': 'outage-trend',
+    'outage_predictability_fundamentals.md': 'outage-predictability',
+    'lambda_shadow_pricing_fundamentals.md': 'lambda-shadow-pricing',
     'outage_trend_validation_plan.md': 'outage-trend-validation',
   };
   return html.replace(/<a\s+href="([^"]+)"([^>]*)>/g, (match, href, attrs) => {

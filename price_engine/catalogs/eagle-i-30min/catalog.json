@@ -122,11 +122,14 @@
     "green": 952,
     "red": 68
   },
-  "generated_at": "2026-05-18T14:26:19+00:00",
+  "generated_at": "2026-06-16T21:35:02+00:00",
   "paths": {
     "drilldown": "../catalogs/eagle-i-30min/pricing/county_drilldown.json",
     "tiers": "../catalogs/eagle-i-30min/filtration/county_tiers.csv",
     "event_evidence": "../catalogs/eagle-i-30min/pricing/event_evidence",
+    "yearly_trend": "../catalogs/eagle-i-30min/pricing/county_yearly_trend.json",
+    "predictability": "../catalogs/eagle-i-30min/pricing/county_predictability.json",
+    "lambda_shadow": "../catalogs/eagle-i-30min/pricing/county_lambda_shadow.json",
     "events_meta": "../catalogs/eagle-i-30min/data/events_meta.json",
     "annualization_meta": "../catalogs/eagle-i-30min/data/annualization_meta.json",
     "catalog": "../catalogs/eagle-i-30min/catalog.json"
