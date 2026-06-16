@@ -1364,6 +1364,7 @@ function wireLegendInfo() {
 
   btn.addEventListener('click', toggle);
   pop.addEventListener('click', event => {
+    if (event.target.closest('[data-library-section]')) return;
     if (!event.target.closest('.inline-info-btn')) event.stopPropagation();
   });
   window.addEventListener('resize', positionPopover);
