@@ -12,6 +12,15 @@ Source reviewed:
 > the source of truth for the *trigger-source-implications-for-pricing*
 > reasoning; the competitive-landscape doc is the strategic /
 > market-positioning view.
+>
+> **For the full trigger-source option space** (independent premise
+> sensors, customer-authorized AMI / Green Button, connected-device
+> heartbeat, satellite night-lights, licensed aggregator, single-utility
+> pilot, multi-source consensus) evaluated on neutrality / granularity /
+> cost / basis risk, with a recommendation, see
+> [`trigger_source_options.md`](trigger_source_options.md). That doc also
+> states why a utility's own self-report is **not** a viable primary
+> trigger (neutrality + legal + scale).
 
 ## Executive Read
 

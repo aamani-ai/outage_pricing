@@ -15,7 +15,13 @@ trigger-source strategy, enriched datasets, and forward-looking modeling.
   forward-looking climate / grid / hazard modifier work.
 - [Methodology Library Plan](methodology_library_plan.md) — in-dashboard
   reading surface over `docs/methodology/`. Phases L1 + L2 closed 2026-05-30.
-- [Trigger Source Implications](trigger_source_implications.md)
+- [Trigger Source Implications](trigger_source_implications.md) — pricing-vs-trigger
+  architecture and the bridge factor.
+- [Trigger Source Options](trigger_source_options.md) — the full option space for
+  the live trigger (premise sensors, customer-authorized AMI, satellite, licensed
+  aggregator, single-utility pilot, multi-source consensus) on neutrality /
+  granularity / cost, with a recommendation; and why a utility self-report is not
+  a viable primary trigger.
 - [Enriched Event Dataset Plan](enriched_event_dataset_plan.md)
 - [Forward-Looking Modeling Plan](forward_looking_modeling_plan.md)
 - [Outage Baseline Adjustment Framework](outage_baseline_adjustment_framework.md)
