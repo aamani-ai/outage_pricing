@@ -133,6 +133,43 @@ encodes the *sequence* in which the team works.
 
 ## Forward-regime improvements
 
+### Outage trend · **shipped 2026-06-03 · descriptive**
+
+- **What it does:** computes the **11-year yearly-event-count slope** per
+  county at each duration threshold. Classifies counties as worsening /
+  stable / improving / insufficient-data using a `t_stat > 1.5` noise gate.
+  Surfaces on the dashboard as a map color mode (Outage trend · 11yr ·
+  T=4h) and as a sparkline + slope + ±1σ band in the per-county
+  detail panel.
+- **Why it matters:** the trend is the **single upstream signal** that the
+  grid_condition, hazard, and weather modifiers all need to consume —
+  "is this county changing?" Building it once and surfacing it descriptively
+  unlocks the forward-regime conversation without forcing any of those
+  modifiers to ship first.
+- **What it deliberately does NOT do:** the trend is **descriptive only**.
+  It does not enter `λ`, the per-customer multiplier, or any priced
+  quantity in v0. Pricing remains the full 11-year empirical baseline.
+- **Known confound:** part of the upward signal across counties may
+  reflect **EAGLE-I coverage drift** (utility coverage growing from
+  ~early-window levels to ~92% by 2022) rather than real grid degradation.
+  A coverage-stable subset backtest is the first thing to do before the
+  trend is allowed into any pricing modifier.
+- **Asymmetric-confound principle:** coverage drift can only ADD
+  detected events over time, never subtract — so the "improving" (blue)
+  class is reliable while the "worsening" (red) class is ambiguous.
+  This shapes how the map should be read (see the methodology doc) and
+  how the validation work is sequenced (the improving class is the
+  cleanest signal to anchor on).
+- **Methodology:** [`fundamentals/outage_trend_fundamentals.md`](fundamentals/outage_trend_fundamentals.md).
+  Schema: [`curated_outage_data/schemas/county_yearly_trend.md`](../../curated_outage_data/schemas/county_yearly_trend.md).
+- **Validation plan:** [`docs/plan/outage_trend_validation_plan.md`](../plan/outage_trend_validation_plan.md)
+  tracks five tracks for separating real signal from coverage drift
+  (coverage-stable subset · NOAA storm overlay · cross-T consistency ·
+  utility disaggregation · PoUS cross-check) with an explicit activation
+  gate before the trend can graduate into a pricing input.
+- **Unlocks:** the data substrate for the three planned forward-regime
+  modifiers below.
+
 ### Grid condition · **planned**
 
 - **What it does:** asks whether the grid serving a county appears
@@ -185,6 +222,39 @@ encodes the *sequence* in which the team works.
   all policies in that FIPS simultaneously — a real correlation
   structure that v0 ignores.
 - **Plan:** [Portfolio Risk Engine Plan](../plan/portfolio_risk_engine_plan.md).
+
+### Portfolio concentration handling · **lagged (v1)**
+
+- **What it does:** explicit treatment of the tail / variance side of
+  the portfolio story — concentration loading at point of sale,
+  reinsurance cessions, or held capital against a TVaR / OEP
+  percentile of portfolio annual loss. Sister track to *Portfolio
+  aggregation* above: aggregation handles the mean, concentration
+  handles the second moment.
+- **Why it matters:** by linearity of expectation, mean portfolio
+  loss is concentration-invariant — v0's per-policy pricing is
+  correct on the mean. Variance is not: when one county event
+  triggers all `N` policies in that FIPS jointly, portfolio
+  variance scales as `N²` (not `N`), so standard deviation scales
+  as `√N` versus the independence-implied baseline. The per-customer
+  [A011](assumptions.md#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation)
+  overestimation cushion lives on the mean and provides **zero**
+  protection against this tail blow-up.
+- **Why lagged.** At SMB scale, typical per-county policy counts are
+  1–3 — absolute tail dollars stay small. Tail risk bites first in
+  *hazard-prone* counties (hurricane belt, storm corridors, fire
+  zones) where both `p` and `N` rise together as the book scales.
+  Activation is not a chronological milestone but a **threshold on
+  policies-per-county in a hazard-tiered county** (working target:
+  any hazard-prone county with `N ≥ 10`, or any non-hazard county
+  with `N ≥ 50`).
+- **Treatment paths.** Concentration loading (easiest, internal),
+  reinsurance (externalises tail, requires market), capital reserves
+  (internalises tail, ties up balance sheet). Documented end-to-end
+  in [`concentration_and_portfolio_risk.md`](concentration_and_portfolio_risk.md).
+- **Cross-links:** [A007](assumptions.md#a007--each-policy-is-priced-standalone-no-portfolio-correlation-in-v0),
+  [`concentration_and_portfolio_risk.md`](concentration_and_portfolio_risk.md),
+  [Portfolio Risk Engine Plan](../plan/portfolio_risk_engine_plan.md).
 
 ---
 

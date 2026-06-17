@@ -25,6 +25,8 @@ price_engine/catalogs/*/data/*.json
 price_engine/catalogs/*/filtration/*.csv
 price_engine/catalogs/*/pricing/*.csv
 price_engine/catalogs/*/pricing/*.json
+!price_engine/catalogs/*/pricing/county_predictability.json
+!price_engine/catalogs/*/pricing/county_lambda_shadow.json
 price_engine/catalogs/*/pricing/event_evidence/
 
 # Curated outage data local source downloads and generated artifacts.

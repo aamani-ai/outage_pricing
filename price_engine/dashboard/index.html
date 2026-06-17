@@ -13,7 +13,7 @@
   changes so soft-refresh always pulls the matching pair. Prevents the
   HTML/CSS/JS mismatch that has caused two "dashboard not loading" incidents.
 -->
-<link rel="stylesheet" href="./styles.css?v=20260531-1" />
+<link rel="stylesheet" href="./styles.css?v=20260616-11" />
 <link rel="icon" type="image/svg+xml" href="./assets/brand/outsure-favicon.svg" />
 </head>
 <body>
@@ -142,7 +142,7 @@
   <section id="view-map" class="view active">
     <div class="intro-banner" id="introBanner">
       <div class="intro-text">
-        <strong>Per-county parametric outage premiums.</strong>
+        <strong>Per-county outage risk and pricing.</strong>
         <span>Hover any county for stats. Click a county — or use search at left — to open its premium matrix and full drill-down.</span>
       </div>
       <button class="intro-dismiss" id="introDismiss" aria-label="Dismiss">×</button>
@@ -161,9 +161,30 @@
         <label>color by</label>
         <select id="mapColorBy">
           <option value="tier">Tier</option>
-          <option value="lambda">λ at T=8h (events/yr)</option>
+          <option value="lambda" selected>λ at T=8h (events/yr)</option>
           <option value="retail">Retail premium · T=8h · X=$2,500</option>
           <option value="events">Event evidence · total events</option>
+          <option value="trend">Outage trend · 11yr · T=4h (descriptive)</option>
+          <option value="pattern">Predictability pattern · T=4h (descriptive)</option>
+          <option value="shadow">Shadow λ adjustment · T=4h</option>
+        </select>
+      </div>
+      <div class="field trend-threshold-field">
+        <label>trend T</label>
+        <select id="trendThreshold" aria-label="Outage trend threshold">
+          <option value="2">2h</option>
+          <option value="4" selected>4h</option>
+          <option value="8">8h</option>
+          <option value="12">12h</option>
+          <option value="24">24h</option>
+        </select>
+      </div>
+      <div class="field trend-band-field">
+        <label>band</label>
+        <select id="trendBand" aria-label="Outage trend residual band">
+          <option value="p10p90" selected>P10-P90</option>
+          <option value="p5p95">P5-P95</option>
+          <option value="p1p99">P1-P99</option>
         </select>
       </div>
       <div class="spacer"></div>
@@ -173,7 +194,12 @@
         <div id="legendPopover" class="legend-popover" hidden></div>
       </div>
     </div>
-    <div id="map"></div>
+    <div class="map-stage">
+      <div id="map"></div>
+      <aside id="mapTrendPanel" class="map-trend-panel" aria-live="polite" hidden>
+        <div class="map-trend-empty">Hover a county to inspect annual qualifying outage counts.</div>
+      </aside>
+    </div>
     <div id="hoverTip" class="tip hidden"></div>
   </section>
 
@@ -252,6 +278,36 @@
           </div>
         </div>
         <div id="survChart" class="chart"></div>
+      </div>
+
+      <div class="card annual-trend-card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title-sm">Annual outage series</h3>
+            <div class="card-sub" id="matrixTrendSub">Qualifying events by calendar year</div>
+          </div>
+          <div class="trend-controls">
+            <label class="ctl ctl-inline">
+              <span>T</span>
+              <select id="matrixTrendThreshold" aria-label="Matrix annual outage threshold">
+                <option value="2">2h</option>
+                <option value="4" selected>4h</option>
+                <option value="8">8h</option>
+                <option value="12">12h</option>
+                <option value="24">24h</option>
+              </select>
+            </label>
+            <label class="ctl ctl-inline">
+              <span>Band</span>
+              <select id="matrixTrendBand" aria-label="Matrix annual outage residual band">
+                <option value="p10p90" selected>P10-P90</option>
+                <option value="p5p95">P5-P95</option>
+                <option value="p1p99">P1-P99</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="trend-block" id="matrixTrendBlock"></div>
       </div>
 
       <div class="card event-card">
@@ -341,11 +397,41 @@
 
       <div class="card span-2">
         <div class="card-header">
-          <h3 class="card-title-sm">D · Why this tier?</h3>
+          <h3 class="card-title-sm">D · Outage trend <span class="card-title-sub">11-year window · shadow-pricing signal</span></h3>
+          <div class="trend-controls">
+            <label class="ctl ctl-inline">
+              <span>T</span>
+              <select id="drillTrendThreshold" aria-label="Drill-down outage trend threshold">
+                <option value="2">2h</option>
+                <option value="4" selected>4h</option>
+                <option value="8">8h</option>
+                <option value="12">12h</option>
+                <option value="24">24h</option>
+              </select>
+            </label>
+            <label class="ctl ctl-inline">
+              <span>Band</span>
+              <select id="drillTrendBand" aria-label="Drill-down outage residual band">
+                <option value="p10p90" selected>P10-P90</option>
+                <option value="p5p95">P5-P95</option>
+                <option value="p1p99">P1-P99</option>
+              </select>
+            </label>
+          </div>
         </div>
-        <ul class="diag" id="panelD"></ul>
-        <div class="future-dims" id="panelFutureDims"></div>
+        <div class="trend-block" id="panelE"></div>
       </div>
+
+      <details class="card span-2 tier-diagnostics-card">
+        <summary class="card-header tier-diagnostics-summary">
+          <h3 class="card-title-sm">E · Why this tier?</h3>
+          <span class="summary-state" aria-hidden="true"></span>
+        </summary>
+        <div class="tier-diagnostics-body">
+          <ul class="diag" id="panelD"></ul>
+          <div class="future-dims" id="panelFutureDims"></div>
+        </div>
+      </details>
     </div>
   </section>
 </main>
@@ -424,6 +510,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.16"></script>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="./vendor/marked.min.js?v=20260530-7"></script>
-<script src="./app.js?v=20260531-1" type="module"></script>
+<script src="./app.js?v=20260616-11" type="module"></script>
 </body>
 </html>

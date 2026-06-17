@@ -213,7 +213,7 @@ premium chain.
 - **Category:** scope
 - **Status:** active
 - **First written:** 2026-05-30
-- **Last reviewed:** 2026-05-30
+- **Last reviewed:** 2026-06-03
 - **Owner:** modeling
 
 **Statement.** If `N` policies are written in the same FIPS, v0
@@ -224,11 +224,36 @@ the same county event. v0 makes no aggregation adjustment.
 correlation modeling and customer-count-aware loss math. v0 is
 explicitly per-policy and per-FIPS only.
 
-**Impact if wrong.** Aggregate portfolio loss expectation could be
-materially understated if customer-count-aware aggregation is required
-to price reinsurance or capacity.
+**Impact if wrong.** The mean-vs-tail split matters here and v0 only
+gets the mean right:
 
-**Cited from.** [Pricing](pricing_methodology.md), `price_engine/plan/02_pricing_math.md`, `docs/plan/portfolio_risk_engine_plan.md`.
+- **Expected portfolio loss is concentration-invariant.** By linearity
+  of expectation, `E[Σ payouts] = N · per-policy EL` whether or not
+  intra-county triggers are correlated. v0's per-policy expected-loss
+  pricing is *correct on the mean* for portfolios, assuming the
+  per-policy `p` is correct.
+- **Variance and tail are NOT invariant.** Under v0's implicit
+  independence assumption, portfolio `Var ≈ N · p(1−p) · X²`. Under
+  the true joint-trigger model (one county event triggers all `N`
+  policies simultaneously), `Var ≈ N² · p(1−p) · X²` — an `O(N)`
+  blow-up in variance and `O(√N)` in standard deviation. The tail
+  event becomes "with probability `p`, lose `N · X`" rather than
+  "with probability ~`p^N`, lose `N · X`." Reinsurance, capacity, and
+  capital math live in this second moment.
+- **The per-customer overestimation cushion does not help here.** The
+  cushion documented under [A011](#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation)
+  lives on the *mean*. It does not blunt the concentration-induced
+  tail blow-up.
+
+**Scale sensitivity.** Latent at SMB scale (typical per-county policy
+counts 1–3 keep absolute tail dollars small). Bites first in
+hazard-prone counties (hurricane belt, storm corridors, fire zones) as
+the book scales, because both `p` and `N` rise together there. Treated
+as a **lagged-implementation track** rather than an immediate gate; see
+[concentration_and_portfolio_risk.md](concentration_and_portfolio_risk.md)
+and the [roadmap entry](roadmap.md#portfolio-concentration-handling-lagged).
+
+**Cited from.** [Pricing](pricing_methodology.md), `price_engine/plan/02_pricing_math.md`, [`docs/plan/portfolio_risk_engine_plan.md`](../plan/portfolio_risk_engine_plan.md), [`concentration_and_portfolio_risk.md`](concentration_and_portfolio_risk.md), [Roadmap §Portfolio concentration handling (lagged)](roadmap.md#portfolio-concentration-handling-lagged).
 
 ---
 
@@ -237,39 +262,81 @@ to price reinsurance or capacity.
 - **Category:** data
 - **Status:** active
 - **First written:** 2026-05-30
-- **Last reviewed:** 2026-05-30
+- **Last reviewed:** 2026-06-03
 - **Owner:** modeling
 
-**Statement.** `MCC` (Modeled County Customers, shipped with EAGLE-I as
-`MCC.csv`) is a static per-FIPS estimate of total customers — same
-"customer" unit as `customers_out` (metered electric accounts, ~one per
-household or small business). It is not population, not refreshed by
-year, and not feeder-level.
+**Statement.** `MCC` (Modeled County Customers, shipped alongside the
+EAGLE-I dataset as `MCC.csv` — the [Modeled County Customers 2023
+release](https://openenergyhub.ornl.gov/explore/dataset/modeled-county-customers-2023/))
+is a static per-FIPS estimate of total electric utility customers.
+It is derived per [Brelsford et al. (Nature Scientific Data
+2024)](https://www.nature.com/articles/s41597-024-03095-5) by spatially
+allocating each utility's EIA-861 total customer count across the
+counties intersected by its HIFLD electric retail service territory,
+weighted by LandScan day+night population. The county's MCC is the
+sum of allocations from every utility whose service area touches it.
+Formally, for utility *u* and county *i*:
 
-**The "customer" unit aligns naturally with the contract unit.** An
-EAGLE-I / Moehl 2023 "customer" is a metered electric account — one
-billed entity behind one meter. That is the same granularity at which
-parametric outage insurance is sold: **one policy per insurable entity**
-(a residence with one meter, a small business with one meter, etc.).
-A 4-person household with one meter is one customer and one
-policyholder. A 200-unit building with separate meters per unit is 200
-customers and would underwrite as 200 separate policies. The
-per-customer pricing math is therefore directly the *per-policy
-expected loss* under the assumption of one policy per metered entity —
-no further unit conversion is needed between the data layer and the
-underwriting layer.
+```text
+c_{u,i} = p_{u,i} × (C_u / P_u)
 
-**Justification.** Moehl et al. 2023 (Nature Scientific Data) defines
-MCC as a static model output. v0 uses it as the denominator for the
-peak %MCC severity proxy and for the per-customer pricing plan (see
+MCC(i) = Σ_u  c_{u,i}
+```
+
+where `C_u` is the utility's total EIA-861 customer count, `P_u` is its
+service-area LandScan population, and `p_{u,i}` is the LandScan
+population of county *i* lying inside utility *u*'s HIFLD territory.
+
+**The "customer" unit is not uniform across utilities.** Brelsford
+et al. note verbatim that utilities define "customers" *"in a range of
+different ways, most typically the electric meter, a building, or a
+facility."* So a "customer" in MCC is usually a meter — but for some
+utilities it is a building or a facility, depending on each utility's
+own reporting convention to EIA-861. This adds a layer of noise to any
+per-customer ratio: counties served by per-meter reporters are not
+strictly comparable to counties served by per-building reporters.
+
+**Where it aligns with the contract unit.** When a utility reports
+customers as meters (the most typical case), MCC's customer unit aligns
+naturally with the parametric outage contract unit — one policy per
+metered entity. A 4-person household with one meter is one customer and
+one policyholder; a 200-unit building with separate meters per unit is
+200 customers and would underwrite as 200 separate policies. When a
+utility instead reports customers as buildings or facilities, the
+alignment loosens, though `customers_out` in EAGLE-I and `customers`
+in MCC use the same source convention so the *ratio* `customers_out /
+MCC` remains internally consistent within each utility's territory.
+
+The dataset is a **static 2023 model output**, not refreshed by year,
+and not feeder-level.
+
+**Justification.** Brelsford et al. 2024 (the canonical EAGLE-I paper)
+documents the MCC derivation methodology end-to-end. Its three inputs
+are themselves authoritative: EIA-861 (mandatory annual utility
+filings), LandScan USA (the standard high-resolution US population
+product), and HIFLD electric retail service territories. v0 uses MCC
+as the denominator for the peak %MCC severity proxy and for the
+per-customer pricing chain (see
 [A009](#a009--per-customer-customer_impact_multiplier-first-order-estimator)).
 
-**Impact if wrong.** Counties with fast customer growth since the
-MCC modeling year would have an inflated peak %MCC and an inflated
-per-customer multiplier. Sensitivity check is part of Phase 1 of the
-per-customer plan.
+**Impact if wrong.** Three distinct failure modes:
 
-**Cited from.** [Pricing](pricing_methodology.md), [Filtration](filtration_methodology.md), `price_engine/data/SCHEMA.md`, `price_engine/data/INVENTORY.md`, dashboard Peak % MCC tooltip.
+1. **Customer-growth drift.** Counties with material customer growth
+   since the 2023 MCC vintage have an inflated peak %MCC and an
+   inflated per-customer multiplier. Sensitivity check is part of
+   Phase 1 of the per-customer plan.
+2. **Allocation error.** If LandScan population is a poor proxy for
+   customer density within a utility's territory (e.g. a service area
+   that is geographically large but population-sparse on one side and
+   dense on the other, with non-uniform customer density), the
+   per-county allocation `c_{u,i}` is biased. The bias direction varies
+   by county.
+3. **Non-uniform customer unit.** Per-county comparisons across
+   counties with different utility-mix compositions (per-meter vs
+   per-building vs per-facility reporters) carry a unit-noise term that
+   we cannot remove without per-utility unit metadata.
+
+**Cited from.** [Pricing](pricing_methodology.md), [Filtration](filtration_methodology.md), `price_engine/data/SCHEMA.md`, `price_engine/data/INVENTORY.md`, dashboard Peak % MCC tooltip, [`fundamentals/eagle_i_data_fundamentals.md`](fundamentals/eagle_i_data_fundamentals.md), [`fundamentals/per_customer_pricing_fundamentals.md`](fundamentals/per_customer_pricing_fundamentals.md).
 
 ---
 
@@ -324,7 +391,7 @@ shadow rate is recomputed before it reaches the dashboard.
 - **Category:** math
 - **Status:** active — shipped (mean is the headline; max is the sensitivity upper bound shown in the per-customer chain footnote)
 - **First written:** 2026-05-30
-- **Last reviewed:** 2026-05-30
+- **Last reviewed:** 2026-06-03
 - **Owner:** modeling
 
 **Statement.** Where the per-customer multiplier ([A009](#a009--per-customer-customer_impact_multiplier-first-order-estimator))
@@ -333,19 +400,43 @@ estimator uses `mean_customers / MCC` per event, not `max_customers / MCC`.
 The max-based version is computed and published as a **sensitivity
 column**, not the headline.
 
+**Two distinct sensitivities live alongside the headline — they answer
+different questions and perturb the estimator at different levels.**
+
+| Estimator | Inner (per-event) statistic | Outer (across-events) statistic | Question answered |
+|---|---|---|---|
+| `multiplier_mean` (headline) | `mean_customers` | `mean` | average qualifying event |
+| `multiplier_median` (sensitivity) | `mean_customers` (same as headline) | **`median`** | *typical* qualifying event (robust to outlier storms) |
+| `multiplier_max` (sensitivity) | **`max_customers`** | `mean` | average qualifying event evaluated at its peak instant |
+
+`multiplier_median` is a **Level-2 (outer) swap** — it asks "what is the
+multiplier for a typical qualifying event, ignoring rare catastrophic
+events that pull the mean upward?" It has the same inner statistic as
+the headline. It is **not** the median of per-event medians; it is the
+median across events of the same per-event-mean ratio the headline uses.
+
+`multiplier_max` is a **Level-1 (inner) swap** — it asks "what if mean is
+the wrong summary of the per-event snapshots and we should use the peak
+instead?" It has the same outer aggregator as the headline.
+
 **Justification.** The contract pays based on a customer's own outage
 experience during the event, which is closer to the time-averaged share
 of customers affected than to the peak instantaneous share. Phase 1
-showed the two estimators differ by **5–7×** for Alachua FL at T=4h
-(`multiplier_mean = 0.000333` vs `multiplier_max = 0.002113`), so the
-choice is not cosmetic — picking max would shift the published shadow
-premium by the same factor.
+showed `multiplier_mean` and `multiplier_max` differ by **5–7×** for
+Alachua FL at T=4h (`multiplier_mean = 0.000333` vs
+`multiplier_max = 0.002113`), so the inner-statistic choice is not
+cosmetic — picking max would shift the published shadow premium by the
+same factor. The median sensitivity adds a complementary view (robust to
+outlier events) that the inner-statistic max sensitivity cannot give.
 
 **Impact if wrong.** If max is the more honest estimator (e.g. customer
 outage spans are NOT staggered — all affected customers are out the full
 event duration), the headline per-customer premium is understated by
 5–7×. Phase 4 (PowerOutage.US per-outage cross-check) will measure this
-empirically.
+empirically. If the headline mean is being pulled upward by a few
+outlier major-storm events, `multiplier_median` shows by how much; the
+gap between mean and median is itself a heavy-tail diagnostic for the
+qualifying-event population.
 
 **Cited from.** [`docs/plan/per_customer_pricing_plan.md`](../plan/per_customer_pricing_plan.md) (Phase 1 gate close), [Phase 1 notebook §F3](../../notebooks/outputs/per_customer_rate_phase1/per_customer_rate_phase1.html).
 
@@ -356,7 +447,7 @@ empirically.
 - **Category:** math
 - **Status:** active — shipped with documented data constraint
 - **First written:** 2026-05-30
-- **Last reviewed:** 2026-05-30
+- **Last reviewed:** 2026-06-03
 - **Owner:** modeling
 
 **Statement.** The per-customer chain treats `mean_customers` (per-event
@@ -382,18 +473,52 @@ sensitivity (median + max bounds reported alongside the headline) makes
 the per-event distribution shape visible to the reader without forcing
 a single choice on the assumption.
 
-**Impact if wrong.** Reality lies on a spectrum between two extremes:
+**Impact if wrong.** Reality lies on a spectrum between two extremes,
+and the direction of bias depends on how individual outage durations
+are distributed relative to the trigger threshold `T`:
 
-- Fully synchronous (all M customers out for the full duration) — the
+- **Fully synchronous** (all M customers out for the full duration) — the
   multiplier is exact.
-- Fully staggered (different customers cycling through each snapshot,
-  averaging to M) — no individual customer is out for the full duration;
-  the multiplier overstates the per-customer rate.
+- **Fully staggered with individual durations < T** (different customers
+  cycling through each snapshot, averaging to M, none crossing T) — no
+  individual customer is out for the full duration; the multiplier
+  **overstates** the per-customer rate. This is the realistic
+  *core + periphery* regime: a small set of customers inside the damage
+  radius is out for the full event (correctly triggers) plus a much
+  larger set of brief restoration-churn outages well below T (lifts M
+  but does not trigger). Worked Cases B and C in the
+  [per-customer view walkthrough](per_customer_view_walkthrough.md#why-it-is-a-model-and-not-a-measurement)
+  show overstatement factors of ~3× in the canonical core+periphery
+  case.
+- **Knife-edge regime — durations clustered at T** (Case D in the
+  walkthrough) — the only regime where the multiplier *understates*; it
+  has no physical reason to occur and requires individual outage
+  durations to align narrowly with a contract-chosen threshold.
 
-Real events typically sit somewhere in between. The dashboard's
-sensitivity footnote (median → headline → max) already brackets the
-plausible range; the empirical bias of the headline within that range
-is what we cannot measure from EAGLE-I alone.
+Realistic outages live in the second bullet, so the systematic
+direction of bias under real-world staggered restoration is
+**overestimation** — the **conservative direction for insurance
+pricing**. It produces a 2–3× cushion on expected loss that sits on
+top of the explicit retail loadings (`TM`, `ER`, `UncLoad`), bounded
+only by market-price discipline. This cushion is real on the mean
+but provides **no protection against portfolio concentration tail
+risk** — that is [A007](#a007--each-policy-is-priced-standalone-no-portfolio-correlation-in-v0)
+territory; see [`concentration_and_portfolio_risk.md`](concentration_and_portfolio_risk.md).
+The dashboard's sensitivity footnote brackets the plausible range with
+two complementary views of the same headline (see [A010](#a010--mean-not-max-of-customers_out--mcc-is-the-headline-per-customer-estimator)
+for the formal distinction):
+
+- `multiplier_median` — the median **across qualifying events** of the
+  same per-event-mean ratio the headline uses. A robust point estimate
+  of the typical-event multiplier; insensitive to a few major-storm
+  outliers.
+- `multiplier_max` — the mean **across qualifying events** of the
+  per-event **max** ratio (peak instant, not time-average). The upper
+  bound implied by replacing the synchronous-mean assumption with a
+  synchronous-peak assumption.
+
+The empirical bias of the headline within that bracket is what we
+cannot measure from EAGLE-I alone.
 
 **Suggested resolution path.** Per-`OutageId` records — e.g. a
 contracted PowerOutage.US live feed, or utility OMS overlap — carry
