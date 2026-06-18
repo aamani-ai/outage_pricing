@@ -354,11 +354,11 @@ body.is-resizing-sidebar {
 }
 .back-btn:hover { background: var(--surface-2); color: var(--ink); border-color: var(--border-strong); }
 .back-btn[hidden] { display: none; }
-.crumbs { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); color: var(--muted); min-width: 0; }
-.crumb { color: var(--ink-2); }
-.crumb.current { color: var(--ink); font-weight: 600; }
-.crumb-sep { color: var(--faint); }
-.crumb-link { color: var(--primary); text-decoration: none; transition: var(--transition); cursor: pointer; }
+.crumbs { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); color: var(--muted); min-width: 0; flex-wrap: nowrap; overflow: hidden; }
+.crumb { color: var(--ink-2); white-space: nowrap; }
+.crumb.current { color: var(--ink); font-weight: 600; min-width: 0; max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crumb-sep { color: var(--faint); flex-shrink: 0; }
+.crumb-link { color: var(--primary); text-decoration: none; transition: var(--transition); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 .crumb-link:hover { color: var(--primary-2); }
 .header-meta {
   flex-shrink: 0;

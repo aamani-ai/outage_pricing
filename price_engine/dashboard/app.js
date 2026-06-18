@@ -774,7 +774,7 @@ function updateCrumbs() {
   const parts = [`<span class="crumb-link" data-jump="map-root">United States</span>`];
   if (state.view === 'location' && state.locResolved) {
     parts.push(`<span class="crumb-sep">/</span>`);
-    parts.push(`<span class="crumb current">Location · ${escapeHtml(state.locResolved.shortLabel || 'priced point')}</span>`);
+    parts.push(`<span class="crumb current">Location · ${escapeHtml(state.locResolved.crumbLabel || state.locResolved.shortLabel || 'priced point')}</span>`);
   } else if (showCounty) {
     const d = state.drilldown[state.selectedFips];
     parts.push(`<span class="crumb-sep">/</span>`);
@@ -2175,16 +2175,19 @@ async function priceLocation(raw, resolved = null) {
   if (!q && !resolved) return;
   setLocStatus('locating…');
   try {
-    let lon, lat, label;
+    let lon, lat, label, primary = null;
     if (resolved && Number.isFinite(resolved.lon) && Number.isFinite(resolved.lat)) {
       ({ lon, lat } = resolved);
       label = resolved.label || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+      primary = resolved.primary || null;
     } else if (parseLatLonInput(q)) {
       ({ lon, lat, label } = parseLatLonInput(q));
+      primary = label;
     } else {
       const g = await geocodeAddress(q);
       if (!g) { setLocStatus('address not found'); return; }
       ({ lon, lat, label } = g);
+      primary = g.primary || null;
     }
     if (!state.countiesGeo) { setLocStatus('map not ready'); return; }
     const cf = findFeature(lon, lat, state.countiesGeo.features);
@@ -2201,7 +2204,8 @@ async function priceLocation(raw, resolved = null) {
     map.flyTo({ center: [lon, lat], zoom: 9, duration: 600 });
 
     const shortLabel = label.length > 30 ? label.slice(0, 30) + '…' : label;
-    state.locResolved = { lon, lat, label, shortLabel, fips, county, ctx };
+    const crumbLabel = (primary || label.split(',')[0] || label).trim().slice(0, 32);
+    state.locResolved = { lon, lat, label, shortLabel, crumbLabel, fips, county, ctx };
     if (!state.locCell) state.locCell = { T: 4, X: 2500 };
     saveRecentLocation({ label, lat, lon, county });
     setLocStatus(ctx.validated ? 'validated pilot' : (ctx.source ? 'shadow · extrapolated' : 'priced (no location factor)'));
