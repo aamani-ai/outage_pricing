@@ -1768,20 +1768,67 @@ function parseLatLonInput(q) {
   };
 }
 
+// US state-name -> USPS abbreviation, for compact suggestion labels.
+const US_STATE_ABBR = {
+  'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA', 'Colorado': 'CO',
+  'Connecticut': 'CT', 'Delaware': 'DE', 'District of Columbia': 'DC', 'Florida': 'FL', 'Georgia': 'GA',
+  'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA', 'Kansas': 'KS', 'Kentucky': 'KY',
+  'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD', 'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN',
+  'Mississippi': 'MS', 'Missouri': 'MO', 'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH',
+  'New Jersey': 'NJ', 'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+  'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+  'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT', 'Virginia': 'VA',
+  'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY', 'Puerto Rico': 'PR',
+};
+
+function photonKind(p) {
+  if (p.housenumber) return 'address';
+  if (p.osm_key === 'highway') return 'street';
+  if (p.osm_key === 'place') return p.osm_value || 'place';
+  if (p.osm_key === 'building') return 'building';
+  return p.type || p.osm_value || p.osm_key || 'place';
+}
+
+// Compose a two-line label (bold primary + muted city/county/state) from a
+// Photon GeoJSON feature's structured properties.
+function photonLabelParts(p) {
+  const stateAbbr = US_STATE_ABBR[p.state] || p.state || '';
+  const locality = p.city || p.town || p.village || p.locality || p.district || p.county || '';
+  let primary;
+  if (p.housenumber && p.street) primary = `${p.housenumber} ${p.street}`;
+  else primary = p.name || p.street || locality || 'Location';
+  const sec = [];
+  if (locality && locality !== primary) sec.push(locality);
+  if (p.county && p.county !== locality && p.county !== primary) sec.push(p.county);
+  if (stateAbbr) sec.push(stateAbbr);
+  if (p.postcode) sec.push(p.postcode);
+  return { primary, secondary: sec.join(', ') };
+}
+
+// Photon (komoot): OSM-based, CORS-enabled, keyless geocoder built for
+// type-ahead — handles partial tokens ("182 hopkins ave") that the plain
+// Nominatim geocoder misses. Relevance-ranked (no location bias — biasing to
+// the US center mis-ranked coastal addresses), then filtered to US results.
 async function geocodeAddress(q, opts = {}) {
   const limit = opts.limit || 1;
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=${limit}&countrycodes=us`;
-  const d = await (await fetch(url, {
-    headers: { Accept: 'application/json' },
-    signal: opts.signal,
-  })).json();
-  const rows = (d || []).map(row => ({
-    type: 'address',
-    lon: +row.lon,
-    lat: +row.lat,
-    label: row.display_name,
-    detail: [row.type, row.class].filter(Boolean).join(' · ') || 'Address match',
-  })).filter(row => Number.isFinite(row.lon) && Number.isFinite(row.lat));
+  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}`
+            + `&limit=${Math.min(15, limit + 5)}&lang=en`;
+  const data = await (await fetch(url, { headers: { Accept: 'application/json' }, signal: opts.signal })).json();
+  const seen = new Set();
+  const rows = [];
+  for (const f of (data?.features || [])) {
+    const p = f.properties || {};
+    if ((p.countrycode || '').toUpperCase() !== 'US') continue;
+    const [lon, lat] = f.geometry?.coordinates || [];
+    if (!Number.isFinite(+lon) || !Number.isFinite(+lat)) continue;
+    const { primary, secondary } = photonLabelParts(p);
+    if (!primary) continue;
+    const label = secondary ? `${primary}, ${secondary}` : primary;
+    if (seen.has(label)) continue;
+    seen.add(label);
+    rows.push({ type: 'address', lon: +lon, lat: +lat, primary, secondary, label, kind: photonKind(p), detail: secondary || photonKind(p) });
+    if (rows.length >= limit) break;
+  }
   return opts.many ? rows : (rows[0] || null);
 }
 async function tractAt(lon, lat) {
@@ -1849,6 +1896,12 @@ function locSuggestionLabel(item) {
   return 'Address';
 }
 
+function locSgIcon(type) {
+  if (type === 'coord') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>';
+  if (type === 'recent') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 1.8"/></svg>';
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="2.5"/></svg>';
+}
+
 function renderLocSuggestions(items, active = 0) {
   const menu = document.getElementById('locSuggestions');
   const input = document.getElementById('locInput');
@@ -1868,6 +1921,12 @@ function renderLocSuggestions(items, active = 0) {
     const disabled = item.type === 'status';
     const isActive = index === locSuggestionState.active && !disabled;
     const id = `locSuggestion-${index}`;
+    const primary = item.type === 'coord' ? 'Use coordinates' : (item.primary || item.label || '');
+    const secondary = item.type === 'coord' ? (item.label || '')
+                    : (item.secondary != null ? item.secondary : (item.detail || ''));
+    const icon = disabled ? '' : `<span class="loc-sg-icon">${locSgIcon(item.type)}</span>`;
+    const kind = disabled ? '' :
+      `<span class="loc-sg-kind">${escapeHtml(item.type === 'coord' ? 'GPS' : item.type === 'recent' ? 'recent' : (item.kind || 'address'))}</span>`;
     return `
       <button
         id="${id}"
@@ -1878,11 +1937,12 @@ function renderLocSuggestions(items, active = 0) {
         data-loc-index="${index}"
         ${disabled ? 'disabled' : ''}
       >
-        <span class="loc-suggestion-main">${escapeHtml(item.label || '')}</span>
-        <span class="loc-suggestion-meta">
-          <span>${escapeHtml(locSuggestionLabel(item))}</span>
-          ${item.detail ? `<span>${escapeHtml(item.detail)}</span>` : ''}
+        ${icon}
+        <span class="loc-sg-body">
+          <span class="loc-sg-primary">${escapeHtml(primary)}</span>
+          ${secondary ? `<span class="loc-sg-secondary">${escapeHtml(secondary)}</span>` : ''}
         </span>
+        ${kind}
       </button>
     `;
   }).join('');
@@ -1943,7 +2003,7 @@ function updateLocSuggestions() {
     return;
   }
 
-  renderLocSuggestions([{ type: 'status', label: 'Searching addresses...', detail: 'US results via Nominatim' }], -1);
+  renderLocSuggestions([{ type: 'status', label: 'Searching addresses…', detail: 'US type-ahead · OSM/Photon' }], -1);
   locSuggestionState.timer = window.setTimeout(async () => {
     locSuggestionState.abort = new AbortController();
     try {
