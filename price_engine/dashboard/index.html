@@ -13,7 +13,7 @@
   changes so soft-refresh always pulls the matching pair. Prevents the
   HTML/CSS/JS mismatch that has caused two "dashboard not loading" incidents.
 -->
-<link rel="stylesheet" href="./styles.css?v=20260618-08" />
+<link rel="stylesheet" href="./styles.css?v=20260618-10" />
 <link rel="icon" type="image/svg+xml" href="./assets/brand/outsure-favicon.svg" />
 </head>
 <body>
@@ -35,6 +35,10 @@
     <button class="nav-item" data-view="drilldown">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12H8M21 6H8M21 18H8M3 6h.01M3 12h.01M3 18h.01"/></svg>
       <span>Drill-down</span>
+    </button>
+    <button class="nav-item" data-view="location">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <span>Location</span>
     </button>
   </nav>
 
@@ -144,6 +148,7 @@
       <button class="seg-item current" data-view="map">Map</button>
       <button class="seg-item" data-view="matrix">Matrix</button>
       <button class="seg-item" data-view="drilldown">Drill-down</button>
+      <button class="seg-item" data-view="location">Location</button>
     </div>
     <button id="libraryBtn" class="library-trigger" type="button" aria-label="Open methodology library">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -458,6 +463,89 @@
       </details>
     </div>
   </section>
+
+  <!-- ============ LOCATION VIEW (internal · final composed premium) ============ -->
+  <section id="view-location" class="view">
+    <div class="empty-state" id="locEmpty">
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.6"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <h3>No location priced yet</h3>
+      <p>Use <strong>Price a location</strong> in the header — type an address or <em>lat, lon</em>. This view shows the final composed premium and the full factor stack for that point.</p>
+      <div class="empty-actions">
+        <button class="empty-btn primary" id="locEmptyFocus">Price a location</button>
+        <button class="empty-btn" data-jump="map">Open the map</button>
+      </div>
+    </div>
+
+    <div class="location-grid" id="locGrid" hidden>
+      <!-- Identity + caveat -->
+      <div class="card loc-identity-card">
+        <div class="card-header">
+          <div class="loc-id">
+            <div class="loc-eyebrow">Final location premium <span id="locValChip" class="loc-chip">—</span></div>
+            <h2 id="locLabel" class="card-title">—</h2>
+            <div class="card-sub" id="locSub">—</div>
+          </div>
+          <button class="loc-clear" id="locClear" type="button" aria-label="Clear location">×</button>
+        </div>
+        <div class="loc-caveat" id="locCaveat">
+          <strong>Final premium — includes shadow pricing.</strong>
+          Composed stack: county baseline × customer basis (active) × location basis (under review) × forward-looking (shadow). Internal review view — not a filed rate.
+        </div>
+      </div>
+
+      <!-- Within-county density mini-map -->
+      <div class="card loc-map-card">
+        <div id="locMiniMap" class="loc-mini-map"></div>
+        <div class="loc-mini-legend">
+          <span>Within-county density · this point</span>
+          <span class="drill-ramp"><i style="background:#b2182b"></i>rural<i style="background:#f7f7f7"></i><i style="background:#2166ac"></i>urban</span>
+        </div>
+      </div>
+
+      <!-- Final-premium matrix -->
+      <div class="card loc-matrix-card span-2">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title-sm">Final premium matrix</h3>
+            <div class="card-sub" id="locMatrixSub">Annual premium per trigger duration T × payout X · click a cell for its factor stack</div>
+          </div>
+          <div class="loc-matrix-controls">
+            <label class="ctl ctl-inline">
+              <span>Show</span>
+              <select id="locPremKind" aria-label="Show retail or pure premium">
+                <option value="retail" selected>Retail</option>
+                <option value="pure">Pure</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <table id="locTable" class="matrix-table"><thead><tr id="locHead"></tr></thead><tbody id="locBody"></tbody></table>
+        <div class="loc-matrix-foot" id="locMatrixFoot"></div>
+      </div>
+
+      <!-- Factor stack: detailed price analysis for the selected cell -->
+      <div class="card loc-stack-card span-2">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title-sm">Factor stack <span class="card-title-sub" id="locStackCell">select a cell</span></h3>
+            <div class="card-sub">How the final premium composes — each layer named, with its native target and status. A missing factor means &ldquo;not validated yet,&rdquo; not zero.</div>
+          </div>
+        </div>
+        <div class="loc-stack" id="locStack"><div class="loc-stack-hint">Click any cell in the matrix above to see its composed factor stack.</div></div>
+      </div>
+
+      <!-- Underlying metrics -->
+      <div class="card loc-metrics-card span-2">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title-sm">Underlying metrics</h3>
+            <div class="card-sub">The raw reads behind each factor for this location.</div>
+          </div>
+        </div>
+        <dl class="kv loc-metrics" id="locMetrics"></dl>
+      </div>
+    </div>
+  </section>
 </main>
 
 <!-- Methodology Library drawer + backdrop. Sits at the end of <body> so its
@@ -548,6 +636,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.16"></script>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="./vendor/marked.min.js?v=20260530-7"></script>
-<script src="./app.js?v=20260618-08" type="module"></script>
+<script src="./app.js?v=20260618-10" type="module"></script>
 </body>
 </html>

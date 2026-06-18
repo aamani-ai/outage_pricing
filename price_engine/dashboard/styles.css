@@ -1110,6 +1110,125 @@ body.is-resizing-sidebar {
   .matrix-grid { grid-template-columns: 1fr; }
 }
 
+/* =============== LOCATION VIEW (internal · final composed premium) =============== */
+.location-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-content: start;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.location-grid[hidden] { display: none; }
+.location-grid .span-2 { grid-column: 1 / -1; }
+
+/* within-county density mini-map (inset beside the location detail) */
+.loc-map-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; min-height: 260px; }
+.loc-mini-map { flex: 1; width: 100%; min-height: 220px; }
+.loc-mini-map canvas { outline: none; }
+.loc-mini-legend {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); font-size: var(--text-xs); color: var(--muted);
+  border-top: 1px solid var(--border); background: var(--surface);
+}
+.loc-mini-legend .drill-ramp { display: inline-flex; align-items: center; gap: 3px; }
+.loc-mini-legend .drill-ramp i { width: 12px; height: 10px; border-radius: 2px; display: inline-block; }
+
+@media (max-width: 900px) {
+  .location-grid { grid-template-columns: 1fr; }
+}
+
+/* identity + caveat */
+.loc-identity-card .card-header { margin-bottom: var(--space-3); align-items: center; }
+.loc-eyebrow {
+  font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 4px; display: flex; align-items: center; gap: var(--space-2);
+}
+.loc-chip {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 1px 8px; border-radius: var(--radius-sm); background: var(--grey-soft); color: var(--muted);
+}
+.loc-chip.ok    { background: var(--green-soft); color: var(--tier-green); }
+.loc-chip.warn  { background: var(--amber-soft); color: var(--tier-amber); }
+.loc-chip.muted { background: var(--grey-soft);  color: var(--muted); }
+.loc-clear {
+  border: none; background: none; font-size: 22px; line-height: 1; cursor: pointer;
+  color: var(--muted); padding: 0 4px; align-self: flex-start;
+}
+.loc-clear:hover { color: var(--ink); }
+.loc-caveat {
+  font-size: var(--text-xs); color: var(--ink-2); line-height: 1.5;
+  background: var(--amber-soft); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: var(--space-3) var(--space-4);
+}
+.loc-caveat strong { color: var(--tier-amber); }
+
+/* final-premium matrix (cells reuse .matrix-table styling) */
+.loc-matrix-controls { display: flex; gap: var(--space-3); align-items: center; }
+.loc-matrix-foot { margin-top: var(--space-3); font-size: var(--text-xs); color: var(--muted); line-height: 1.5; }
+.matrix-table td.loc-cell-selected { box-shadow: inset 0 0 0 2px var(--primary); }
+.loc-shadow-dot { color: var(--primary); font-weight: 700; margin-left: 3px; }
+
+/* factor stack — the detailed price analysis */
+.loc-stack-hint { font-size: var(--text-sm); color: var(--muted); padding: var(--space-3) 0; }
+.loc-stack-rows { display: flex; flex-direction: column; }
+.loc-stack-row {
+  display: grid;
+  grid-template-columns: 24px 1fr auto auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--divider);
+}
+.loc-stack-row.muted { opacity: 0.62; }
+.lsr-step {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--surface-3); color: var(--muted);
+  font-size: 11px; font-weight: 600; font-family: var(--font-mono);
+  display: grid; place-items: center;
+}
+.lsr-main { min-width: 0; }
+.lsr-head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.lsr-name { font-weight: 600; color: var(--ink); font-size: var(--text-sm); }
+.lsr-target { font-family: var(--font-mono); font-size: 10px; color: var(--faint); }
+.lsr-note { font-size: var(--text-xs); color: var(--muted); margin-top: 2px; line-height: 1.45; }
+.lsr-op { font-family: var(--font-mono); font-weight: 600; color: var(--ink-2); font-size: var(--text-sm); white-space: nowrap; }
+.lsr-result { font-family: var(--font-mono); color: var(--ink); font-size: var(--text-sm); text-align: right; white-space: nowrap; }
+.lsr-result .u { color: var(--faint); font-size: 10px; margin-left: 4px; }
+
+/* status chips — mechanism + status, never a bare factor */
+.status-chip {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 1px 6px; border-radius: var(--radius-sm); white-space: nowrap;
+}
+.status-chip.active     { background: var(--green-soft); color: var(--tier-green); }
+.status-chip.review     { background: var(--amber-soft); color: var(--tier-amber); }
+.status-chip.shadow     { background: rgba(111, 92, 191, 0.18); color: #7c6bd0; }
+.status-chip.wip        { background: var(--grey-soft); color: var(--muted); }
+.status-chip.discussion { background: var(--surface-3); color: var(--faint); }
+
+/* stack result block */
+.loc-stack-result { margin-top: var(--space-4); padding-top: var(--space-3); }
+.loc-stack-line { display: flex; justify-content: space-between; gap: var(--space-4); font-size: var(--text-sm); padding: 3px 0; color: var(--ink-2); }
+.loc-stack-line strong { font-family: var(--font-mono); color: var(--ink); }
+.loc-stack-final {
+  display: flex; justify-content: space-between; gap: var(--space-4);
+  margin-top: var(--space-2); padding-top: var(--space-3); border-top: 2px solid var(--border-strong);
+  font-size: var(--text-base);
+}
+.loc-stack-final span { font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+.loc-stack-final em { font-style: normal; font-size: 10px; color: var(--primary); font-weight: 600; }
+.loc-stack-final strong { font-family: var(--font-mono); font-size: var(--text-lg); color: var(--primary-2); }
+.loc-stack-compare { margin-top: var(--space-3); font-size: var(--text-xs); color: var(--muted); line-height: 1.5; }
+.loc-stack-compare strong { font-family: var(--font-mono); color: var(--ink-2); }
+
+.mono { font-family: var(--font-mono); }
+
+@media (max-width: 720px) {
+  .loc-stack-row { grid-template-columns: 20px 1fr; }
+  .lsr-op, .lsr-result { grid-column: 2; text-align: left; }
+}
+
 .ctl-cluster { display: flex; gap: var(--space-5); flex-wrap: wrap; align-items: flex-end; }
 .ctl { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--text-xs); color: var(--muted); min-width: 160px; }
 .ctl em { font-style: normal; color: var(--ink); font-family: var(--font-mono); font-weight: 500; }
