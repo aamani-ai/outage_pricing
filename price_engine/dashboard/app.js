@@ -31,6 +31,9 @@ const state = {
   mapTrendFips: null,
   mapTrendPanelManual: false,
   mapTrendPanelPos: null,
+  locResolved: null,          // {lon, lat, label, shortLabel, fips, county, ctx} — resolved 'Price a location' point
+  locCell: { T: 4, X: 2500 }, // selected (T,X) cell driving the Location-view factor stack
+  locPremKind: 'retail',
 };
 
 const fmt = {
@@ -584,6 +587,7 @@ async function loadPredictabilityLayer(catalog) {
     if (state.mapTrendFips) renderMapTrendPanel(state.mapTrendFips, null, { force: true });
     if (state.selectedFips && state.view === 'matrix') renderMatrixTrend(state.selectedFips);
     if (state.selectedFips && state.view === 'drilldown') renderTrendBlock(state.selectedFips, state.trendT, 'panelE');
+    if (state.locResolved && state.view === 'location') renderLocation();
   } catch (err) {
     console.warn(`${catalog.label}: county_predictability.json failed`, err);
   }
@@ -605,6 +609,7 @@ async function loadLambdaShadowLayer(catalog) {
     if (state.mapTrendFips) renderMapTrendPanel(state.mapTrendFips, null, { force: true });
     if (state.selectedFips && state.view === 'matrix') renderMatrixTrend(state.selectedFips);
     if (state.selectedFips && state.view === 'drilldown') renderTrendBlock(state.selectedFips, state.trendT, 'panelE');
+    if (state.locResolved && state.view === 'location') renderLocation();
   } catch (err) {
     console.warn(`${catalog.label}: county_lambda_shadow.json failed`, err);
   }
@@ -753,13 +758,24 @@ function switchView(name, opts = {}) {
     drEmpty.hidden = hasDrill;
     drGrid.hidden  = !hasDrill;
   }
+  const locEmpty = document.getElementById('locEmpty');
+  const locGrid  = document.getElementById('locGrid');
+  if (locEmpty && locGrid) {
+    const hasLoc = !!state.locResolved;
+    locEmpty.hidden = hasLoc;
+    locGrid.hidden  = !hasLoc;
+    if (hasLoc && name === 'location') requestAnimationFrame(() => renderLocation());
+  }
   if (opts.push !== false) pushRoute();
 }
 function updateCrumbs() {
   const crumbs = document.getElementById('crumbs');
-  const showCounty = state.selectedFips && state.view !== 'map';
+  const showCounty = state.selectedFips && state.view !== 'map' && state.view !== 'location';
   const parts = [`<span class="crumb-link" data-jump="map-root">United States</span>`];
-  if (showCounty) {
+  if (state.view === 'location' && state.locResolved) {
+    parts.push(`<span class="crumb-sep">/</span>`);
+    parts.push(`<span class="crumb current">Location · ${escapeHtml(state.locResolved.shortLabel || 'priced point')}</span>`);
+  } else if (showCounty) {
     const d = state.drilldown[state.selectedFips];
     parts.push(`<span class="crumb-sep">/</span>`);
     parts.push(`<span class="crumb-link" data-jump="matrix">${escapeHtml(d.county)}, ${escapeHtml(d.state)}</span>`);
@@ -837,7 +853,7 @@ async function handleRoute(opts = {}) {
 
 function readRoute() {
   const params = new URLSearchParams(window.location.search);
-  const view = ['map', 'matrix', 'drilldown'].includes(params.get('view')) ? params.get('view') : 'map';
+  const view = ['map', 'matrix', 'drilldown', 'location'].includes(params.get('view')) ? params.get('view') : 'map';
   const rawFips = params.get('fips');
   const fips = rawFips && state.drilldown[String(parseInt(rawFips, 10))]
     ? String(parseInt(rawFips, 10))
@@ -1997,6 +2013,103 @@ function wireLocationSearch() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Per-location final-premium composition (INTERNAL view).
+//
+// The internal dashboard headlines the FINAL composed premium — the full
+// status-tagged factor stack from the methodology deck (Slide 14):
+//   premium = baseline x customer_basis x location_basis x forward_freq x load
+// composed into ONE number, with a caveat that shadow / under-review layers
+// (location basis, forward-looking) are baked in. The external PPTX keeps the
+// strict active-only framing; the internal view does the opposite emphasis.
+//
+// For a RESOLVED point the location relativity is a single tercile value (not
+// the county-wide urban-rural range the Matrix shows).
+// ---------------------------------------------------------------------------
+
+// Resolve the within-county location context for a point ONCE (async): a
+// validated pilot town if available, else the tract density rank. Reused to
+// compute the location relativity at every threshold T.
+async function resolveLocationContext(lon, lat, fips) {
+  const lb = state.locBasis?.[fips];
+  if (lb && lb.validated) {
+    if (!state.pilotGeo) state.pilotGeo = await (await fetch('./data/location_basis_pilot.geojson', { cache: 'no-store' })).json();
+    const town = findFeature(lon, lat, state.pilotGeo.features);
+    if (town) {
+      return { validated: true, town, tercile: town.properties.tercile,
+               posTxt: `${town.properties.city} · ${town.properties.tercile}`, source: 'pilot town (CT/MA/RI)' };
+    }
+  }
+  if (!state.tractDensity) state.tractDensity = await (await fetch('./data/tract_density.json', { cache: 'no-store' })).json();
+  const geoid = await tractAt(lon, lat);
+  const rank = geoid ? tractRankInCounty(geoid, fips) : null;
+  if (rank == null) return { validated: false, rank: null, tercile: null, posTxt: 'location basis unavailable', source: null };
+  const tercile = rank < 0.34 ? 'rural' : rank < 0.67 ? 'mid' : 'urban';
+  return { validated: false, rank, geoid, tercile,
+           posTxt: `${tercile} (p${Math.round(rank * 100)})`, source: 'tract density · extrapolated' };
+}
+
+// Location relativity for a resolved context at threshold T (single value).
+function locRelAt(ctx, T) {
+  if (!ctx) return null;
+  if (ctx.validated && ctx.town) {
+    const r = ctx.town.properties[`rel_T${T}`];
+    if (r != null) return r;
+    return ctx.town.properties[`rel_T${[2, 4, 8].includes(T) ? T : 8}`] ?? null;
+  }
+  if (ctx.rank != null) return relFromRank(ctx.rank, T);
+  return null;
+}
+
+// Forward-looking (shadow-lambda) factor for a county at T. Returns a factor of
+// 1.0 (no move) when the predictability router leaves the county alone or the
+// layer is unavailable, plus the mechanism metadata for the factor stack.
+function forwardFactorCell(fips, T) {
+  const c = lambdaShadowCell(fips, T);
+  if (!c) return { factor: 1.0, available: false };
+  const f = (c.adjustment_factor != null && isFinite(c.adjustment_factor)) ? c.adjustment_factor : 1.0;
+  return {
+    factor: f, available: true,
+    action: c.pricing_action, pattern: c.pattern_label, confidence: c.confidence,
+    reason: c.reason, capApplied: !!c.cap_applied,
+    lambdaV0: c.lambda_v0, lambdaCand: c.lambda_candidate,
+  };
+}
+
+// Compose the final per-location premium + the status-tagged factor stack for
+// one (T, X). Pure function of state + the resolved location context. Returns
+// null when the per-customer base is unavailable (the active floor is required).
+function composeLocationPremium(fips, ctx, T, X) {
+  const pc = perCustomerCell(fips, T);
+  const dd = state.drilldown?.[fips];
+  const er = +(document.getElementById('expenseRatio')?.value) || 0.20;
+  const tm = +(document.getElementById('targetMargin')?.value) || 0.15;
+  const denom = Math.max(0.01, 1 - er - tm);
+  if (!pc || pc.coverage_gate_status === 'not_available' || pc.lambda_customer_mean == null) return null;
+
+  const lamCounty = pc.lambda_county ?? dd?.grid?.[T]?.lambda_T ?? null;
+  const lamCustomer = pc.lambda_customer_mean;
+  const rel = locRelAt(ctx, T);
+  const relUsed = (rel != null) ? rel : 1.0;          // missing location factor = no move, not zero
+  const fwd = forwardFactorCell(fips, T);
+
+  const adjustedCount = lamCustomer * relUsed * fwd.factor;
+  const finalPure = adjustedCount * X;
+  const finalRetail = finalPure / denom;
+  const activeRetail = (lamCustomer * X) / denom;     // active floor = customer basis only
+
+  return {
+    fips, T, X, er, tm, denom,
+    gate: pc.coverage_gate_status, gateReason: pc.coverage_gate_reason,
+    baseline: { lamCounty },
+    customer: { multiplier: pc.multiplier_mean, lamCustomer, status: pc.coverage_gate_status },
+    location: { rel, relUsed, available: rel != null, tercile: ctx?.tercile,
+                validated: !!ctx?.validated, source: ctx?.source },
+    forward: fwd,
+    adjustedCount, finalPure, finalRetail, activeRetail,
+  };
+}
+
 async function priceLocation(raw, resolved = null) {
   const q = (raw || '').trim();
   if (!q && !resolved) return;
@@ -2007,10 +2120,8 @@ async function priceLocation(raw, resolved = null) {
       ({ lon, lat } = resolved);
       label = resolved.label || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
     } else if (parseLatLonInput(q)) {
-      const coord = parseLatLonInput(q);
-      ({ lon, lat, label } = coord);
-    }
-    else {
+      ({ lon, lat, label } = parseLatLonInput(q));
+    } else {
       const g = await geocodeAddress(q);
       if (!g) { setLocStatus('address not found'); return; }
       ({ lon, lat, label } = g);
@@ -2020,34 +2131,21 @@ async function priceLocation(raw, resolved = null) {
     if (!cf) { setLocStatus('point is outside US counties'); return; }
     const fips = String(cf.id);
     const dd = state.drilldown[fips];
-    const T = 4, X = 2500;
-    const pc = perCustomerCell(fips, T);
-    const er = +(document.getElementById('expenseRatio')?.value) || 0.20;
-    const tm = +(document.getElementById('targetMargin')?.value) || 0.15;
-    const pcRetail = (pc && pc.lambda_customer_mean != null)
-      ? pc.lambda_customer_mean * X / Math.max(0.01, 1 - er - tm) : null;
+    const county = dd ? `${dd.county}, ${dd.state}` : `FIPS ${fips}`;
 
-    const lb = state.locBasis?.[fips];
-    let rel = null, posTxt = '', validated = false;
-    if (lb && lb.validated) {                          // pilot -> validated town relativity
-      if (!state.pilotGeo) state.pilotGeo = await (await fetch('./data/location_basis_pilot.geojson', { cache: 'no-store' })).json();
-      const town = findFeature(lon, lat, state.pilotGeo.features);
-      if (town) { rel = town.properties[`rel_T${T}`]; posTxt = `${town.properties.city} · ${town.properties.tercile}`; validated = true; }
-    }
-    if (rel == null) {                                 // elsewhere -> tract density rank -> extrapolated
-      if (!state.tractDensity) state.tractDensity = await (await fetch('./data/tract_density.json', { cache: 'no-store' })).json();
-      const tg = await tractAt(lon, lat);
-      const rank = tg ? tractRankInCounty(tg, fips) : null;
-      if (rank != null) { rel = relFromRank(rank, T); posTxt = `${rank < 0.34 ? 'rural' : rank < 0.67 ? 'mid' : 'urban'} (p${Math.round(rank * 100)})`; }
-    }
-    const locPrice = (pcRetail != null && rel != null) ? pcRetail * rel : null;
+    setLocStatus('resolving location basis…');
+    const ctx = await resolveLocationContext(lon, lat, fips);   // pilot town or tract density rank, resolved once
 
     if (locMarker) locMarker.remove();
     locMarker = new maplibregl.Marker({ color: '#0b6e74' }).setLngLat([lon, lat]).addTo(map);
-    map.flyTo({ center: [lon, lat], zoom: 9, duration: 700 });
-    showLocPrice({ label, county: dd ? `${dd.county}, ${dd.state}` : `FIPS ${fips}`, pcRetail, rel, locPrice, posTxt, validated, T, X });
-    saveRecentLocation({ label, lat, lon, county: dd ? `${dd.county}, ${dd.state}` : `FIPS ${fips}` });
-    setLocStatus(validated ? 'validated pilot' : 'shadow / extrapolated');
+    map.flyTo({ center: [lon, lat], zoom: 9, duration: 600 });
+
+    const shortLabel = label.length > 30 ? label.slice(0, 30) + '…' : label;
+    state.locResolved = { lon, lat, label, shortLabel, fips, county, ctx };
+    if (!state.locCell) state.locCell = { T: 4, X: 2500 };
+    saveRecentLocation({ label, lat, lon, county });
+    setLocStatus(ctx.validated ? 'validated pilot' : (ctx.source ? 'shadow · extrapolated' : 'priced (no location factor)'));
+    openLocation();
   } catch (e) {
     console.warn('priceLocation failed', e);
     setLocStatus('lookup failed');
@@ -2082,7 +2180,302 @@ function showLocPrice(r) {
   p.querySelector('.lb-close')?.addEventListener('click', () => { p.hidden = true; if (locMarker) { locMarker.remove(); locMarker = null; } });
   p.hidden = false;
 }
+// ---- Location view renderers (final composed premium + factor stack) -------
+
+const STATUS_META = {
+  active:     { label: 'ACTIVE',        cls: 'active' },
+  review:     { label: 'UNDER REVIEW',  cls: 'review' },
+  shadow:     { label: 'SHADOW',        cls: 'shadow' },
+  wip:        { label: 'WIP',           cls: 'wip' },
+  discussion: { label: 'IN DISCUSSION', cls: 'discussion' },
+};
+function statusChip(key) {
+  const m = STATUS_META[key] || STATUS_META.shadow;
+  return `<span class="status-chip ${m.cls}">${m.label}</span>`;
+}
+
+function openLocation() {
+  switchView('location', { push: true });
+  requestAnimationFrame(() => renderLocation());
+}
+
+function renderLocation() {
+  const r = state.locResolved;
+  const empty = document.getElementById('locEmpty');
+  const grid = document.getElementById('locGrid');
+  if (!r) { if (empty) empty.hidden = false; if (grid) grid.hidden = true; return; }
+  if (empty) empty.hidden = true;
+  if (grid) grid.hidden = false;
+
+  const lbl = r.label.length > 60 ? r.label.slice(0, 60) + '…' : r.label;
+  document.getElementById('locLabel').textContent = lbl;
+
+  const ctx = r.ctx || {};
+  const chip = document.getElementById('locValChip');
+  chip.textContent = ctx.validated ? 'validated pilot' : (ctx.source ? 'extrapolated · shadow' : 'no location factor');
+  chip.className = 'loc-chip ' + (ctx.validated ? 'ok' : (ctx.source ? 'warn' : 'muted'));
+  document.getElementById('locSub').innerHTML =
+    `${escapeHtml(r.county)} · ${escapeHtml(ctx.posTxt || '—')} · <span class="mono">${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}</span>`;
+
+  renderLocationMatrix();
+  renderFactorStack(state.locCell.T, state.locCell.X);
+  renderLocationMetrics();
+  renderLocMiniMap(r.lon, r.lat, r.fips);
+  updateCrumbs();
+}
+
+function renderLocationMatrix() {
+  const r = state.locResolved; if (!r) return;
+  const { fips, ctx } = r;
+  const kind = document.getElementById('locPremKind')?.value || 'retail';
+  state.locPremKind = kind;
+
+  document.getElementById('locHead').innerHTML =
+    '<th>T \\ X</th>' + X_GRID.map(x => `<th>${fmt.money(x)}</th>`).join('');
+  const body = document.getElementById('locBody');
+  body.innerHTML = '';
+  for (const T of T_GRID) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<th>${T}h</th>`;
+    for (const X of X_GRID) {
+      const td = document.createElement('td');
+      const comp = composeLocationPremium(fips, ctx, T, X);
+      if (!comp) {
+        td.className = 'not-available';
+        td.textContent = '—';
+        const pc = perCustomerCell(fips, T);
+        td.title = pc ? gateReasonText(pc.coverage_gate_reason) : 'no per-customer base';
+      } else {
+        const val = kind === 'pure' ? comp.finalPure : comp.finalRetail;
+        const moved = Math.abs(comp.location.relUsed * comp.forward.factor - 1) > 1e-6;
+        td.className = comp.gate === 'caution' ? 'caution' : 'available';
+        if (state.locCell.T === T && state.locCell.X === X) td.classList.add('loc-cell-selected');
+        td.innerHTML = fmt.money(val) + (moved ? '<span class="loc-shadow-dot" aria-hidden="true">•</span>' : '');
+        td.title = `final ${fmt.money(comp.finalRetail)} · active-only ${fmt.money(comp.activeRetail)}`
+          + ` · location ×${comp.location.relUsed.toFixed(2)} · forward ×${comp.forward.factor.toFixed(2)}`;
+        td.addEventListener('click', () => {
+          state.locCell = { T, X };
+          renderLocationMatrix();
+          renderFactorStack(T, X);
+          renderLocationMetrics();
+        });
+      }
+      tr.appendChild(td);
+    }
+    body.appendChild(tr);
+  }
+
+  const er = +document.getElementById('expenseRatio')?.value || 0.20;
+  const tm = +document.getElementById('targetMargin')?.value || 0.15;
+  const foot = document.getElementById('locMatrixFoot');
+  if (foot) {
+    foot.innerHTML = `<span class="loc-shadow-dot">•</span> cell includes shadow layers (location basis · forward-looking). `
+      + `Loadings ER ${fmt.pct(er)} · TM ${fmt.pct(tm)} (adjust in Matrix view). Click a cell for its factor stack.`;
+  }
+}
+
+function renderFactorStack(T, X) {
+  const r = state.locResolved; if (!r) return;
+  const stack = document.getElementById('locStack');
+  const cellLbl = document.getElementById('locStackCell');
+  if (cellLbl) cellLbl.textContent = `T = ${T}h · X = ${fmt.money(X)}`;
+
+  const c = composeLocationPremium(r.fips, r.ctx, T, X);
+  if (!c) {
+    stack.innerHTML = `<div class="loc-stack-hint">No per-customer base for T=${T}h (coverage gate). The final premium needs the active customer-basis floor, so this cell is not quotable.</div>`;
+    return;
+  }
+
+  const afterCustomer = c.customer.lamCustomer;
+  const afterLocation = afterCustomer * c.location.relUsed;
+  const afterForward  = afterLocation * c.forward.factor;   // = adjustedCount
+  const fwdMoved = c.forward.available && Math.abs(c.forward.factor - 1) > 1e-6;
+
+  const rows = [
+    stackRow({
+      step: '0', name: 'Baseline · county λ(T)', target: 'frequency_lambda', status: 'active',
+      op: '', result: `${fmt.num1(c.baseline.lamCounty)}<span class="u">events/yr ≥ ${T}h</span>`,
+      note: 'County-event rate from 12y EAGLE-I history. Intentionally large — the whole county, not one site.',
+    }),
+    stackRow({
+      step: '1', name: 'Customer basis', target: 'exposure_basis', status: 'active',
+      op: `× ${fmt.pct4(c.customer.multiplier)}`, result: `${fmt.num3(afterCustomer)}<span class="u">events/yr</span>`,
+      note: 'Mean share of the county actually dark during qualifying events → this customer’s own rate. Active headline.',
+    }),
+    stackRow({
+      step: '2', name: 'Location basis', target: 'exposure_basis', status: 'review',
+      op: `× ${c.location.relUsed.toFixed(2)}`, result: `${fmt.num3(afterLocation)}<span class="u">events/yr</span>`,
+      note: c.location.available
+        ? `${c.location.tercile} within county · ${c.location.validated ? 'validated (CT/MA/RI pilot)' : 'extrapolated from tract density'}.`
+        : 'No within-county factor resolved for this point (× 1.00) — not zero, just unresolved.',
+      muted: !c.location.available,
+    }),
+    stackRow({
+      step: '3', name: 'Forward-looking · shadow λ', target: 'frequency_lambda', status: 'shadow',
+      op: `× ${c.forward.factor.toFixed(2)}`, result: `${fmt.num3(afterForward)}<span class="u">events/yr</span>`,
+      note: fwdMoved
+        ? `${(c.forward.pattern || '').replace(/_/g, ' ')} · ${(c.forward.action || '').replace(/_/g, ' ')} · confidence ${c.forward.confidence || '—'}${c.forward.capApplied ? ' · cap applied' : ''}. ${c.forward.reason || ''}`
+        : 'Predictability router leaves this county’s λ unchanged (× 1.00).',
+      muted: !fwdMoved,
+    }),
+    stackRow({
+      step: '4', name: 'Trigger-source alignment', target: 'trigger_source', status: 'discussion',
+      op: '× 1.00', result: '<span class="u">pending</span>',
+      note: 'Acts on the payout leg, not the count. A calibrated bridge factor will reconcile EAGLE-I frequency with the chosen live trigger. Not yet applied.',
+      muted: true,
+    }),
+  ];
+
+  const delta = c.finalRetail - c.activeRetail;
+  stack.innerHTML = `
+    <div class="loc-stack-rows">${rows.join('')}</div>
+    <div class="loc-stack-result">
+      <div class="loc-stack-line"><span>Adjusted event count</span><strong>${fmt.num3(c.adjustedCount)} /yr</strong></div>
+      <div class="loc-stack-line"><span>× payout X</span><strong>${fmt.money(X)}</strong></div>
+      <div class="loc-stack-line"><span>= pure expected loss</span><strong>${fmt.money(c.finalPure)} /yr</strong></div>
+      <div class="loc-stack-line"><span>÷ loadings (ER ${fmt.pct(c.er)} · TM ${fmt.pct(c.tm)})</span><strong>÷ ${c.denom.toFixed(2)}</strong></div>
+      <div class="loc-stack-final"><span>Final premium <span class="loc-shadow-dot">•</span><em>incl. shadow</em></span><strong>${fmt.money(c.finalRetail)} /yr</strong></div>
+      <div class="loc-stack-compare">Active-only floor (customer basis): <strong>${fmt.money(c.activeRetail)} /yr</strong> — shadow layers ${delta >= 0 ? 'add' : 'remove'} ${fmt.money(Math.abs(delta))}/yr.</div>
+    </div>`;
+}
+
+function stackRow({ step, name, target, status, op, result, note, muted }) {
+  return `
+    <div class="loc-stack-row${muted ? ' muted' : ''}">
+      <div class="lsr-step">${step}</div>
+      <div class="lsr-main">
+        <div class="lsr-head"><span class="lsr-name">${name}</span> ${statusChip(status)} <span class="lsr-target">${target}</span></div>
+        <div class="lsr-note">${note || ''}</div>
+      </div>
+      <div class="lsr-op">${op || ''}</div>
+      <div class="lsr-result">${result || ''}</div>
+    </div>`;
+}
+
+function renderLocationMetrics() {
+  const r = state.locResolved; if (!r) return;
+  const { fips, ctx } = r;
+  const T = state.locCell.T;
+  const pc = perCustomerCell(fips, T);
+  const dd = state.drilldown[fips];
+  const lb = state.locBasis?.[fips];
+  const pred = predictabilityCell(fips, T);
+  const predSum = predictabilitySummary(fips);
+  const fwd = forwardFactorCell(fips, T);
+  const rel = locRelAt(ctx, T);
+  const gridT = dd?.grid?.[T];
+
+  const rows = [
+    ['County', `${escapeHtml(r.county)} · FIPS ${fips} · tier ${dd?.tier || '—'}`],
+    ['Within-county position', `${ctx.posTxt || '—'}${ctx.source ? ` · ${ctx.source}` : ''}`],
+    [`λ county (T=${T}h)`, gridT ? `${fmt.num1(gridT.lambda_T)} events/yr · S(T) ${fmt.pct(gridT.S_T)}` : '—'],
+    [`Customer multiplier (T=${T}h)`, pc ? `${fmt.pct4(pc.multiplier_mean)} → λ_customer ${fmt.num3(pc.lambda_customer_mean)}/yr · ${pc.coverage_gate_status}` : '—'],
+    [`Location relativity (T=${T}h)`, rel != null ? `× ${rel.toFixed(2)} · ${ctx.validated ? 'validated' : 'extrapolated'}` : '× 1.00 · unavailable'],
+    ['County dispersion', lb ? `${lb.dispersion != null ? lb.dispersion.toFixed(2) : '—'} · ${lb.n_subunits || '—'} sub-units${lb.validated ? ' · pilot' : ''}` : '—'],
+    [`Predictability (T=${T}h)`, pred ? `${(pred.pattern_label || '').replace(/_/g, ' ')} · score ${pred.predictability_score ?? '—'} · ${pred.trend_class || ''}` : '—'],
+    ['County predictability', predSum ? `${(predSum.summary_label || '').replace(/_/g, ' ')} · dominant ${(predSum.dominant_pattern_group || '').replace(/_/g, ' ')}` : '—'],
+    [`Shadow λ factor (T=${T}h)`, fwd.available ? `× ${fwd.factor.toFixed(2)} · ${(fwd.action || '').replace(/_/g, ' ')} · conf ${fwd.confidence || '—'}` : 'no move (× 1.00)'],
+  ];
+  document.getElementById('locMetrics').innerHTML =
+    rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+}
+
+// ---- Within-county density mini-map (Location-view inset) ------------------
+let locMiniMap = null, locMiniMarker = null;
+
+// County sub-units (validated pilot towns, else TIGERweb tracts) carrying the
+// within-county density rank (_wrank: 0 = rural .. 1 = urban). Cached per fips.
+// Same shape the main-map drill-in produces.
+async function countySubunitFeatures(fips) {
+  state.subunitCache = state.subunitCache || {};
+  if (state.subunitCache[fips]) return state.subunitCache[fips];
+  const lb = state.locBasis?.[fips];
+  let features = [], kind = 'tracts';
+  if (lb && lb.validated) {
+    if (!state.pilotGeo) state.pilotGeo = await (await fetch('./data/location_basis_pilot.geojson', { cache: 'no-store' })).json();
+    features = state.pilotGeo.features.filter(f => String(parseInt(f.properties.county_fips, 10)) === String(fips));
+    setWithinCountyRank(features, f => f.properties.density);
+    kind = 'towns';
+  } else {
+    if (!state.tractDensity) state.tractDensity = await (await fetch('./data/tract_density.json', { cache: 'no-store' })).json();
+    const fp = String(fips).padStart(5, '0');
+    const url = `${TIGER_TRACTS}?where=STATE%3D%27${fp.slice(0, 2)}%27+AND+COUNTY%3D%27${fp.slice(2)}%27&outFields=GEOID&returnGeometry=true&outSR=4326&f=geojson&resultRecordCount=4000`;
+    const geo = await (await fetch(url)).json();
+    features = geo.features || [];
+    features.forEach(f => { f.properties.density = state.tractDensity[f.properties.GEOID] ?? null; });
+    setWithinCountyRank(features, f => f.properties.density);
+  }
+  const out = { features, kind };
+  state.subunitCache[fips] = out;
+  return out;
+}
+
+function ensureLocMiniMap() {
+  if (locMiniMap) return locMiniMap;
+  if (!document.getElementById('locMiniMap')) return null;
+  const variant = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark_nolabels' : 'light_nolabels';
+  locMiniMap = new maplibregl.Map({
+    container: 'locMiniMap',
+    style: {
+      version: 8,
+      sources: { carto: { type: 'raster',
+        tiles: [`https://a.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}@2x.png`,
+                `https://b.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}@2x.png`],
+        tileSize: 256, attribution: '© OpenStreetMap · © CARTO' } },
+      layers: [{ id: 'carto', type: 'raster', source: 'carto' }],
+    },
+    center: [-96.5, 39], zoom: 3.4, attributionControl: false, scrollZoom: false,
+  });
+  locMiniMap.on('load', () => {
+    locMiniMap.addSource('minitracts', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    locMiniMap.addLayer({ id: 'minitracts-fill', type: 'fill', source: 'minitracts',
+      paint: { 'fill-color': ['interpolate', ['linear'], ['coalesce', ['get', '_wrank'], 0.5], 0, '#b2182b', 0.5, '#f7f7f7', 1, '#2166ac'], 'fill-opacity': 0.8 } });
+    locMiniMap.addLayer({ id: 'minitracts-line', type: 'line', source: 'minitracts',
+      paint: { 'line-color': '#ffffff', 'line-width': 0.3, 'line-opacity': 0.5 } });
+    locMiniMap._ready = true;
+    if (locMiniMap._pending) { const p = locMiniMap._pending; locMiniMap._pending = null; renderLocMiniMap(p.lon, p.lat, p.fips); }
+  });
+  return locMiniMap;
+}
+
+async function renderLocMiniMap(lon, lat, fips) {
+  const m = ensureLocMiniMap();
+  if (!m) return;
+  if (!m._ready) { m._pending = { lon, lat, fips }; return; }
+  requestAnimationFrame(() => m.resize());   // view just became visible — recompute size
+
+  if (locMiniMarker) locMiniMarker.remove();
+  locMiniMarker = new maplibregl.Marker({ color: '#0b6e74' }).setLngLat([lon, lat]).addTo(m);
+  m.jumpTo({ center: [lon, lat], zoom: 9 });
+
+  try {
+    const { features } = await countySubunitFeatures(fips);
+    if (features.length && m.getSource('minitracts')) {
+      m.getSource('minitracts').setData({ type: 'FeatureCollection', features });
+      m.fitBounds(featuresBBox(features), { padding: 16, duration: 0, maxZoom: 12 });
+    }
+  } catch (e) { console.warn('mini-map tracts failed', e); }
+}
+
+function wireLocationView() {
+  document.getElementById('locPremKind')?.addEventListener('change', () => {
+    renderLocationMatrix();
+    renderFactorStack(state.locCell.T, state.locCell.X);
+  });
+  document.getElementById('locClear')?.addEventListener('click', () => {
+    state.locResolved = null;
+    if (locMarker) { locMarker.remove(); locMarker = null; }
+    setLocStatus('');
+    renderLocation();
+    updateCrumbs();
+  });
+  document.getElementById('locEmptyFocus')?.addEventListener('click', () => {
+    document.getElementById('locInput')?.focus();
+  });
+}
+
 wireLocationSearch();
+wireLocationView();
 
 function renderMapTrendPanel(fips, anchorEvent = null, opts = {}) {
   const panel = document.getElementById('mapTrendPanel');
@@ -3705,6 +4098,36 @@ const PIPELINE_STATUS_ITEMS = [
 
 const PIPELINE_SEQUENCE_PRINCIPLE = 'Sequencing principle: basis-risk alignment is closed before forward-looking signal enters pricing; forward-looking signal is validated on holdout years before it moves an active premium.';
 
+const PIPELINE_STATUS_GROUPS = [
+  {
+    key: 'basis-risk-adjustments',
+    title: 'Basis-risk adjustments',
+    itemKeys: ['customer-basis', 'location-basis'],
+    lead: 'Fix the gap between what the county data measures and what the policy sells.',
+    bullets: ['customer basis is active in the headline rate', 'location basis is under review', 'basis-risk corrections come before forward-looking signals'],
+    note: 'This category stays separate because a better forecast does not fix a product-grain mismatch.',
+    section: 'baseline-adjustment',
+  },
+  {
+    key: 'forward-regime-reads',
+    title: 'Forward-regime reads',
+    itemKeys: ['predictability-routing', 'hazard-grid'],
+    lead: 'Read whether the future should differ from the historical baseline.',
+    bullets: ['predictability is statistical routing and shadow frequency read', 'hazard/weather and grid condition are cause-attribution lanes', 'holdout validation is required before active premium movement'],
+    note: 'Predictability is not the hazard model. It is the routing layer until hazard and grid condition are mature enough to explain the pattern.',
+    section: 'roadmap',
+  },
+  {
+    key: 'trigger-alignment',
+    title: 'Trigger alignment',
+    itemKeys: ['trigger-source'],
+    lead: 'Align the historical pricing source with the live payout oracle.',
+    bullets: ['option space is framed', 'vendor diligence is ahead', 'this is a contract/oracle layer, not a pricing estimator'],
+    note: 'Trigger source stays last because it decides how a live policy observes payout, after the pricing layers are coherent.',
+    section: 'trigger-source-options',
+  },
+];
+
 function renderPipelineStatusPanel() {
   return `
     <section class="pipeline-status-panel" aria-label="Status across the full pipeline">
@@ -3874,15 +4297,48 @@ async function navigateLibrary(sectionKey) {
 function renderRoadmapList() {
   const list = document.getElementById('roadmapList');
   if (!list) return;
+  const statusByKey = new Map(PIPELINE_STATUS_ITEMS.map(item => [item.key, item]));
   list.innerHTML = `
-    ${PIPELINE_STATUS_ITEMS.map(item => `
-      <div class="roadmap-item ${escapeHtml(item.statusKey)}">
-        <span class="roadmap-status ${escapeHtml(item.statusKey)}">${escapeHtml(item.statusLabel)}</span>
-        <div class="roadmap-title-row">
-          <button type="button" class="roadmap-link roadmap-title-link" data-library-section="${escapeHtml(item.section)}" title="Open in library">
-            <span class="roadmap-name">${escapeHtml(item.name)}</span>
+    ${PIPELINE_STATUS_GROUPS.map(group => `
+      <div class="roadmap-group-header">
+        <div class="roadmap-group-title">${escapeHtml(group.title)}</div>
+        ${infoButtonMarkup({
+          key: group.key,
+          title: group.title,
+          lead: group.lead,
+          bullets: group.bullets,
+          note: group.note,
+          readMore: { section: group.section, label: 'Read in library' },
+        }, 'sidebar-roadmap-group')}
+        ${infoPanelMarkup({
+          key: group.key,
+          title: group.title,
+          lead: group.lead,
+          bullets: group.bullets,
+          note: group.note,
+          readMore: { section: group.section, label: 'Read in library' },
+        }, 'sidebar-roadmap-group')}
+      </div>
+      ${group.itemKeys.map(key => statusByKey.get(key)).filter(Boolean).map(item => `
+        <div class="roadmap-item ${escapeHtml(item.statusKey)}">
+          <span class="roadmap-status ${escapeHtml(item.statusKey)}">${escapeHtml(item.statusLabel)}</span>
+          <div class="roadmap-title-row">
+            <button type="button" class="roadmap-link roadmap-title-link" data-library-section="${escapeHtml(item.section)}" title="Open in library">
+              <span class="roadmap-name">${escapeHtml(item.name)}</span>
+            </button>
+            ${roadmapItemInfoButtonMarkup({
+              key: item.key,
+              title: item.name,
+              lead: item.lead,
+              bullets: item.bullets,
+              note: item.note,
+              readMore: { section: item.section, label: 'Read in library' },
+            }, 'sidebar-roadmap')}
+          </div>
+          <button type="button" class="roadmap-link roadmap-desc-link" data-library-section="${escapeHtml(item.section)}" title="Open in library">
+            <span class="roadmap-desc">${escapeHtml(item.compactDesc)}</span>
           </button>
-          ${roadmapItemInfoButtonMarkup({
+          ${infoPanelMarkup({
             key: item.key,
             title: item.name,
             lead: item.lead,
@@ -3891,18 +4347,7 @@ function renderRoadmapList() {
             readMore: { section: item.section, label: 'Read in library' },
           }, 'sidebar-roadmap')}
         </div>
-        <button type="button" class="roadmap-link roadmap-desc-link" data-library-section="${escapeHtml(item.section)}" title="Open in library">
-          <span class="roadmap-desc">${escapeHtml(item.compactDesc)}</span>
-        </button>
-        ${infoPanelMarkup({
-          key: item.key,
-          title: item.name,
-          lead: item.lead,
-          bullets: item.bullets,
-          note: item.note,
-          readMore: { section: item.section, label: 'Read in library' },
-        }, 'sidebar-roadmap')}
-      </div>
+      `).join('')}
     `).join('')}
     <p class="roadmap-sequence-note">${escapeHtml(PIPELINE_SEQUENCE_PRINCIPLE)}</p>
   `;
