@@ -3518,7 +3518,7 @@ const LIBRARY_SECTIONS = {
     path: null,           // hand-rendered welcome page
   },
   'roadmap': {
-    title: 'Pricing roadmap',
+    title: 'Status across the full pipeline',
     path: './methodology/roadmap.md',
   },
   'baseline-adjustment': {
@@ -3640,9 +3640,94 @@ function setLibraryTitle(text) {
   if (t) t.textContent = text;
 }
 
+const PIPELINE_STATUS_ITEMS = [
+  {
+    key: 'customer-basis',
+    name: 'Customer basis risk',
+    statusKey: 'done-active',
+    statusLabel: 'Done · active',
+    desc: 'Done — discussed with the team and verified. Active headline rate.',
+    compactDesc: 'Active headline rate',
+    lead: 'Done — discussed with the team and verified. This is the active headline rate in the dashboard.',
+    bullets: ['per-customer chain is active', 'team-reviewed current headline rate', 'still documented so the assumption stays visible'],
+    note: 'This closes the first basis-risk gap: county events are converted into a per-customer expected-loss view.',
+    section: 'per-customer-walkthrough',
+  },
+  {
+    key: 'location-basis',
+    name: 'Location basis risk',
+    statusKey: 'under-review',
+    statusLabel: 'Under review',
+    desc: 'Under review — design and pilot evidence in; targeting completion this week.',
+    compactDesc: 'Design and pilot evidence in',
+    lead: 'Under review — the design and pilot evidence are in, with completion targeted this week.',
+    bullets: ['location methodology drafted', 'density pilot evidence visible', 'not active premium movement yet'],
+    note: 'This is still a basis-risk alignment layer: it bridges county average to insured location before forward-looking signals enter price.',
+    section: 'location-basis',
+  },
+  {
+    key: 'predictability-routing',
+    name: 'Predictability routing (statistically)',
+    statusKey: 'under-review',
+    statusLabel: 'Under review',
+    desc: 'Under review — initial forward-looking layer done; shadow, not active.',
+    compactDesc: 'Shadow read, not active',
+    lead: 'Under review — the initial statistical forward-looking layer is built, but it remains a shadow read.',
+    bullets: ['pattern buckets are visible', 'shadow lambda read exists', 'holdout validation needed before active premium impact'],
+    note: 'This routes counties by empirical shape. It should not absorb hazard/weather or grid-condition logic.',
+    section: 'outage-predictability',
+  },
+  {
+    key: 'hazard-grid',
+    name: 'Hazard & weather · grid condition',
+    statusKey: 'work-in-progress',
+    statusLabel: 'Work in progress',
+    desc: 'Work in progress — the advanced cause-attribution lanes.',
+    compactDesc: 'Advanced cause-attribution lanes',
+    lead: 'Work in progress — hazard/weather and grid condition are the advanced cause-attribution lanes.',
+    bullets: ['hazard/weather explains storm, wildfire, flood, wind, climate context', 'grid condition explains utility and infrastructure context', 'separate from predictability routing'],
+    note: 'These lanes should explain why the forward regime is changing before any final active forward premium is set.',
+    section: 'forward-modeling-plan',
+  },
+  {
+    key: 'trigger-source',
+    name: 'Trigger source',
+    statusKey: 'in-discussion',
+    statusLabel: 'In discussion',
+    desc: 'In discussion — option space framed; vendor diligence ahead.',
+    compactDesc: 'Option space framed',
+    lead: 'In discussion — the option space is framed, with vendor diligence ahead.',
+    bullets: ['live payout oracle options documented', 'not a pricing estimator', 'requires selected source and overlap evidence'],
+    note: 'Trigger source remains last because it is the contract/oracle bridge, not the historical pricing estimator.',
+    section: 'trigger-source-options',
+  },
+];
+
+const PIPELINE_SEQUENCE_PRINCIPLE = 'Sequencing principle: basis-risk alignment is closed before forward-looking signal enters pricing; forward-looking signal is validated on holdout years before it moves an active premium.';
+
+function renderPipelineStatusPanel() {
+  return `
+    <section class="pipeline-status-panel" aria-label="Status across the full pipeline">
+      <div class="pipeline-status-eyebrow">Where each layer stands</div>
+      <h2>Status across the full pipeline</h2>
+      <div class="pipeline-status-list">
+        ${PIPELINE_STATUS_ITEMS.map(item => `
+          <button type="button" class="pipeline-status-row ${escapeHtml(item.statusKey)}" data-library-section="${escapeHtml(item.section)}">
+            <span class="pipeline-status-accent" aria-hidden="true"></span>
+            <span class="pipeline-status-name">${escapeHtml(item.name)}</span>
+            <span class="pipeline-status-desc">${escapeHtml(item.desc)}</span>
+            <span class="pipeline-status-pill ${escapeHtml(item.statusKey)}">${escapeHtml(item.statusLabel)}</span>
+          </button>
+        `).join('')}
+      </div>
+      <p class="pipeline-status-note">${escapeHtml(PIPELINE_SEQUENCE_PRINCIPLE)}</p>
+    </section>
+  `;
+}
+
 function renderLibraryOverview() {
   const sections = [
-    { key: 'roadmap', meta: 'Pricing flow', desc: 'Baseline, basis-risk adjustments, forward-regime reads, and trigger alignment in the order the pricing story should be read.' },
+    { key: 'roadmap', meta: 'Current status', desc: 'The status page for the full pipeline: customer basis, location basis, predictability, hazard/grid, and trigger source.' },
     { key: 'pricing', meta: 'Baseline', desc: 'The empirical county baseline and premium math: lambda(T), pure premium, retail premium, and current v0 boundaries.' },
     { key: 'baseline-adjustment', meta: 'Basis risk', desc: 'The adjustment framework for correcting data-grain gaps before adding forward-looking signals.' },
     { key: 'location-basis', meta: 'Basis risk', desc: 'End-to-end location-basis methodology: the granularity ladder, Census/CONUS data, density → tercile → price, honest validation (what works / what does not), and the work still ahead.' },
@@ -3650,10 +3735,10 @@ function renderLibraryOverview() {
     { key: 'outage-predictability', meta: 'Forward-regime routing', desc: 'Empirical pattern labels that route counties to frequency, uncertainty/load, hazard context, or quoteability review.' },
     { key: 'lambda-shadow-pricing', meta: 'Forward frequency read', desc: 'Candidate lambda and premium-pressure rules from patterns whose native mechanism is frequency. Shipped as review layer.' },
     { key: 'lambda-shadow-verification', meta: 'Forward-regime review', desc: 'Validation checklist for every pattern category before any shadow-lambda rule becomes active pricing.' },
-    { key: 'forward-modeling-plan', meta: 'Hazard + grid WIP', desc: 'Hazard/weather and grid condition are first-class forward-regime lanes, not sub-parts of predictability.' },
+    { key: 'forward-modeling-plan', meta: 'Hazard + grid condition', desc: 'Hazard/weather and grid condition are first-class forward-regime lanes, not sub-parts of predictability.' },
     { key: 'trigger-source-options', meta: 'Trigger alignment', desc: 'Live payout oracle options and why trigger alignment is separate from pricing-source methodology.' },
     { key: 'competitive-landscape', meta: 'Strategy', desc: 'Who else is in the parametric outage segment (Adaptive / GridProtect, Whisker Labs Ting, PowerOutage.US, adjacent-vertical proof points). How we position relative to each.' },
-    { key: 'per-customer-walkthrough', meta: 'Walkthrough', desc: 'End-to-end nuance-by-nuance walk through the shipped per-customer pricing chain, with a worked Boone, MO example.' },
+    { key: 'per-customer-walkthrough', meta: 'Walkthrough', desc: 'End-to-end nuance-by-nuance walk through the active per-customer pricing chain, with a worked Boone, MO example.' },
     { key: 'event-catalog', meta: 'Pipeline · events', desc: 'The event-construction algorithm (three knobs: threshold / gap tolerance / minimum duration).' },
     { key: 'aggregation', meta: 'Pipeline · rate', desc: 'How per-event records roll up to per-county summaries and how the annualization denominator is defined.' },
     { key: 'filtration', meta: 'Pipeline · tiers', desc: 'The five-gate Green / Amber / Red modelability classification (D1 through D5).' },
@@ -3680,6 +3765,7 @@ function renderLibraryOverview() {
         Any edit to a methodology file on disk shows up here on the next
         section load.
       </p>
+      ${renderPipelineStatusPanel()}
       <div class="welcome-grid">${cardsHtml}</div>
     </div>
   `;
@@ -3785,130 +3871,15 @@ async function navigateLibrary(sectionKey) {
 // status changes there, change it here too. The library section is the long
 // form; this is the glanceable summary.
 
-// Compact pricing roadmap in the order the team wants readers to understand:
-// baseline first, then basis-risk corrections, then forward-regime reads,
-// then trigger alignment as the separate live-oracle contract layer.
-const ROADMAP_GROUPS = [
-  {
-    key: 'basis-risk',
-    title: 'Basis-risk adjustments',
-    lead: 'Fix the gap between what the county data measures and what the policy sells.',
-    bullets: ['customer basis is already in the headline price', 'location basis is now active design work', 'these are data-grain corrections, not forward forecasts'],
-    note: 'We do basis risk before forward-regime work because a better forecast does not fix a misaligned product grain.',
-    section: 'baseline-adjustment',
-    items: [
-      {
-        key: 'customer-basis',
-        name: 'Customer basis risk',
-        status: 'shipped',
-        desc: 'Per-customer chain is the headline price',
-        lead: 'Corrects the county-event rate into a per-policy expected-loss view.',
-        bullets: ['active in the dashboard price', 'documented A011 assumption', 'phase 4 validation remains refinement'],
-        note: 'This is the prototype for basis-risk corrections: documented assumption, clear resolution path, visible pricing effect.',
-        section: 'per-customer-walkthrough',
-      },
-      {
-        key: 'location-basis',
-        name: 'Location basis risk',
-        status: 'wip',
-        desc: 'County average to insured-location bridge',
-        lead: 'Builds the next basis-risk correction: how a specific location differs from its county average.',
-        bullets: ['pre-op plan written', 'shadow artifact first', 'utility and local geography as first bridge'],
-        note: 'This should become a capped review layer before any active location modifier.',
-        section: 'location-basis-preop',
-      },
-    ],
-  },
-  {
-    key: 'forward-regime',
-    title: 'Forward-regime engines',
-    lead: 'Read whether the future should differ from history through three lanes: predictability routing, hazard/weather, and grid condition.',
-    bullets: ['predictability is empirical shape and routing', 'hazard/weather is a first-class mechanism', 'grid condition is a first-class mechanism'],
-    note: 'Predictability is useful now, but it is not the hazard model. Hazard and grid should explain patterns before any final forward price movement is activated.',
-    section: 'roadmap',
-    items: [
-      {
-        key: 'predictability-shadow',
-        name: 'Predictability routing',
-        status: 'shipped',
-        desc: 'Empirical shape routes the mechanism',
-        lead: 'Labels annual outage histories so the county routes to frequency, uncertainty/load, hazard context, or quoteability review.',
-        bullets: ['shipped as review layer', 'not the hazard model', 'feeds frequency shadow only when the pattern supports it'],
-        note: 'This is the empirical read/routing layer. It should not absorb hazard or grid logic.',
-        section: 'outage-predictability',
-      },
-      {
-        key: 'hazard-weather',
-        name: 'Hazard & weather',
-        status: 'wip',
-        desc: 'Storm, wildfire, flood, climate engine',
-        lead: 'Adds storm, wildfire, flood, wind, winter-weather, heat, and climate context as its own forward-regime mechanism.',
-        bullets: ['teammate hazard handoff', 'episodic counties need this context', 'not yet active pricing'],
-        note: 'Hazard should explain volatile/episodic counties before any final hazard load or frequency support is used.',
-        section: 'forward-modeling-plan',
-      },
-      {
-        key: 'grid-condition',
-        name: 'Grid condition',
-        status: 'wip',
-        desc: 'Utility reliability + capex signals',
-        lead: 'Asks whether the serving grid is stronger or weaker than history alone implies.',
-        bullets: ['utility reliability', 'AMI and service-territory signals', 'capex/opex and hardening later'],
-        note: 'Keep this separate from location basis so the same utility signal is not counted twice.',
-        section: 'forward-modeling-plan',
-      },
-    ],
-  },
-  {
-    key: 'trigger-alignment',
-    title: 'Trigger alignment',
-    lead: 'Align the historical pricing source with the live payout oracle.',
-    bullets: ['trigger source options are documented', 'not a pricing estimator', 'requires selected live oracle and overlap data'],
-    note: 'This is a separate contract/oracle layer, so it sits last in the roadmap.',
-    section: 'trigger-source-options',
-    items: [
-      {
-        key: 'trigger-source',
-        name: 'Trigger source alignment',
-        status: 'discussion',
-        desc: 'Live payout oracle bridge',
-        lead: 'Connects historical pricing events to the eventual live payout trigger.',
-        bullets: ['options documented', 'not a pricing estimator', 'needs selected oracle and overlap data'],
-        note: 'No longer an undefined blocker, but still not implementable until a live source is selected.',
-        section: 'trigger-source-options',
-      },
-    ],
-  },
-];
-
 function renderRoadmapList() {
   const list = document.getElementById('roadmapList');
   if (!list) return;
-  list.innerHTML = ROADMAP_GROUPS.map(group => `
-    <div class="roadmap-group-header">
-      <div class="roadmap-group-title">${escapeHtml(group.title)}</div>
-      ${infoButtonMarkup({
-        key: group.key,
-        title: group.title,
-        lead: group.lead,
-        bullets: group.bullets,
-        note: group.note,
-        readMore: { section: group.section || 'roadmap', label: 'Read in library' },
-      }, 'sidebar-roadmap-group')}
-      ${infoPanelMarkup({
-        key: group.key,
-        title: group.title,
-        lead: group.lead,
-        bullets: group.bullets,
-        note: group.note,
-        readMore: { section: group.section || 'roadmap', label: 'Read in library' },
-      }, 'sidebar-roadmap-group')}
-    </div>
-    ${group.items.map(item => `
-      <div class="roadmap-item">
-        <span class="roadmap-status ${item.status}">${escapeHtml(item.status)}</span>
+  list.innerHTML = `
+    ${PIPELINE_STATUS_ITEMS.map(item => `
+      <div class="roadmap-item ${escapeHtml(item.statusKey)}">
+        <span class="roadmap-status ${escapeHtml(item.statusKey)}">${escapeHtml(item.statusLabel)}</span>
         <div class="roadmap-title-row">
-          <button type="button" class="roadmap-link roadmap-title-link" data-library-section="${escapeHtml(item.section || 'roadmap')}" title="Open in library">
+          <button type="button" class="roadmap-link roadmap-title-link" data-library-section="${escapeHtml(item.section)}" title="Open in library">
             <span class="roadmap-name">${escapeHtml(item.name)}</span>
           </button>
           ${roadmapItemInfoButtonMarkup({
@@ -3917,11 +3888,11 @@ function renderRoadmapList() {
             lead: item.lead,
             bullets: item.bullets,
             note: item.note,
-            readMore: { section: item.section || 'roadmap', label: 'Read in library' },
+            readMore: { section: item.section, label: 'Read in library' },
           }, 'sidebar-roadmap')}
         </div>
-        <button type="button" class="roadmap-link roadmap-desc-link" data-library-section="${escapeHtml(item.section || 'roadmap')}" title="Open in library">
-          <span class="roadmap-desc">${escapeHtml(item.desc)}</span>
+        <button type="button" class="roadmap-link roadmap-desc-link" data-library-section="${escapeHtml(item.section)}" title="Open in library">
+          <span class="roadmap-desc">${escapeHtml(item.compactDesc)}</span>
         </button>
         ${infoPanelMarkup({
           key: item.key,
@@ -3929,11 +3900,12 @@ function renderRoadmapList() {
           lead: item.lead,
           bullets: item.bullets,
           note: item.note,
-          readMore: { section: item.section || 'roadmap', label: 'Read in library' },
+          readMore: { section: item.section, label: 'Read in library' },
         }, 'sidebar-roadmap')}
       </div>
     `).join('')}
-  `).join('');
+    <p class="roadmap-sequence-note">${escapeHtml(PIPELINE_SEQUENCE_PRINCIPLE)}</p>
+  `;
 }
 
 function clampSidebarWidth(px) {
