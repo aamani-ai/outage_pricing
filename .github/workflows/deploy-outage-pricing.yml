@@ -67,6 +67,15 @@ jobs:
       - name: Setup pack CLI
         uses: buildpacks/github-actions/setup-pack@v5.0.0
 
+      - name: Inject Mapbox token into runtime config
+        # Write the gitignored config.local.js from the MAPBOX_TOKEN Actions
+        # secret so the public token is bundled into the image WITHOUT ever
+        # living in git (the repo is public). The dashboard reads
+        # window.__MAPBOX_TOKEN__ from this file. GitHub masks the secret in logs.
+        run: |
+          echo "window.__MAPBOX_TOKEN__ = '${{ secrets.MAPBOX_TOKEN }}';" > ${{ env.APP_PATH }}/dashboard/config.local.js
+          echo "wrote $(wc -c < ${{ env.APP_PATH }}/dashboard/config.local.js) bytes to config.local.js"
+
       - name: Build and push image
         # paketobuildpacks/builder-jammy-base is fine for Python (the libatomic
         # gotcha that requires -full is Node-specific). The Procfile inside
