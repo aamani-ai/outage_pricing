@@ -78,31 +78,27 @@ jobs:
             --path ${{ env.APP_PATH }} \
             --publish
 
-      - name: Deploy to Cloud Run
-        # IAP + no-allow-unauthenticated: domain-restricted to aamani.ai
-        # (binding added in the next step). 512Mi/1CPU is plenty for a
-        # static-file Python server.
+      - name: Deploy to Cloud Run (PUBLIC)
+        # PUBLIC ACCESS: --allow-unauthenticated grants allUsers the Cloud Run
+        # invoker role, and --no-iap removes the IAP gate, so the dashboard is
+        # reachable by anyone with the URL (no aamani.ai login). 512Mi/1CPU is
+        # plenty for a static-file Python server.
+        #
+        # To RE-RESTRICT to the aamani.ai domain: change the two flags back to
+        #   --iap --no-allow-unauthenticated
+        # and restore the "Grant IAP access to aamani.ai domain" step that bound
+        #   --member='domain:aamani.ai' --role='roles/iap.httpsResourceAccessor'
         run: |
           IMAGE="${{ env.AR_HOST }}/${{ env.AR_PROJECT }}/${{ env.AR_REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
           gcloud run deploy ${{ env.SERVICE }} \
             --image "$IMAGE" \
             --platform managed \
             --region ${{ env.REGION }} \
-            --iap \
-            --no-allow-unauthenticated \
+            --no-iap \
+            --allow-unauthenticated \
             --service-account project-service-account@modeling-nonprod-svc-db5x.iam.gserviceaccount.com \
             --memory 512Mi \
             --cpu 1
-
-      - name: Grant IAP access to aamani.ai domain
-        run: |
-          gcloud iap web add-iam-policy-binding \
-            --resource-type=cloud-run \
-            --service=${{ env.SERVICE }} \
-            --region=${{ env.REGION }} \
-            --member='domain:aamani.ai' \
-            --role='roles/iap.httpsResourceAccessor' \
-            --condition=None
 
       - name: Print service URL
         run: |
