@@ -1768,65 +1768,40 @@ function parseLatLonInput(q) {
   };
 }
 
-// US state-name -> USPS abbreviation, for compact suggestion labels.
-const US_STATE_ABBR = {
-  'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA', 'Colorado': 'CO',
-  'Connecticut': 'CT', 'Delaware': 'DE', 'District of Columbia': 'DC', 'Florida': 'FL', 'Georgia': 'GA',
-  'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA', 'Kansas': 'KS', 'Kentucky': 'KY',
-  'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD', 'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN',
-  'Mississippi': 'MS', 'Missouri': 'MO', 'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH',
-  'New Jersey': 'NJ', 'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
-  'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
-  'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT', 'Virginia': 'VA',
-  'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY', 'Puerto Rico': 'PR',
-};
+// Mapbox PUBLIC geocoding token, read at runtime from window.__MAPBOX_TOKEN__
+// (set by config.local.js — written at deploy from the MAPBOX_TOKEN Actions
+// secret; created by hand for local dev). Kept OUT of git: the repo is public
+// and GitHub push protection blocks committing the token, so it lives only in
+// the runtime-injected config, never in source.
+const MAPBOX_TOKEN = (typeof window !== 'undefined' && window.__MAPBOX_TOKEN__) || '';
 
-function photonKind(p) {
-  if (p.housenumber) return 'address';
-  if (p.osm_key === 'highway') return 'street';
-  if (p.osm_key === 'place') return p.osm_value || 'place';
-  if (p.osm_key === 'building') return 'building';
-  return p.type || p.osm_value || p.osm_key || 'place';
-}
-
-// Compose a two-line label (bold primary + muted city/county/state) from a
-// Photon GeoJSON feature's structured properties.
-function photonLabelParts(p) {
-  const stateAbbr = US_STATE_ABBR[p.state] || p.state || '';
-  const locality = p.city || p.town || p.village || p.locality || p.district || p.county || '';
-  let primary;
-  if (p.housenumber && p.street) primary = `${p.housenumber} ${p.street}`;
-  else primary = p.name || p.street || locality || 'Location';
-  const sec = [];
-  if (locality && locality !== primary) sec.push(locality);
-  if (p.county && p.county !== locality && p.county !== primary) sec.push(p.county);
-  if (stateAbbr) sec.push(stateAbbr);
-  if (p.postcode) sec.push(p.postcode);
-  return { primary, secondary: sec.join(', ') };
-}
-
-// Photon (komoot): OSM-based, CORS-enabled, keyless geocoder built for
-// type-ahead — handles partial tokens ("182 hopkins ave") that the plain
-// Nominatim geocoder misses. Relevance-ranked (no location bias — biasing to
-// the US center mis-ranked coastal addresses), then filtered to US results.
+// Mapbox Geocoding API v6 (forward): real US address data + autocomplete
+// ranking, so a typed/partial address ("182 Hopkins Ave Jersey City") resolves
+// to the exact house number — which the keyless OSM geocoders could not. The
+// response is already country-scoped to the US and carries clean name /
+// place_formatted strings, so labeling is a direct read.
 async function geocodeAddress(q, opts = {}) {
   const limit = opts.limit || 1;
-  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}`
-            + `&limit=${Math.min(15, limit + 5)}&lang=en`;
-  const data = await (await fetch(url, { headers: { Accept: 'application/json' }, signal: opts.signal })).json();
+  if (!MAPBOX_TOKEN) { console.warn('Mapbox token missing — config.local.js not loaded'); return opts.many ? [] : null; }
+  const url = `https://api.mapbox.com/search/geocode/v6/forward?q=${encodeURIComponent(q)}`
+            + `&autocomplete=true&country=us&limit=${Math.min(10, Math.max(1, limit))}`
+            + `&access_token=${MAPBOX_TOKEN}`;
+  const data = await (await fetch(url, { signal: opts.signal })).json();
   const seen = new Set();
   const rows = [];
   for (const f of (data?.features || [])) {
     const p = f.properties || {};
-    if ((p.countrycode || '').toUpperCase() !== 'US') continue;
-    const [lon, lat] = f.geometry?.coordinates || [];
-    if (!Number.isFinite(+lon) || !Number.isFinite(+lat)) continue;
-    const { primary, secondary } = photonLabelParts(p);
+    const lon = p.coordinates?.longitude;
+    const lat = p.coordinates?.latitude;
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
+    const primary = p.name || p.name_preferred || '';
     if (!primary) continue;
+    const secondary = (p.place_formatted || '').replace(/,?\s*United States$/i, '').trim();
     const label = secondary ? `${primary}, ${secondary}` : primary;
     if (seen.has(label)) continue;
     seen.add(label);
-    rows.push({ type: 'address', lon: +lon, lat: +lat, primary, secondary, label, kind: photonKind(p), detail: secondary || photonKind(p) });
+    rows.push({ type: 'address', lon, lat, primary, secondary, label,
+                kind: p.feature_type || 'place', detail: secondary || (p.feature_type || '') });
     if (rows.length >= limit) break;
   }
   return opts.many ? rows : (rows[0] || null);
@@ -2003,7 +1978,7 @@ function updateLocSuggestions() {
     return;
   }
 
-  renderLocSuggestions([{ type: 'status', label: 'Searching addresses…', detail: 'US type-ahead · OSM/Photon' }], -1);
+  renderLocSuggestions([{ type: 'status', label: 'Searching addresses…', detail: 'US address search · Mapbox' }], -1);
   locSuggestionState.timer = window.setTimeout(async () => {
     locSuggestionState.abort = new AbortController();
     try {

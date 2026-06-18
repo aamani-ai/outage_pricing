@@ -47,3 +47,8 @@ docs/extra/outage_data/
 
 # Claude Code session state (local working memory; not part of project source).
 .claude/
+
+# Mapbox public token, injected at runtime via window.__MAPBOX_TOKEN__.
+# Deploy: written by CI from the MAPBOX_TOKEN Actions secret. Local dev: create
+# this file by hand. Never committed (repo is public; push protection blocks it).
+price_engine/dashboard/config.local.js
