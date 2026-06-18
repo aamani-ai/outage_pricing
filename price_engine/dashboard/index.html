@@ -13,7 +13,7 @@
   changes so soft-refresh always pulls the matching pair. Prevents the
   HTML/CSS/JS mismatch that has caused two "dashboard not loading" incidents.
 -->
-<link rel="stylesheet" href="./styles.css?v=20260616-11" />
+<link rel="stylesheet" href="./styles.css?v=20260618-07" />
 <link rel="icon" type="image/svg+xml" href="./assets/brand/outsure-favicon.svg" />
 </head>
 <body>
@@ -90,8 +90,8 @@
 
   <div class="sidebar-section roadmap-section">
     <div class="section-title-row">
-      <div class="section-title">What's next</div>
-      <button class="roadmap-view-all" type="button" data-library-section="roadmap">view all →</button>
+      <div class="section-title">Current status</div>
+      <button class="roadmap-view-all" type="button" data-library-section="roadmap">details →</button>
     </div>
     <div class="roadmap-list" id="roadmapList"></div>
   </div>
@@ -109,6 +109,7 @@
     <span id="loadStatus" class="muted">loading…</span>
   </div>
 </aside>
+<button id="sidebarResizeHandle" class="sidebar-resize-handle" type="button" aria-label="Resize sidebar" title="Drag to resize sidebar. Double-click to reset."></button>
 
 <header class="header">
   <div class="header-title">
@@ -119,6 +120,24 @@
       <span class="crumb">United States</span>
     </div>
     <span class="header-meta" id="headerMeta">v0 · parametric outage</span>
+  </div>
+  <div class="header-location-search" role="search" aria-label="Price a location">
+    <div class="loc-command">
+      <span class="loc-command-label">Price a location</span>
+      <input
+        id="locInput"
+        type="search"
+        placeholder="Address or lat, lon"
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="Price a location by address or latitude, longitude"
+        aria-autocomplete="list"
+        aria-controls="locSuggestions"
+      />
+      <button id="locSubmit" class="loc-submit" type="button" aria-label="Price selected location">Price</button>
+    </div>
+    <div id="locStatus" class="loc-status" aria-live="polite"></div>
+    <div id="locSuggestions" class="loc-suggestions" role="listbox" hidden></div>
   </div>
   <div class="header-actions">
     <div class="seg" role="tablist" aria-label="View">
@@ -149,6 +168,9 @@
     </div>
     <div class="map-toolbar">
       <label class="check"><input type="checkbox" id="quotableOnly" /> Quotable only</label>
+      <label class="check hover-detail-toggle" title="Show county hover tooltip and annual-series panel">
+        <input type="checkbox" id="hoverDetailsToggle" checked /> Hover details
+      </label>
       <div class="field">
         <label>min events</label>
         <input type="number" id="minEvents" value="0" min="0" step="50" />
@@ -165,8 +187,9 @@
           <option value="retail">Retail premium · T=8h · X=$2,500</option>
           <option value="events">Event evidence · total events</option>
           <option value="trend">Outage trend · 11yr · T=4h (descriptive)</option>
-          <option value="pattern">Predictability pattern · T=4h (descriptive)</option>
-          <option value="shadow">Shadow λ adjustment · T=4h</option>
+          <option value="pattern">Predictability routing · T=4h</option>
+          <option value="shadow">Shadow frequency factor · T=4h</option>
+          <option value="locbasis">Location basis · within-county (shadow)</option>
         </select>
       </div>
       <div class="field trend-threshold-field">
@@ -240,6 +263,7 @@
               <button type="button" class="seg-item" data-mxview="customer">Per-customer</button>
               <button type="button" class="seg-item" data-mxview="county">County trigger</button>
               <button type="button" class="seg-item" data-mxview="multiplier">Multiplier</button>
+              <button type="button" class="seg-item" data-mxview="locadj">Location-adjusted</button>
             </div>
           </div>
           <div class="mode-note" id="mxModeNote" hidden></div>
@@ -397,7 +421,7 @@
 
       <div class="card span-2">
         <div class="card-header">
-          <h3 class="card-title-sm">D · Outage trend <span class="card-title-sub">11-year window · shadow-pricing signal</span></h3>
+          <h3 class="card-title-sm">D · Outage trend <span class="card-title-sub">11-year window · routing signal</span></h3>
           <div class="trend-controls">
             <label class="ctl ctl-inline">
               <span>T</span>
@@ -470,28 +494,42 @@
         <button class="library-nav-item current" type="button" data-section="overview">What's in this library</button>
       </div>
       <div class="library-nav-section">
-        <div class="library-nav-section-title">What's next</div>
-        <button class="library-nav-item" type="button" data-section="roadmap">Forward-looking roadmap</button>
+        <div class="library-nav-section-title">Pricing flow</div>
+        <button class="library-nav-item" type="button" data-section="roadmap">Pricing roadmap</button>
+        <button class="library-nav-item" type="button" data-section="pricing">Baseline pricing</button>
+      </div>
+      <div class="library-nav-section">
+        <div class="library-nav-section-title">Basis risk</div>
+        <button class="library-nav-item" type="button" data-section="per-customer-walkthrough">Customer basis risk</button>
+        <button class="library-nav-item" type="button" data-section="location-basis">Location basis</button>
+        <button class="library-nav-item" type="button" data-section="location-basis-preop">Location basis · pre-op plan</button>
+        <button class="library-nav-item" type="button" data-section="baseline-adjustment">Adjustment framework</button>
+      </div>
+      <div class="library-nav-section">
+        <div class="library-nav-section-title">Forward regime</div>
+        <button class="library-nav-item" type="button" data-section="outage-predictability">Predictability routing</button>
+        <button class="library-nav-item" type="button" data-section="lambda-shadow-pricing">Shadow frequency read</button>
+        <button class="library-nav-item" type="button" data-section="lambda-shadow-verification">Shadow verification</button>
+        <button class="library-nav-item" type="button" data-section="forward-modeling-plan">Hazard + grid WIP</button>
+      </div>
+      <div class="library-nav-section">
+        <div class="library-nav-section-title">Trigger alignment</div>
+        <button class="library-nav-item" type="button" data-section="trigger-source-options">Trigger source options</button>
+      </div>
+      <div class="library-nav-section">
+        <div class="library-nav-section-title">Pipeline reference</div>
+        <button class="library-nav-item" type="button" data-section="data-ingestion">Data ingestion</button>
+        <button class="library-nav-item" type="button" data-section="event-catalog">Event catalog creation</button>
+        <button class="library-nav-item" type="button" data-section="aggregation">Aggregation &amp; annualization</button>
+        <button class="library-nav-item" type="button" data-section="filtration">Filtration</button>
       </div>
       <div class="library-nav-section">
         <div class="library-nav-section-title">Strategy</div>
         <button class="library-nav-item" type="button" data-section="competitive-landscape">Competitive landscape</button>
       </div>
       <div class="library-nav-section">
-        <div class="library-nav-section-title">Walkthroughs</div>
-        <button class="library-nav-item" type="button" data-section="per-customer-walkthrough">Per-customer view — end-to-end</button>
-      </div>
-      <div class="library-nav-section">
-        <div class="library-nav-section-title">Pipeline methodology</div>
-        <button class="library-nav-item" type="button" data-section="data-ingestion">Data ingestion</button>
-        <button class="library-nav-item" type="button" data-section="event-catalog">Event catalog creation</button>
-        <button class="library-nav-item" type="button" data-section="aggregation">Aggregation &amp; annualization</button>
-        <button class="library-nav-item" type="button" data-section="filtration">Filtration</button>
-        <button class="library-nav-item" type="button" data-section="pricing">Pricing</button>
-      </div>
-      <div class="library-nav-section">
         <div class="library-nav-section-title">Assumptions registry</div>
-        <button class="library-nav-item" type="button" data-section="assumptions">All assumptions (A001–A010)</button>
+        <button class="library-nav-item" type="button" data-section="assumptions">All assumptions</button>
       </div>
       <div class="library-nav-footer">
         <a class="library-source-link" href="https://github.com/aamani-ai/outage_pricing" target="_blank" rel="noopener" title="View source on GitHub">
@@ -510,6 +548,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.16"></script>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="./vendor/marked.min.js?v=20260530-7"></script>
-<script src="./app.js?v=20260616-11" type="module"></script>
+<script src="./app.js?v=20260618-07" type="module"></script>
 </body>
 </html>

@@ -38,6 +38,19 @@ factor           = lambda_candidate / lambda_v0
 
 It does not mutate v0 premiums. It shows price pressure.
 
+Read this as a **frequency-first** mechanism. The native model output is
+`lambda_candidate`; the factor is only the shared premium-impact expression:
+
+```text
+factor = lambda_candidate / lambda_v0
+```
+
+That distinction matters because the broader pricing architecture also has
+basis/alignment, trigger-source, uncertainty/load, hazard, and quoteability
+mechanisms. Those can also be expressed as premium-impact factors, but they are
+not lambda models. The project-level framing lives in
+[`../../dicsscssion/pricing_adjustment_mechanisms/01_pricing_adjustment_mechanism_design.md`](../../dicsscssion/pricing_adjustment_mechanisms/01_pricing_adjustment_mechanism_design.md).
+
 ## Inputs
 
 The shadow layer joins three dashboard artifacts:
@@ -92,9 +105,15 @@ reason:           smooth worsening history supports blending toward trend
 Because premium is linear in lambda, the same factor applies to pure premium
 and retail premium before any separate load changes.
 
+The factor should not be interpreted as an arbitrary price multiplier. It is a
+derived expression of the selected candidate frequency. Stable-noisy,
+episodic, and sparse cases may still matter for pricing, but their next
+mechanism is uncertainty, hazard context, or credibility review rather than a
+direct lambda movement.
+
 ## Why this is the correct middle step
 
-This is the bridge between descriptive analytics and production pricing:
+This is the transition step between descriptive analytics and production pricing:
 
 1. v0 remains stable.
 2. Every candidate price move is visible.
@@ -118,13 +137,16 @@ Before the shadow lambda can become active pricing, we should validate:
 ## One-Line Takeaways
 
 - **Predictability labels tell us which lambda estimator to trust.**
-- **The shadow layer shows the candidate price move without changing v0.**
+- **The shadow layer is frequency-first: candidate lambda first, factor second.**
 - **Stable regular counties keep the historical average.**
 - **Smooth and step-change counties get explicit candidate lambda alternatives.**
-- **Noisy, episodic, and sparse counties stay review-first.**
+- **Noisy, episodic, and sparse counties stay review-first because their next
+  mechanism may not be lambda.**
 
 ## References
 
 - Pipeline: `curated_outage_data/pipelines/county_lambda_shadow/compute_county_lambda_shadow.py`
 - Schema: [`curated_outage_data/schemas/county_lambda_shadow.md`](../../../curated_outage_data/schemas/county_lambda_shadow.md)
 - Predictability layer: [`outage_predictability_fundamentals.md`](outage_predictability_fundamentals.md)
+- Pricing adjustment mechanisms:
+  [`../../dicsscssion/pricing_adjustment_mechanisms/01_pricing_adjustment_mechanism_design.md`](../../dicsscssion/pricing_adjustment_mechanisms/01_pricing_adjustment_mechanism_design.md)

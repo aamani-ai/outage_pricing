@@ -144,7 +144,7 @@ layer on the forward-regime signals that depend on a coherent
 baseline beneath them.
 
 This principle is the reason the roadmap (and the dashboard's
-"What's next" widget) groups tracks into these three buckets rather
+"Current status" widget) groups tracks into these three buckets rather
 than presenting them as a flat list.
 
 ### Classification of current modifiers

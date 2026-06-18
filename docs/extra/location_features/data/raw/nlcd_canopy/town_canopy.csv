@@ -1,0 +1,446 @@
+state,county,city,canopy_pct
+Connecticut,Fairfield,Bethel,84.0
+Connecticut,Fairfield,Bridgeport,0.0
+Connecticut,Fairfield,Brookfield,88.0
+Connecticut,Fairfield,Danbury,55.0
+Connecticut,Fairfield,Darien,66.0
+Connecticut,Fairfield,Easton,0.0
+Connecticut,Fairfield,Fairfield,75.0
+Connecticut,Fairfield,Greenwich,55.0
+Connecticut,Fairfield,Monroe,62.0
+Connecticut,Fairfield,New Canaan,68.0
+Connecticut,Fairfield,New Fairfield,86.0
+Connecticut,Fairfield,Newtown,37.0
+Connecticut,Fairfield,Norwalk,16.0
+Connecticut,Fairfield,Redding,66.0
+Connecticut,Fairfield,Ridgefield,79.0
+Connecticut,Fairfield,Shelton,92.0
+Connecticut,Fairfield,Sherman,26.0
+Connecticut,Fairfield,Stamford,83.0
+Connecticut,Fairfield,Stratford,0.0
+Connecticut,Fairfield,Trumbull,53.0
+Connecticut,Fairfield,Weston,0.0
+Connecticut,Fairfield,Westport,42.0
+Connecticut,Fairfield,Wilton,61.0
+Connecticut,Hartford,Avon,37.0
+Connecticut,Hartford,Berlin,88.0
+Connecticut,Hartford,Bloomfield,22.0
+Connecticut,Hartford,Bristol,32.0
+Connecticut,Hartford,Burlington,87.0
+Connecticut,Hartford,Canton,34.0
+Connecticut,Hartford,East Granby,0.0
+Connecticut,Hartford,East Hartford,90.0
+Connecticut,Hartford,East Windsor,90.0
+Connecticut,Hartford,Enfield,17.0
+Connecticut,Hartford,Farmington,0.0
+Connecticut,Hartford,Glastonbury,78.0
+Connecticut,Hartford,Granby,56.0
+Connecticut,Hartford,Hartford,13.0
+Connecticut,Hartford,Manchester,55.0
+Connecticut,Hartford,Marlborough,44.0
+Connecticut,Hartford,New Britain,15.0
+Connecticut,Hartford,Newington,55.0
+Connecticut,Hartford,Plainville,0.0
+Connecticut,Hartford,Rocky Hill,0.0
+Connecticut,Hartford,Simsbury,41.0
+Connecticut,Hartford,South Windsor,79.0
+Connecticut,Hartford,Southington,38.0
+Connecticut,Hartford,Suffield,34.0
+Connecticut,Hartford,West Hartford,44.0
+Connecticut,Hartford,Wethersfield,29.0
+Connecticut,Hartford,Windsor,0.0
+Connecticut,Hartford,Windsor Locks,85.0
+Connecticut,Litchfield,Barkhamsted,89.0
+Connecticut,Litchfield,Bethlehem,84.0
+Connecticut,Litchfield,Bridgewater,86.0
+Connecticut,Litchfield,Canaan,0.0
+Connecticut,Litchfield,Colebrook,85.0
+Connecticut,Litchfield,Cornwall,60.0
+Connecticut,Litchfield,Goshen,83.0
+Connecticut,Litchfield,Harwinton,83.0
+Connecticut,Litchfield,Kent,46.0
+Connecticut,Litchfield,Litchfield,79.0
+Connecticut,Litchfield,Morris,86.0
+Connecticut,Litchfield,New Hartford,51.0
+Connecticut,Litchfield,New Milford,87.0
+Connecticut,Litchfield,Norfolk,89.0
+Connecticut,Litchfield,North Canaan,88.0
+Connecticut,Litchfield,Plymouth,88.0
+Connecticut,Litchfield,Roxbury,86.0
+Connecticut,Litchfield,Salisbury,89.0
+Connecticut,Litchfield,Sharon,85.0
+Connecticut,Litchfield,Thomaston,89.0
+Connecticut,Litchfield,Torrington,85.0
+Connecticut,Litchfield,Warren,88.0
+Connecticut,Litchfield,Washington,86.0
+Connecticut,Litchfield,Watertown,54.0
+Connecticut,Litchfield,Winchester,85.0
+Connecticut,Litchfield,Woodbury,87.0
+Connecticut,Middlesex,Chester,88.0
+Connecticut,Middlesex,Clinton,81.0
+Connecticut,Middlesex,Cromwell,87.0
+Connecticut,Middlesex,Deep River,85.0
+Connecticut,Middlesex,Durham,61.0
+Connecticut,Middlesex,East Haddam,89.0
+Connecticut,Middlesex,East Hampton,0.0
+Connecticut,Middlesex,Essex,20.0
+Connecticut,Middlesex,Haddam,85.0
+Connecticut,Middlesex,Killingworth,85.0
+Connecticut,Middlesex,Middlefield,0.0
+Connecticut,Middlesex,Middletown,83.0
+Connecticut,Middlesex,Old Saybrook,22.0
+Connecticut,Middlesex,Portland,59.0
+Connecticut,Middlesex,Westbrook,50.0
+Connecticut,New Haven,Ansonia,20.0
+Connecticut,New Haven,Beacon Falls,86.0
+Connecticut,New Haven,Bethany,69.0
+Connecticut,New Haven,Branford,74.0
+Connecticut,New Haven,Cheshire,20.0
+Connecticut,New Haven,Derby,83.0
+Connecticut,New Haven,East Haven,92.0
+Connecticut,New Haven,Guilford,74.0
+Connecticut,New Haven,Hamden,
+Connecticut,New Haven,Madison,
+Connecticut,New Haven,Meriden,
+Connecticut,New Haven,Middlebury,0.0
+Connecticut,New Haven,Milford,0.0
+Connecticut,New Haven,Naugatuck,0.0
+Connecticut,New Haven,New Haven,0.0
+Connecticut,New Haven,North Branford,87.0
+Connecticut,New Haven,North Haven,19.0
+Connecticut,New Haven,Orange,68.0
+Connecticut,New Haven,Oxford,83.0
+Connecticut,New Haven,Prospect,19.0
+Connecticut,New Haven,Seymour,89.0
+Connecticut,New Haven,Southbury,24.0
+Connecticut,New Haven,Wallingford,41.0
+Connecticut,New Haven,Waterbury,23.0
+Connecticut,New Haven,West Haven,82.0
+Connecticut,New Haven,Wolcott,45.0
+Connecticut,New Haven,Woodbridge,87.0
+Connecticut,New London,Colchester,90.0
+Connecticut,New London,East Lyme,88.0
+Connecticut,New London,Franklin,89.0
+Connecticut,New London,Griswold,0.0
+Connecticut,New London,Groton,0.0
+Connecticut,New London,Lebanon,0.0
+Connecticut,New London,Ledyard,90.0
+Connecticut,New London,Lisbon,86.0
+Connecticut,New London,Lyme,85.0
+Connecticut,New London,Montville,78.0
+Connecticut,New London,New London,0.0
+Connecticut,New London,North Stonington,0.0
+Connecticut,New London,Norwich,0.0
+Connecticut,New London,Old Lyme,54.0
+Connecticut,New London,Preston,87.0
+Connecticut,New London,Salem,55.0
+Connecticut,New London,Sprague,87.0
+Connecticut,New London,Stonington,89.0
+Connecticut,New London,Voluntown,86.0
+Connecticut,New London,Waterford,90.0
+Connecticut,Tolland,Andover,0.0
+Connecticut,Tolland,Bolton,87.0
+Connecticut,Tolland,Columbia,80.0
+Connecticut,Tolland,Coventry,84.0
+Connecticut,Tolland,Ellington,83.0
+Connecticut,Tolland,Hebron,86.0
+Connecticut,Tolland,Mansfield,0.0
+Connecticut,Tolland,Somers,67.0
+Connecticut,Tolland,Stafford,85.0
+Connecticut,Tolland,Tolland,90.0
+Connecticut,Tolland,Union,84.0
+Connecticut,Tolland,Vernon,79.0
+Connecticut,Tolland,Willington,90.0
+Connecticut,Unknown,Hartland,87.0
+Connecticut,Windham,Ashford,87.0
+Connecticut,Windham,Brooklyn,0.0
+Connecticut,Windham,Canterbury,79.0
+Connecticut,Windham,Chaplin,81.0
+Connecticut,Windham,Eastford,81.0
+Connecticut,Windham,Hampton,50.0
+Connecticut,Windham,Killingly,86.0
+Connecticut,Windham,Plainfield,83.0
+Connecticut,Windham,Pomfret,86.0
+Connecticut,Windham,Putnam,83.0
+Connecticut,Windham,Scotland,22.0
+Connecticut,Windham,Sterling,83.0
+Connecticut,Windham,Thompson,76.0
+Connecticut,Windham,Windham,23.0
+Connecticut,Windham,Woodstock,0.0
+Massachusetts,Barnstable,Bourne,37.0
+Massachusetts,Barnstable,Brewster,63.0
+Massachusetts,Barnstable,Chatham,0.0
+Massachusetts,Barnstable,Dennis,37.0
+Massachusetts,Barnstable,Eastham,47.0
+Massachusetts,Barnstable,Falmouth,0.0
+Massachusetts,Barnstable,Harwich,36.0
+Massachusetts,Barnstable,Mashpee,37.0
+Massachusetts,Barnstable,Orleans,80.0
+Massachusetts,Barnstable,Provincetown,76.0
+Massachusetts,Barnstable,Sandwich,60.0
+Massachusetts,Barnstable,Truro,78.0
+Massachusetts,Barnstable,Wellfleet,22.0
+Massachusetts,Barnstable,Yarmouth,45.0
+Massachusetts,Berkshire,Adams,0.0
+Massachusetts,Berkshire,Alford,28.0
+Massachusetts,Berkshire,Cheshire,37.0
+Massachusetts,Berkshire,Clarksburg,0.0
+Massachusetts,Berkshire,Egremont,84.0
+Massachusetts,Berkshire,Florida,92.0
+Massachusetts,Berkshire,Great Barrington,90.0
+Massachusetts,Berkshire,Hancock,89.0
+Massachusetts,Berkshire,Lenox,89.0
+Massachusetts,Berkshire,Monterey,87.0
+Massachusetts,Berkshire,Mount Washington,86.0
+Massachusetts,Berkshire,North Adams,89.0
+Massachusetts,Berkshire,Sheffield,45.0
+Massachusetts,Berkshire,Stockbridge,85.0
+Massachusetts,Berkshire,West Stockbridge,85.0
+Massachusetts,Berkshire,Williamstown,87.0
+Massachusetts,Bristol,Acushnet,90.0
+Massachusetts,Bristol,Attleboro,17.0
+Massachusetts,Bristol,Dartmouth,61.0
+Massachusetts,Bristol,Dighton,85.0
+Massachusetts,Bristol,Easton,81.0
+Massachusetts,Bristol,Fairhaven,79.0
+Massachusetts,Bristol,Fall River,76.0
+Massachusetts,Bristol,Freetown,86.0
+Massachusetts,Bristol,New Bedford,12.0
+Massachusetts,Bristol,Norton,0.0
+Massachusetts,Bristol,Rehoboth,75.0
+Massachusetts,Bristol,Seekonk,24.0
+Massachusetts,Bristol,Somerset,84.0
+Massachusetts,Bristol,Swansea,75.0
+Massachusetts,Bristol,Westport,87.0
+Massachusetts,Dukes,Aquinnah,0.0
+Massachusetts,Dukes,Chilmark,0.0
+Massachusetts,Dukes,Edgartown,86.0
+Massachusetts,Dukes,Oak Bluffs,0.0
+Massachusetts,Dukes,Tisbury,48.0
+Massachusetts,Dukes,West Tisbury,71.0
+Massachusetts,Essex,Andover,92.0
+Massachusetts,Essex,Beverly,85.0
+Massachusetts,Essex,Boxford,89.0
+Massachusetts,Essex,Essex,56.0
+Massachusetts,Essex,Gloucester,39.0
+Massachusetts,Essex,Hamilton,83.0
+Massachusetts,Essex,Haverhill,0.0
+Massachusetts,Essex,Lawrence,0.0
+Massachusetts,Essex,Lynn,50.0
+Massachusetts,Essex,Nahant,20.0
+Massachusetts,Essex,Newbury,0.0
+Massachusetts,Essex,Newburyport,0.0
+Massachusetts,Essex,North Andover,83.0
+Massachusetts,Essex,Rockport,48.0
+Massachusetts,Essex,Salem,26.0
+Massachusetts,Essex,Salisbury,0.0
+Massachusetts,Essex,Saugus,31.0
+Massachusetts,Essex,Swampscott,48.0
+Massachusetts,Essex,Topsfield,35.0
+Massachusetts,Essex,Wenham,0.0
+Massachusetts,Essex,West Newbury,88.0
+Massachusetts,Franklin,Charlemont,90.0
+Massachusetts,Franklin,Erving,88.0
+Massachusetts,Franklin,Hawley,86.0
+Massachusetts,Franklin,Heath,88.0
+Massachusetts,Franklin,Monroe,86.0
+Massachusetts,Franklin,New Salem,88.0
+Massachusetts,Franklin,Orange,69.0
+Massachusetts,Franklin,Rowe,86.0
+Massachusetts,Franklin,Shutesbury,87.0
+Massachusetts,Franklin,Warwick,84.0
+Massachusetts,Franklin,Wendell,85.0
+Massachusetts,Hampden,Brimfield,82.0
+Massachusetts,Hampden,East Longmeadow,88.0
+Massachusetts,Hampden,Hampden,83.0
+Massachusetts,Hampden,Holland,77.0
+Massachusetts,Hampden,Monson,81.0
+Massachusetts,Hampden,Wales,89.0
+Massachusetts,Hampden,Wilbraham,40.0
+Massachusetts,Hampshire,Belchertown,0.0
+Massachusetts,Hampshire,Goshen,58.0
+Massachusetts,Hampshire,Granby,92.0
+Massachusetts,Hampshire,Northampton,39.0
+Massachusetts,Hampshire,Ware,87.0
+Massachusetts,Hampshire,Williamsburg,87.0
+Massachusetts,Middlesex,Acton,55.0
+Massachusetts,Middlesex,Arlington,0.0
+Massachusetts,Middlesex,Ashby,86.0
+Massachusetts,Middlesex,Ashland,30.0
+Massachusetts,Middlesex,Ayer,0.0
+Massachusetts,Middlesex,Bedford,91.0
+Massachusetts,Middlesex,Billerica,87.0
+Massachusetts,Middlesex,Burlington,29.0
+Massachusetts,Middlesex,Cambridge,20.0
+Massachusetts,Middlesex,Carlisle,89.0
+Massachusetts,Middlesex,Chelmsford,86.0
+Massachusetts,Middlesex,Dracut,20.0
+Massachusetts,Middlesex,Dunstable,0.0
+Massachusetts,Middlesex,Everett,0.0
+Massachusetts,Middlesex,Framingham,86.0
+Massachusetts,Middlesex,Holliston,82.0
+Massachusetts,Middlesex,Hopkinton,81.0
+Massachusetts,Middlesex,Lexington,34.0
+Massachusetts,Middlesex,Lincoln,0.0
+Massachusetts,Middlesex,Lowell,0.0
+Massachusetts,Middlesex,Malden,20.0
+Massachusetts,Middlesex,Marlborough,21.0
+Massachusetts,Middlesex,Maynard,22.0
+Massachusetts,Middlesex,Medford,36.0
+Massachusetts,Middlesex,Melrose,21.0
+Massachusetts,Middlesex,Natick,36.0
+Massachusetts,Middlesex,Newton,36.0
+Massachusetts,Middlesex,Pepperell,89.0
+Massachusetts,Middlesex,Sherborn,71.0
+Massachusetts,Middlesex,Shirley,82.0
+Massachusetts,Middlesex,Somerville,0.0
+Massachusetts,Middlesex,Stoneham,17.0
+Massachusetts,Middlesex,Stow,51.0
+Massachusetts,Middlesex,Sudbury,92.0
+Massachusetts,Middlesex,Tewksbury,47.0
+Massachusetts,Middlesex,Townsend,88.0
+Massachusetts,Middlesex,Tyngsborough,58.0
+Massachusetts,Middlesex,Wakefield,0.0
+Massachusetts,Middlesex,Waltham,72.0
+Massachusetts,Middlesex,Wayland,0.0
+Massachusetts,Middlesex,Westford,84.0
+Massachusetts,Middlesex,Weston,88.0
+Massachusetts,Middlesex,Winchester,4.0
+Massachusetts,Middlesex,Woburn,19.0
+Massachusetts,Nantucket,Nantucket,0.0
+Massachusetts,Norfolk,Avon,25.0
+Massachusetts,Norfolk,Bellingham,53.0
+Massachusetts,Norfolk,Brookline,64.0
+Massachusetts,Norfolk,Canton,0.0
+Massachusetts,Norfolk,Cohasset,0.0
+Massachusetts,Norfolk,Dedham,63.0
+Massachusetts,Norfolk,Dover,75.0
+Massachusetts,Norfolk,Foxborough,74.0
+Massachusetts,Norfolk,Holbrook,86.0
+Massachusetts,Norfolk,Medfield,0.0
+Massachusetts,Norfolk,Medway,0.0
+Massachusetts,Norfolk,Millis,85.0
+Massachusetts,Norfolk,Milton,46.0
+Massachusetts,Norfolk,Needham,50.0
+Massachusetts,Norfolk,Norfolk,13.0
+Massachusetts,Norfolk,Plainville,17.0
+Massachusetts,Norfolk,Quincy,0.0
+Massachusetts,Norfolk,Sharon,77.0
+Massachusetts,Norfolk,Stoughton,67.0
+Massachusetts,Norfolk,Walpole,18.0
+Massachusetts,Norfolk,Westwood,69.0
+Massachusetts,Norfolk,Wrentham,82.0
+Massachusetts,Plymouth,Abington,92.0
+Massachusetts,Plymouth,Brockton,13.0
+Massachusetts,Plymouth,Carver,77.0
+Massachusetts,Plymouth,Duxbury,88.0
+Massachusetts,Plymouth,East Bridgewater,86.0
+Massachusetts,Plymouth,Halifax,58.0
+Massachusetts,Plymouth,Hanover,91.0
+Massachusetts,Plymouth,Hanson,57.0
+Massachusetts,Plymouth,Kingston,88.0
+Massachusetts,Plymouth,Lakeville,59.0
+Massachusetts,Plymouth,Marion,77.0
+Massachusetts,Plymouth,Marshfield,17.0
+Massachusetts,Plymouth,Mattapoisett,38.0
+Massachusetts,Plymouth,Norwell,84.0
+Massachusetts,Plymouth,Pembroke,88.0
+Massachusetts,Plymouth,Plymouth,84.0
+Massachusetts,Plymouth,Plympton,0.0
+Massachusetts,Plymouth,Rochester,0.0
+Massachusetts,Plymouth,Rockland,55.0
+Massachusetts,Plymouth,Scituate,89.0
+Massachusetts,Plymouth,Wareham,0.0
+Massachusetts,Plymouth,West Bridgewater,22.0
+Massachusetts,Plymouth,Whitman,0.0
+Massachusetts,Suffolk,Boston,0.0
+Massachusetts,Suffolk,Chelsea,0.0
+Massachusetts,Suffolk,Revere,0.0
+Massachusetts,Worcester,Athol,86.0
+Massachusetts,Worcester,Auburn,11.0
+Massachusetts,Worcester,Barre,21.0
+Massachusetts,Worcester,Berlin,87.0
+Massachusetts,Worcester,Blackstone,88.0
+Massachusetts,Worcester,Bolton,88.0
+Massachusetts,Worcester,Brookfield,87.0
+Massachusetts,Worcester,Charlton,84.0
+Massachusetts,Worcester,Clinton,22.0
+Massachusetts,Worcester,Douglas,31.0
+Massachusetts,Worcester,Dudley,89.0
+Massachusetts,Worcester,East Brookfield,89.0
+Massachusetts,Worcester,Fitchburg,89.0
+Massachusetts,Worcester,Gardner,0.0
+Massachusetts,Worcester,Grafton,76.0
+Massachusetts,Worcester,Hardwick,85.0
+Massachusetts,Worcester,Harvard,81.0
+Massachusetts,Worcester,Hopedale,44.0
+Massachusetts,Worcester,Hubbardston,88.0
+Massachusetts,Worcester,Lancaster,53.0
+Massachusetts,Worcester,Leicester,83.0
+Massachusetts,Worcester,Leominster,88.0
+Massachusetts,Worcester,Lunenburg,90.0
+Massachusetts,Worcester,Mendon,88.0
+Massachusetts,Worcester,Milford,0.0
+Massachusetts,Worcester,Millbury,0.0
+Massachusetts,Worcester,Millville,79.0
+Massachusetts,Worcester,New Braintree,87.0
+Massachusetts,Worcester,North Brookfield,86.0
+Massachusetts,Worcester,Northborough,37.0
+Massachusetts,Worcester,Northbridge,40.0
+Massachusetts,Worcester,Oakham,87.0
+Massachusetts,Worcester,Oxford,20.0
+Massachusetts,Worcester,Petersham,88.0
+Massachusetts,Worcester,Phillipston,88.0
+Massachusetts,Worcester,Royalston,86.0
+Massachusetts,Worcester,Rutland,84.0
+Massachusetts,Worcester,Southborough,43.0
+Massachusetts,Worcester,Spencer,18.0
+Massachusetts,Worcester,Sturbridge,67.0
+Massachusetts,Worcester,Sutton,88.0
+Massachusetts,Worcester,Upton,61.0
+Massachusetts,Worcester,Uxbridge,81.0
+Massachusetts,Worcester,Warren,37.0
+Massachusetts,Worcester,Webster,25.0
+Massachusetts,Worcester,West Brookfield,32.0
+Massachusetts,Worcester,Westborough,0.0
+Massachusetts,Worcester,Westminster,61.0
+Massachusetts,Worcester,Winchendon,92.0
+Massachusetts,Worcester,Worcester,0.0
+Rhode Island,Bristol,Barrington,0.0
+Rhode Island,Bristol,Bristol,25.0
+Rhode Island,Bristol,Warren,0.0
+Rhode Island,Kent,Coventry,76.0
+Rhode Island,Kent,East Greenwich,79.0
+Rhode Island,Kent,Warwick,61.0
+Rhode Island,Kent,West Greenwich,88.0
+Rhode Island,Kent,West Warwick,33.0
+Rhode Island,Newport,Jamestown,0.0
+Rhode Island,Newport,Little Compton,79.0
+Rhode Island,Newport,Middletown,0.0
+Rhode Island,Newport,Newport,0.0
+Rhode Island,Newport,Portsmouth,0.0
+Rhode Island,Newport,Tiverton,89.0
+Rhode Island,Providence,Burrillville,75.0
+Rhode Island,Providence,Central Falls,12.0
+Rhode Island,Providence,Cranston,27.0
+Rhode Island,Providence,Cumberland,76.0
+Rhode Island,Providence,East Providence,27.0
+Rhode Island,Providence,Foster,90.0
+Rhode Island,Providence,Glocester,85.0
+Rhode Island,Providence,Johnston,77.0
+Rhode Island,Providence,Lincoln,85.0
+Rhode Island,Providence,North Providence,
+Rhode Island,Providence,North Smithfield,88.0
+Rhode Island,Providence,Pawtucket,0.0
+Rhode Island,Providence,Providence,0.0
+Rhode Island,Providence,Scituate,76.0
+Rhode Island,Providence,Smithfield,25.0
+Rhode Island,Providence,Woonsocket,0.0
+Rhode Island,Washington,Charlestown,78.0
+Rhode Island,Washington,Exeter,92.0
+Rhode Island,Washington,Hopkinton,87.0
+Rhode Island,Washington,Narragansett,89.0
+Rhode Island,Washington,North Kingstown,17.0
+Rhode Island,Washington,Richmond,82.0
+Rhode Island,Washington,South Kingstown,91.0
+Rhode Island,Washington,Westerly,0.0

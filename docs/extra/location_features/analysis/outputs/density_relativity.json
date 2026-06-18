@@ -1,0 +1,66 @@
+{
+  "modifier": "location_basis (within-county density relativity)",
+  "method": "within-county density tercile; exposure-weighted; monotone non-increasing; mean-1; v0 capped",
+  "cap_v0_shadow": [
+    0.8,
+    1.4
+  ],
+  "terciles": [
+    "rural",
+    "mid",
+    "urban"
+  ],
+  "apply": "point -> county -> density rank within the county's towns -> tercile -> relativity. Mean-1 within county.",
+  "runtime_dependency": "Census density only (PoUS used for calibration, not at runtime)",
+  "status": "shadow (not active pricing); validate out-of-region before activation",
+  "relativity": {
+    "T1": {
+      "empirical": [
+        1.762,
+        1.125,
+        0.789
+      ],
+      "v0_shadow": [
+        1.448,
+        1.163,
+        0.827
+      ]
+    },
+    "T2": {
+      "empirical": [
+        1.775,
+        1.187,
+        0.753
+      ],
+      "v0_shadow": [
+        1.419,
+        1.203,
+        0.811
+      ]
+    },
+    "T4": {
+      "empirical": [
+        1.9,
+        1.227,
+        0.708
+      ],
+      "v0_shadow": [
+        1.402,
+        1.228,
+        0.801
+      ]
+    },
+    "T8": {
+      "empirical": [
+        2.058,
+        1.296,
+        0.64
+      ],
+      "v0_shadow": [
+        1.372,
+        1.27,
+        0.784
+      ]
+    }
+  }
+}
