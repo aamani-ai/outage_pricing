@@ -126,15 +126,18 @@ At SMB scale (typical per-county policy counts of 1–3), this is latent — sma
 
 ## How this fits the broader pricing roadmap
 
-Per-customer pricing is the **first bias-correction track** to ship under our three-bucket framework:
+Per-customer pricing is the **first active `basis_alignment` mechanism** to
+ship under the pricing adjustment mechanism taxonomy:
 
-| Bucket | What it does | Examples |
+| Mechanism family | What it does | Examples |
 |---|---|---|
-| **Basis-risk adjustments** | Shrink the v0 county estimate toward the policyholder's true exposure | Per-customer rate (**shipped**), location-level basis risk (**research**) |
-| **Trigger source alignment** | Calibrate against the actual live trigger (sensor / utility / vendor feed) | Bridge factor (**blocked on vendor data**) |
-| **Forward-regime improvements** | Adjust the historical baseline for climate, grid, hazard | Climate-conditional rates (**planned**) |
+| **`basis_alignment`** | Shrink or align the county estimate toward what the policy actually sells | Per-customer rate (**active**), location-level basis risk (**wip**), trigger-source alignment (**discussion**) |
+| **`forward_regime`** | Adjust or review the future loss view for pattern, grid, hazard, and weather context | Predictability/shadow price read (**shipped as review layer**), grid and hazard (**wip**) |
 
-See [`roadmap.md`](../roadmap.md) for the full sequencing logic. The key principle: **fix the data-input layer (basis risk) before adding forward-looking layers.**
+See [`roadmap.md`](../roadmap.md) for the full sequencing logic and
+[`../../dicsscssion/pricing_adjustment_mechanisms/`](../../dicsscssion/pricing_adjustment_mechanisms/)
+for the mechanism taxonomy. The key principle: **fix the data-input layer
+(basis/alignment) before adding forward-looking layers.**
 
 ## One-line takeaways
 
@@ -153,3 +156,4 @@ See [`roadmap.md`](../roadmap.md) for the full sequencing logic. The key princip
 - MCC source and derivation: [Brelsford et al., Nature Scientific Data 2024](https://www.nature.com/articles/s41597-024-03095-5) (§Methods documents the spatial allocation of EIA-861 customer counts via LandScan within HIFLD service territories). Dataset release: [Modeled County Customers 2023](https://openenergyhub.ornl.gov/explore/dataset/modeled-county-customers-2023/).
 - Upstream: [`event_catalog_fundamentals.md`](event_catalog_fundamentals.md), [`county_trigger_pricing_fundamentals.md`](county_trigger_pricing_fundamentals.md)
 - Roadmap context: [`roadmap.md`](../roadmap.md)
+- Pricing adjustment mechanisms: [`../../dicsscssion/pricing_adjustment_mechanisms/`](../../dicsscssion/pricing_adjustment_mechanisms/)

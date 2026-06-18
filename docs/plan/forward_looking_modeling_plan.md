@@ -10,6 +10,13 @@ hazard exposure.
 
 For the consolidated modifier framework and source backlog, see
 [`outage_baseline_adjustment_framework.md`](outage_baseline_adjustment_framework.md).
+For the current pricing adjustment mechanism taxonomy, see
+[`../dicsscssion/pricing_adjustment_mechanisms/01_pricing_adjustment_mechanism_design.md`](../dicsscssion/pricing_adjustment_mechanisms/01_pricing_adjustment_mechanism_design.md).
+
+Bridge taxonomy note: this plan covers the `forward_regime` family. Customer
+basis, location basis, and trigger-source alignment are `basis_alignment`
+mechanisms. They can compose with forward-regime outputs in the premium-impact
+view, but they are not forward-looking hazard/grid mechanisms.
 
 This should not replace the current v0 engine immediately. The current engine is
 the audit-friendly baseline. The forward-looking model should be an explicit
@@ -26,23 +33,29 @@ premium = lambda(T) * payout / (1 - expense_ratio - target_margin)
 Where `lambda(T)` is estimated from historical EAGLE-I outage event counts using
 the corrected source exposure window.
 
-Forward-looking modeling changes the frequency term first:
+Forward-looking modeling changes or reviews the future loss view through three
+sibling lanes:
+
+```text
+predictability pattern read = empirical shape / routing
+hazard & weather context    = storm, wildfire, flood, wind, climate
+grid condition              = utility, infrastructure, restoration context
+```
+
+When the evidence is truly a frequency signal, the native output can be a
+candidate forward lambda:
 
 ```text
 lambda_forward(fips, T)
   = lambda_historical(fips, T)
     * grid_condition_modifier
     * hazard_modifier
-    * trigger_alignment_modifier
     * credibility_modifier
-    * customer_impact_modifier   # optional, gate_only by default
 ```
 
-`customer_impact_modifier` is defined in
-[`outage_baseline_adjustment_framework.md`](outage_baseline_adjustment_framework.md#customer-impact-modifier).
-It is included in the forward decomposition only as an optional challenger.
-Default is `1.0` / `gate_only`; it never moves to a numeric multiplier without
-the activation checks in that document.
+Customer impact, location basis, and trigger alignment compose separately in
+the broader premium-impact view. Keeping them separate avoids double counting
+and keeps the reason for each factor visible.
 
 The first version should keep this decomposition visible. If we later use a
 statistical or machine-learning model, it should still report the components in

@@ -22,11 +22,12 @@ const state = {
   eventEvidenceCache: new Map(),
   perCustomer: null,       // {meta: {...}, view: {fips_str: {T_str: {...}}}}
   trend: null,             // {meta: {...}, view: {fips_str: {T_str: {...}}}} — county yearly trend (descriptive, not pricing)
-  predictability: null,     // {meta, summary, view} — pattern/predictability descriptive layer
+  predictability: null,     // {meta, summary, view} — pattern/predictability review layer
   lambdaShadow: null,       // {meta, summary, view} — candidate lambda shadow-pricing layer
   matrixView: 'customer', // 'county' | 'customer' | 'multiplier' — Per-customer is the more reliable default
   trendT: 4,               // default duration threshold for the trend visualization (hours)
   trendBand: 'p10p90',      // residual prediction band for descriptive outlier marking
+  hoverDetailsEnabled: true,
   mapTrendFips: null,
   mapTrendPanelManual: false,
   mapTrendPanelPos: null,
@@ -291,6 +292,13 @@ function infoButtonMarkup(info, scope) {
   const id = infoId(info, scope);
   return `
     <button class="inline-info-btn" type="button" aria-label="Explain ${info.title}" aria-expanded="false" aria-controls="${id}">i</button>
+  `;
+}
+
+function roadmapItemInfoButtonMarkup(info, scope) {
+  const id = infoId(info, scope);
+  return `
+    <button class="inline-info-btn roadmap-inline-info" type="button" aria-label="Explain ${escapeHtml(info.title)}" aria-expanded="false" aria-controls="${id}">(i)</button>
   `;
 }
 
@@ -1020,6 +1028,8 @@ async function initMap() {
     wireMapHover();
     wireMapClick();
     wireMapFilters();
+    wireHoverDetailsToggle();
+    await loadLocationBasis();
   } catch (err) {
     console.error('counties geojson failed', err);
     document.getElementById('loadStatus').textContent = 'map boundaries failed — search still works';
@@ -1075,6 +1085,11 @@ function colorFor(fips, mode) {
     if (factor == null) return { color: tierColors.grey(), tier: d.tier };
     return { color: lambdaShadowFactorScale(factor), tier: d.tier };
   }
+  if (mode === 'locbasis') {
+    const lb = state.locBasis?.[fips];
+    if (!lb || lb.dispersion == null) return { color: trendColors.insufficient_data, tier: d.tier };
+    return { color: locBasisDispScale(lb.dispersion), tier: d.tier };
+  }
   return { color: tierColors.grey(), tier: 'grey' };
 }
 
@@ -1086,10 +1101,13 @@ const lambdaShadowFactorScale = d3.scaleLinear()
   .domain([0.75, 1.0, 2.0])
   .range(['#4575b4', '#f7f7f7', '#d73027'])
   .clamp(true);
+// location-basis map color = within-county density dispersion (how much location matters here)
+const locBasisDispScale = d3.scaleSequential(d3.interpolateBuPu).domain([0.20, 1.00]).clamp(true);
 
 function refreshMapColors() {
   if (!state.countiesGeo) return;
   const mode = document.getElementById('mapColorBy').value;
+  if (mode !== 'locbasis') clearDrill();   // leaving location-basis mode exits any drill-in
   for (const f of state.countiesGeo.features) {
     const c = colorFor(String(f.id), mode);
     if (c) map.setFeatureState({ source: 'counties', id: f.id }, { color: c.color, tier: c.tier });
@@ -1123,10 +1141,10 @@ function renderMapLegend(mode) {
         <div><span class="sw" style="background:${trendColors.improving}"></span>Improving</div>
         <div><span class="sw" style="background:${trendColors.insufficient_data}"></span>Insufficient data</div>
       </div>
-      <div class="legend-filtered legend-trend-note">Descriptive signal · feeds shadow λ</div>`;
+      <div class="legend-filtered legend-trend-note">Descriptive signal · feeds routing</div>`;
   } else if (mode === 'pattern') {
     el.innerHTML = `
-      <span class="legend-kicker">Pattern · T=${state.trendT}h · 11yr</span>
+      <span class="legend-kicker">Routing · T=${state.trendT}h · 11yr</span>
       <div class="trend-legend pattern-legend">
         <div><span class="sw" style="background:${patternColors.smooth_trend}"></span>Smooth trend</div>
         <div><span class="sw" style="background:${patternColors.step_change}"></span>Step-change</div>
@@ -1135,15 +1153,23 @@ function renderMapLegend(mode) {
         <div><span class="sw" style="background:${patternColors.stable_regular}"></span>Stable regular</div>
         <div><span class="sw" style="background:${patternColors.sparse}"></span>Sparse</div>
       </div>
-      <div class="legend-filtered legend-trend-note">Linear-trend usability · feeds shadow λ</div>`;
+      <div class="legend-filtered legend-trend-note">Empirical shape · routes mechanism</div>`;
   } else if (mode === 'shadow') {
     const stops = [0.75, 0.9, 1.0, 1.25, 2.0].map(v => lambdaShadowFactorScale(v));
     el.innerHTML = `
-      <span class="legend-kicker">Shadow λ factor · T=${state.trendT}h</span>
+      <span class="legend-kicker">Shadow frequency factor · T=${state.trendT}h</span>
       <span>0.75x</span>
       <div class="ramp" style="background:linear-gradient(to right,${stops.join(',')})"></div>
       <span>2.0x+</span>
-      <div class="legend-filtered legend-trend-note">Candidate price pressure · not active v0</div>`;
+      <div class="legend-filtered legend-trend-note">Frequency-only bridge factor · not active v0</div>`;
+  } else if (mode === 'locbasis') {
+    const stops = [0.25, 0.45, 0.7, 0.95].map(v => locBasisDispScale(v));
+    el.innerHTML = `
+      <span class="legend-kicker">Location basis · within-county density dispersion</span>
+      <span>uniform</span>
+      <div class="ramp" style="background:linear-gradient(to right,${stops.join(',')})"></div>
+      <span>high</span>
+      <div class="legend-filtered legend-trend-note"><span class="sw" style="background:${trendColors.insufficient_data}"></span>no data · CT/MA/RI validated · rest descriptive · shadow</div>`;
   }
   renderLegendPopover(mode);
 }
@@ -1176,32 +1202,32 @@ function patternImpactRows() {
     [
       'Smooth trend',
       'Direction is clear and residual noise is low.',
-      'Candidate rule: blend λ toward the fitted trend. Worsening raises premium pressure; improving allows a guarded discount.',
+      'Frequency read: blend λ toward the fitted trend. Worsening raises premium pressure; improving allows a guarded discount.',
     ],
     [
       'Step-change',
       'The 11-year history looks like an early/late regime shift.',
-      'Candidate rule: use recent-regime λ instead of trusting the full-period average. Up shifts raise; down shifts are capped.',
+      'Frequency read: use recent-regime λ instead of trusting the full-period average. Up shifts raise; down shifts are capped.',
     ],
     [
       'Volatile trend',
       'Direction exists, but residual noise, outliers, or weak fit makes the line less reliable.',
-      'Candidate rule: light λ blend only, plus review. Noisy improving gets only a small capped discount; noisy worsening gets modest uplift.',
+      'Mixed read: light λ blend only, plus review. Hazard/grid or uncertainty may matter more than the line.',
     ],
     [
       'Episodic',
       'One or two years dominate the history.',
-      'Candidate rule: do not trend-adjust λ yet. Keep average and route to hazard/storm context or uncertainty-load review.',
+      'Hazard read: do not trend-adjust λ yet. Route to storm, wildfire, flood, wind, or weather context.',
     ],
     [
       'Stable regular/noisy',
       'Flat direction, split by year-to-year residual noise.',
-      'Candidate rule: stable regular keeps λ_v0. Stable noisy keeps λ_v0 but flags confidence/uncertainty-load review.',
+      'Control read: stable regular keeps λ_v0. Stable noisy keeps λ_v0 but flags confidence/uncertainty-load review.',
     ],
     [
       'Sparse',
       'Too few qualifying events for a stable pattern label.',
-      'Candidate rule: no trend adjustment. Use v0 modelability, credibility fallback, or no-quote gate.',
+      'Gate read: no trend adjustment. Use v0 modelability, credibility fallback, or no-quote gate.',
     ],
   ];
 
@@ -1210,7 +1236,7 @@ function patternImpactRows() {
       <div class="pattern-impact-head">
         <span>Pattern</span>
         <span>Data signal</span>
-        <span>Pricing read</span>
+        <span>Mechanism read</span>
       </div>
       ${rows.map(row => `
         <div>
@@ -1234,8 +1260,8 @@ function renderLegendPopover(mode) {
     retail: 'Explain retail premium layer',
     events: 'Explain event evidence layer',
     trend: 'Explain outage trend layer',
-    pattern: 'Explain predictability pattern layer',
-    shadow: 'Explain shadow lambda adjustment layer',
+    pattern: 'Explain predictability routing layer',
+    shadow: 'Explain shadow frequency factor layer',
   };
   if (btn) btn.setAttribute('aria-label', labels[mode] || 'Explain map layer');
 
@@ -1300,27 +1326,27 @@ function renderLegendPopover(mode) {
         ['Improving', 'Fitted slope is meaningfully negative.'],
         ['Insufficient', 'Fewer than 10 qualifying events in the 11-year trend window; raw annual counts may still be visible in the county panel.'],
       ])}
-      <p class="pop-note">This does not mutate active v0 premiums. It feeds the shadow λ layer, where trend/pattern evidence becomes an auditable candidate pricing move after validation.</p>
+      <p class="pop-note">This does not mutate active v0 premiums. It feeds the predictability-routing layer, where annual shape decides whether the next read is frequency, uncertainty/load, hazard context, or quoteability review.</p>
     `;
   } else if (mode === 'pattern') {
     pop.innerHTML = `
-      <div class="pop-title">Predictability pattern</div>
-      <p class="pop-lede">Colors show how usable the simple annual trend line looks for each county at <strong>T = ${state.trendT}h</strong>. This separates direction from reliability.</p>
+      <div class="pop-title">Predictability routing</div>
+      <p class="pop-lede">Colors show how the annual outage history should be routed at <strong>T = ${state.trendT}h</strong>. Predictability is the empirical shape read; hazard/weather and grid condition are separate forward-regime mechanisms.</p>
       ${patternImpactRows()}
-      <p class="pop-note"><strong>Pricing handoff:</strong> this pattern does not directly mutate v0. It selects the candidate lambda rule shown in the shadow λ layer: keep average, blend toward trend, use recent regime, or require review. <button class="mode-note-link" type="button" data-library-section="outage-predictability">Read pattern methodology →</button></p>
+      <p class="pop-note"><strong>Pricing handoff:</strong> this layer does not directly mutate v0. Some patterns route to a shadow frequency read; episodic, noisy, and sparse patterns route to hazard context, uncertainty/load, or quoteability review. <button class="mode-note-link" type="button" data-library-section="outage-predictability">Read routing methodology →</button></p>
     `;
   } else if (mode === 'shadow') {
     pop.innerHTML = `
-      <div class="pop-title">Shadow λ adjustment</div>
-      <p class="pop-lede">Colors show the candidate lambda factor at <strong>T = ${state.trendT}h</strong> if the trend/pattern rules were activated after validation. Red means upward premium pressure; blue means guarded downward pressure.</p>
+      <div class="pop-title">Shadow frequency factor</div>
+      <p class="pop-lede">Colors show the candidate lambda factor at <strong>T = ${state.trendT}h</strong> only for the part of the forward-regime read whose native target is frequency. Red means upward premium pressure; blue means guarded downward pressure.</p>
       ${legendMetricRows([
         ['Factor', 'lambda_candidate / lambda_v0. Premium moves by the same percentage because premium is linear in lambda.'],
         ['Upward pressure', 'Smooth worsening, step-change up, or volatile worsening can blend v0 lambda upward.'],
         ['Downward pressure', 'Smooth improving or step-change down can blend down, but discounts are capped.'],
-        ['No movement', 'Stable regular, episodic, sparse, and noisy cases generally keep lambda_v0 and move to review/load logic.'],
+        ['No movement', 'Stable regular keeps lambda_v0; noisy, episodic, and sparse cases generally route to load, hazard, or quoteability review.'],
         ['Boundary', 'This is a shadow-pricing diagnostic. The premium matrix remains active v0 unless this method is backtested and promoted.'],
       ])}
-      <p class="pop-note">Use this layer to find where current historical-average pricing may be stale, not as a final price filing rule. <button class="mode-note-link" type="button" data-library-section="lambda-shadow-pricing">Read shadow-pricing methodology →</button></p>
+      <p class="pop-note">Use this layer to find where the historical-average frequency may be stale. It is only the frequency lane, not the full hazard or grid model. <button class="mode-note-link" type="button" data-library-section="lambda-shadow-pricing">Read shadow frequency methodology →</button></p>
     `;
   }
 }
@@ -1407,6 +1433,37 @@ function wireMapFilters() {
   });
 }
 
+function setHoverDetailsEnabled(enabled, persist = true) {
+  state.hoverDetailsEnabled = !!enabled;
+  const toggle = document.getElementById('hoverDetailsToggle');
+  if (toggle) toggle.checked = state.hoverDetailsEnabled;
+  if (persist) {
+    try {
+      window.localStorage.setItem('outageDashboard.hoverDetailsEnabled', state.hoverDetailsEnabled ? '1' : '0');
+    } catch (err) {
+      // Local storage is optional; the toggle still works for this session.
+    }
+  }
+  if (!state.hoverDetailsEnabled) {
+    document.getElementById('hoverTip')?.classList.add('hidden');
+    clearMapTrendPanel();
+  }
+}
+
+function wireHoverDetailsToggle() {
+  const toggle = document.getElementById('hoverDetailsToggle');
+  if (!toggle) return;
+  let enabled = true;
+  try {
+    const stored = window.localStorage.getItem('outageDashboard.hoverDetailsEnabled');
+    if (stored === '0') enabled = false;
+  } catch (err) {
+    // Keep the default when storage is unavailable.
+  }
+  setHoverDetailsEnabled(enabled, false);
+  toggle.addEventListener('change', () => setHoverDetailsEnabled(toggle.checked));
+}
+
 let hoverFips = null;
 function wireMapHover() {
   const tip = document.getElementById('hoverTip');
@@ -1427,6 +1484,10 @@ function wireMapHover() {
     map.setFeatureState({ source: 'counties', id: f.id }, { hover: true });
     map.getCanvas().style.cursor = d ? 'pointer' : '';
     if (!d) { tip.classList.add('hidden'); return; }
+    if (!state.hoverDetailsEnabled) {
+      tip.classList.add('hidden');
+      return;
+    }
 
     const lam8 = d.grid?.[8]?.lambda_T?.toFixed(2) ?? '—';
     const ret8 = d.grid?.[8]?.X?.[2500]?.retail;
@@ -1440,7 +1501,7 @@ function wireMapHover() {
       <div class="tip-row"><span>obs years</span><span>${(d.observation_years||0).toFixed(1)}</span></div>
       <div class="tip-row"><span>p95 duration</span><span>${d.duration_p95.toFixed(1)}h</span></div>
       <div class="tip-row"><span>λ(8h)</span><span>${lam8}/yr</span></div>
-      <div class="tip-row"><span>$2.5k @ 8h</span><span>${ret8 ? fmt.money(ret8) : '—'}</span></div>`;
+      <div class="tip-row"><span>$2.5k @ 8h</span><span>${ret8 ? fmt.money(ret8) : '—'}</span></div>${document.getElementById('mapColorBy').value === 'locbasis' ? locBasisTipMarkup(fips) : ''}`;
     tip.style.left = (e.originalEvent.clientX + 14) + 'px';
     tip.style.top  = (e.originalEvent.clientY + 14) + 'px';
     tip.classList.remove('hidden');
@@ -1457,12 +1518,571 @@ function wireMapHover() {
 function wireMapClick() {
   map.on('click', 'counties-fill', (e) => {
     const fips = String(e.features[0].id);
+    // In Location-basis mode, a county click drills into its sub-units instead of opening the matrix.
+    if (document.getElementById('mapColorBy').value === 'locbasis' && state.locBasis?.[fips]) {
+      drillIntoCounty(fips);
+      return;
+    }
     if (state.drilldown[fips]) {
       renderMapTrendPanel(fips, e.originalEvent, { force: true });
       openMatrix(fips);
     }
   });
 }
+
+// ===================== Location basis (within-county shadow read) =====================
+// A per-county SHADOW READ (a 'color by' mode), integrated like predictability —
+// NOT a separate town layer. Map color = within-county density dispersion ("how
+// much does location vary here"): TRACT-based nationally, TOWN-based in the
+// CT/MA/RI pilot. Pilot counties are VALIDATED on PowerOutage.US (Jan-Mar 2019)
+// and carry the mean-1 relativity (a factor on the PER-CUSTOMER price,
+// lambda_customer_mean); everywhere else is descriptive / unvalidated.
+// Data: ./data/county_location_basis.json (build_county_dispersion.py).
+async function loadLocationBasis() {
+  try {
+    const resp = await fetch('./data/county_location_basis.json', { cache: 'no-store' });
+    if (resp.ok) state.locBasis = await resp.json();   // { fips: { dispersion, n_subunits, validated, rel?, county? } }
+    const rt = await fetch('./data/density_relativity.json', { cache: 'no-store' });
+    if (rt.ok) state.relTable = await rt.json();        // universal v0 relativity table (per T, terciles)
+  } catch (err) {
+    console.warn('location-basis read failed', err);
+  }
+}
+
+// universal within-county relativity range {min: urban, max: rural} at threshold T
+function locRelRange(T) {
+  const tbl = state.relTable?.relativity;
+  if (!tbl) return null;
+  const v = tbl[`T${[2, 4, 8].includes(T) ? T : 8}`]?.v0_shadow;   // [rural, mid, urban]
+  return (v && v.length === 3) ? { min: v[2], max: v[0] } : null;  // urban .. rural
+}
+
+// per-customer retail for a county at (T, X) — the base the location relativity multiplies
+function perCustomerRetail(fips, T, X = 2500) {
+  const lam = perCustomerCell(fips, T)?.lambda_customer_mean;
+  if (lam == null) return null;
+  const er = +(document.getElementById('expenseRatio')?.value) || 0.20;
+  const tm = +(document.getElementById('targetMargin')?.value) || 0.15;
+  return (lam * X) / Math.max(0.01, 1 - er - tm);
+}
+
+// hover read for the 'locbasis' color mode. Pilot (validated): within-county
+// relativity range applied to the PER-CUSTOMER price. Elsewhere: descriptive
+// dispersion only (the relativity is validated on CT/MA/RI alone).
+function locBasisTipMarkup(fips) {
+  const lb = state.locBasis?.[fips];
+  if (!lb) return '';
+  if (lb.validated && lb.rel) {
+    const T = [2, 4, 8].includes(state.trendT) ? state.trendT : 4;
+    const rr = lb.rel?.[T];
+    const pcr = perCustomerRetail(fips, T);
+    const relTxt = rr ? `×${rr.min.toFixed(2)} – ×${rr.max.toFixed(2)}` : '—';
+    const priceTxt = (pcr != null && rr) ? `${fmt.money(pcr * rr.min)} – ${fmt.money(pcr * rr.max)}` : '—';
+    return `
+      <div class="tip-row"><span>location basis</span><span>${lb.n_subunits} towns · validated</span></div>
+      <div class="tip-row"><span>relativity (T=${T}h)</span><span>${relTxt}</span></div>
+      <div class="tip-row"><span>per-customer × loc</span><span>${priceTxt}</span></div>`;
+  }
+  return `
+    <div class="tip-row"><span>location dispersion</span><span>${lb.dispersion != null ? lb.dispersion.toFixed(2) : '—'} · ${lb.n_subunits} tracts</span></div>
+    <div class="tip-row"><span>read</span><span>descriptive · shadow</span></div>
+    <div class="tip-row"><span></span><span style="opacity:.65">relativity: CT/MA/RI pilot only</span></div>`;
+}
+
+// ---- Drill-in: in Location-basis mode, click a county to render its SUB-UNITS
+// (pilot → towns; elsewhere → census tracts via TIGERweb), colored by
+// within-county density (red = rural/low-density → blue = urban/high). Shows the
+// actual within-county variation the single county color only summarizes.
+const TIGER_TRACTS = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/0/query';
+
+function ensureDrillLayer() {
+  if (map.getSource('drilltracts')) return;
+  map.addSource('drilltracts', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  map.addLayer({
+    id: 'drilltracts-fill', type: 'fill', source: 'drilltracts',
+    paint: {
+      'fill-color': ['interpolate', ['linear'], ['coalesce', ['get', '_wrank'], 0.5],
+        0, '#b2182b', 0.5, '#f7f7f7', 1, '#2166ac'],
+      'fill-opacity': 0.85,
+    },
+  });
+  map.addLayer({
+    id: 'drilltracts-line', type: 'line', source: 'drilltracts',
+    paint: { 'line-color': '#ffffff', 'line-width': 0.3, 'line-opacity': 0.5 },
+  });
+}
+
+function setWithinCountyRank(features, dens) {
+  const vals = features.map(dens).filter(v => v != null && v > 0).sort((a, b) => a - b);
+  features.forEach(f => {
+    const v = dens(f);
+    if (v == null || v <= 0 || vals.length < 2) { f.properties._wrank = 0.5; return; }
+    let lo = 0, hi = vals.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (vals[m] < v) lo = m + 1; else hi = m; }
+    f.properties._wrank = lo / (vals.length - 1);
+  });
+}
+
+function featuresBBox(features) {
+  const m = [180, 90, -180, -90];
+  const scan = (c) => {
+    if (typeof c[0] === 'number') {
+      m[0] = Math.min(m[0], c[0]); m[1] = Math.min(m[1], c[1]);
+      m[2] = Math.max(m[2], c[0]); m[3] = Math.max(m[3], c[1]);
+    } else { c.forEach(scan); }
+  };
+  features.forEach(f => f.geometry && scan(f.geometry.coordinates));
+  return [[m[0], m[1]], [m[2], m[3]]];
+}
+
+async function drillIntoCounty(fips) {
+  const lb = state.locBasis?.[fips];
+  ensureDrillLayer();
+  drillControl(lb, fips, 'loading…');
+  try {
+    let features = [];
+    if (lb && lb.validated) {
+      if (!state.pilotGeo) state.pilotGeo = await (await fetch('./data/location_basis_pilot.geojson', { cache: 'no-store' })).json();
+      features = state.pilotGeo.features.filter(f => String(parseInt(f.properties.county_fips, 10)) === String(fips));
+      setWithinCountyRank(features, f => f.properties.density);
+    } else {
+      if (!state.tractDensity) state.tractDensity = await (await fetch('./data/tract_density.json', { cache: 'no-store' })).json();
+      const fp = String(fips).padStart(5, '0');
+      const url = `${TIGER_TRACTS}?where=STATE%3D%27${fp.slice(0, 2)}%27+AND+COUNTY%3D%27${fp.slice(2)}%27&outFields=GEOID&returnGeometry=true&outSR=4326&f=geojson&resultRecordCount=4000`;
+      const geo = await (await fetch(url)).json();
+      features = geo.features || [];
+      features.forEach(f => { f.properties.density = state.tractDensity[f.properties.GEOID] ?? null; });
+      setWithinCountyRank(features, f => f.properties.density);
+    }
+    if (!features.length) { drillControl(lb, fips, 'no sub-county geometry'); return; }
+    map.getSource('drilltracts').setData({ type: 'FeatureCollection', features });
+    map.setLayoutProperty('drilltracts-fill', 'visibility', 'visible');
+    map.setLayoutProperty('drilltracts-line', 'visibility', 'visible');
+    map.fitBounds(featuresBBox(features), { padding: 40, duration: 600 });
+    drillControl(lb, fips, `${features.length} ${lb && lb.validated ? 'towns' : 'tracts'}`);
+  } catch (e) {
+    console.warn('drill-in failed', e);
+    drillControl(lb, fips, 'drill-in failed');
+  }
+}
+
+function clearDrill() {
+  const ctrl = document.getElementById('drillControl');
+  const active = !!ctrl || (map.getLayer('drilltracts-fill')
+    && map.getLayoutProperty('drilltracts-fill', 'visibility') === 'visible');
+  if (!active) return;
+  if (map.getLayer('drilltracts-fill')) {
+    map.setLayoutProperty('drilltracts-fill', 'visibility', 'none');
+    map.setLayoutProperty('drilltracts-line', 'visibility', 'none');
+  }
+  ctrl?.remove();
+  map.flyTo({ center: [-96, 38], zoom: 3.4, duration: 600 });
+}
+
+function drillControl(lb, fips, statusText) {
+  let el = document.getElementById('drillControl');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'drillControl';
+    el.className = 'drill-control';
+    document.querySelector('.map-stage')?.appendChild(el);
+  }
+  const dd = state.drilldown[fips];
+  const name = lb?.county || (dd ? `${dd.county}, ${dd.state}` : `county ${fips}`);
+  const validated = !!(lb && lb.validated);
+  el.innerHTML = `
+    <button class="drill-back" type="button">← back</button>
+    <div class="drill-meta">
+      <strong>${escapeHtml(name)}</strong>
+      <span>within-county density · ${escapeHtml(statusText)}${validated ? ' · validated' : ''}</span>
+      <span class="drill-ramp"><i style="background:#b2182b"></i>rural<i style="background:#f7f7f7"></i><i style="background:#2166ac"></i>urban</span>
+    </div>`;
+  el.querySelector('.drill-back')?.addEventListener('click', clearDrill);
+}
+
+// ===================== Price a location (address / lat-lon) =====================
+// Type an address or "lat, lon" -> geocode (Nominatim, CORS-ok) -> point -> county
+// (point-in-polygon over the loaded county geo, matches per-customer pricing) +
+// tract (TIGERweb) -> within-county density rank -> location relativity ->
+// per-customer × relativity = the location-adjusted price. Shadow.
+function pointInRing(lon, lat, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+    if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+function pointInFeature(lon, lat, geom) {
+  if (!geom) return false;
+  const polys = geom.type === 'Polygon' ? [geom.coordinates]
+              : geom.type === 'MultiPolygon' ? geom.coordinates : [];
+  for (const poly of polys) {
+    if (pointInRing(lon, lat, poly[0])) {
+      let hole = false;
+      for (let h = 1; h < poly.length; h++) if (pointInRing(lon, lat, poly[h])) { hole = true; break; }
+      if (!hole) return true;
+    }
+  }
+  return false;
+}
+function findFeature(lon, lat, features) {
+  for (const f of features || []) if (pointInFeature(lon, lat, f.geometry)) return f;
+  return null;
+}
+function parseLatLonInput(q) {
+  const m = String(q || '').trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+  if (!m) return null;
+  const a = Number(m[1]);
+  const b = Number(m[2]);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  let lat = a;
+  let lon = b;
+  if (Math.abs(a) > 90 && Math.abs(a) <= 180 && Math.abs(b) <= 90) {
+    lon = a;
+    lat = b;
+  }
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  return {
+    type: 'coord',
+    lat,
+    lon,
+    label: `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+    detail: 'Use coordinates',
+  };
+}
+
+async function geocodeAddress(q, opts = {}) {
+  const limit = opts.limit || 1;
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=${limit}&countrycodes=us`;
+  const d = await (await fetch(url, {
+    headers: { Accept: 'application/json' },
+    signal: opts.signal,
+  })).json();
+  const rows = (d || []).map(row => ({
+    type: 'address',
+    lon: +row.lon,
+    lat: +row.lat,
+    label: row.display_name,
+    detail: [row.type, row.class].filter(Boolean).join(' · ') || 'Address match',
+  })).filter(row => Number.isFinite(row.lon) && Number.isFinite(row.lat));
+  return opts.many ? rows : (rows[0] || null);
+}
+async function tractAt(lon, lat) {
+  const url = `${TIGER_TRACTS}?geometry=${lon},${lat}&geometryType=esriGeometryPoint&inSR=4326`
+            + `&spatialRel=esriSpatialRelIntersects&outFields=GEOID&returnGeometry=false&f=json`;
+  const d = await (await fetch(url)).json();
+  return d.features?.[0]?.attributes?.GEOID || null;
+}
+function relFromRank(rank, T) {                       // rank 0 = least dense (rural) .. 1 = densest (urban)
+  const v = state.relTable?.relativity?.[`T${[2, 4, 8].includes(T) ? T : 8}`]?.v0_shadow;  // [rural, mid, urban]
+  if (!v) return null;
+  return rank <= 0.5 ? v[0] + (v[1] - v[0]) * (rank / 0.5) : v[1] + (v[2] - v[1]) * ((rank - 0.5) / 0.5);
+}
+function tractRankInCounty(geoid, fips) {
+  const td = state.tractDensity; if (!td) return null;
+  const own = td[geoid]; if (own == null) return null;
+  const pref = String(fips).padStart(5, '0');
+  const vals = [];
+  for (const g in td) if (g.slice(0, 5) === pref) vals.push(td[g]);
+  if (vals.length < 2) return 0.5;
+  vals.sort((a, b) => a - b);
+  let lo = 0, hi = vals.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (vals[m] < own) lo = m + 1; else hi = m; }
+  return lo / (vals.length - 1);
+}
+
+let locMarker = null;
+const locSuggestionState = {
+  items: [],
+  active: -1,
+  timer: null,
+  abort: null,
+};
+
+function loadRecentLocations() {
+  try {
+    const rows = JSON.parse(window.localStorage.getItem('outageDashboard.recentLocations') || '[]');
+    return Array.isArray(rows) ? rows.filter(row => Number.isFinite(row.lat) && Number.isFinite(row.lon)).slice(0, 5) : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveRecentLocation(item) {
+  if (!item || !Number.isFinite(item.lat) || !Number.isFinite(item.lon)) return;
+  try {
+    const rows = loadRecentLocations().filter(row => Math.abs(row.lat - item.lat) > 1e-6 || Math.abs(row.lon - item.lon) > 1e-6);
+    rows.unshift({
+      type: 'recent',
+      lat: item.lat,
+      lon: item.lon,
+      label: item.label,
+      detail: item.county || item.detail || 'Recent location',
+    });
+    window.localStorage.setItem('outageDashboard.recentLocations', JSON.stringify(rows.slice(0, 5)));
+  } catch (err) {
+    // Recent locations are a convenience only.
+  }
+}
+
+function locSuggestionLabel(item) {
+  if (item.type === 'coord') return 'Coordinates';
+  if (item.type === 'recent') return 'Recent';
+  if (item.type === 'status') return 'Status';
+  return 'Address';
+}
+
+function renderLocSuggestions(items, active = 0) {
+  const menu = document.getElementById('locSuggestions');
+  const input = document.getElementById('locInput');
+  if (!menu || !input) return;
+
+  locSuggestionState.items = items || [];
+  const selectable = locSuggestionState.items.findIndex(item => item.type !== 'status');
+  locSuggestionState.active = selectable >= 0 ? Math.max(selectable, active) : -1;
+
+  if (!locSuggestionState.items.length) {
+    menu.hidden = true;
+    input.removeAttribute('aria-activedescendant');
+    return;
+  }
+
+  menu.innerHTML = locSuggestionState.items.map((item, index) => {
+    const disabled = item.type === 'status';
+    const isActive = index === locSuggestionState.active && !disabled;
+    const id = `locSuggestion-${index}`;
+    return `
+      <button
+        id="${id}"
+        class="loc-suggestion ${isActive ? 'active' : ''} ${disabled ? 'is-status' : ''}"
+        type="button"
+        role="option"
+        aria-selected="${isActive ? 'true' : 'false'}"
+        data-loc-index="${index}"
+        ${disabled ? 'disabled' : ''}
+      >
+        <span class="loc-suggestion-main">${escapeHtml(item.label || '')}</span>
+        <span class="loc-suggestion-meta">
+          <span>${escapeHtml(locSuggestionLabel(item))}</span>
+          ${item.detail ? `<span>${escapeHtml(item.detail)}</span>` : ''}
+        </span>
+      </button>
+    `;
+  }).join('');
+  menu.hidden = false;
+  if (locSuggestionState.active >= 0) {
+    input.setAttribute('aria-activedescendant', `locSuggestion-${locSuggestionState.active}`);
+  } else {
+    input.removeAttribute('aria-activedescendant');
+  }
+}
+
+function closeLocSuggestions() {
+  const menu = document.getElementById('locSuggestions');
+  if (menu) menu.hidden = true;
+  document.getElementById('locInput')?.removeAttribute('aria-activedescendant');
+  locSuggestionState.active = -1;
+}
+
+function chooseLocSuggestion(index) {
+  const item = locSuggestionState.items[index];
+  const input = document.getElementById('locInput');
+  if (!item || item.type === 'status') return;
+  if (input) input.value = item.type === 'coord' ? item.label : item.label;
+  closeLocSuggestions();
+  priceLocation(item.label, item);
+}
+
+function showRecentLocationSuggestions() {
+  const recent = loadRecentLocations();
+  if (!recent.length) {
+    renderLocSuggestions([{ type: 'status', label: 'Type an address or lat, lon', detail: 'Example: 40.7128, -74.0060' }], -1);
+    return;
+  }
+  renderLocSuggestions(recent, 0);
+}
+
+function updateLocSuggestions() {
+  const input = document.getElementById('locInput');
+  if (!input) return;
+  const q = input.value.trim();
+  setLocStatus('');
+  window.clearTimeout(locSuggestionState.timer);
+  if (locSuggestionState.abort) locSuggestionState.abort.abort();
+
+  const coord = parseLatLonInput(q);
+  if (coord) {
+    renderLocSuggestions([coord], 0);
+    return;
+  }
+
+  if (!q) {
+    showRecentLocationSuggestions();
+    return;
+  }
+
+  if (q.length < 3) {
+    renderLocSuggestions([{ type: 'status', label: 'Keep typing for address suggestions', detail: 'Or paste lat, lon' }], -1);
+    return;
+  }
+
+  renderLocSuggestions([{ type: 'status', label: 'Searching addresses...', detail: 'US results via Nominatim' }], -1);
+  locSuggestionState.timer = window.setTimeout(async () => {
+    locSuggestionState.abort = new AbortController();
+    try {
+      const rows = await geocodeAddress(q, { limit: 5, many: true, signal: locSuggestionState.abort.signal });
+      renderLocSuggestions(rows.length ? rows : [{ type: 'status', label: 'No address suggestions found', detail: 'Try lat, lon or a fuller address' }], 0);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        renderLocSuggestions([{ type: 'status', label: 'Address suggestions unavailable', detail: 'Press Enter to try direct lookup' }], -1);
+      }
+    }
+  }, 260);
+}
+
+function moveLocSuggestion(delta) {
+  const selectable = locSuggestionState.items
+    .map((item, index) => item.type === 'status' ? -1 : index)
+    .filter(index => index >= 0);
+  if (!selectable.length) return;
+  const currentPos = Math.max(0, selectable.indexOf(locSuggestionState.active));
+  const next = selectable[(currentPos + delta + selectable.length) % selectable.length];
+  renderLocSuggestions(locSuggestionState.items, next);
+}
+
+function wireLocationSearch() {
+  const input = document.getElementById('locInput');
+  const submit = document.getElementById('locSubmit');
+  const menu = document.getElementById('locSuggestions');
+  const root = document.querySelector('.header-location-search');
+  if (!input) return;
+
+  input.addEventListener('input', updateLocSuggestions);
+  input.addEventListener('focus', updateLocSuggestions);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      moveLocSuggestion(1);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      moveLocSuggestion(-1);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      if (locSuggestionState.active >= 0 && !menu?.hidden) {
+        chooseLocSuggestion(locSuggestionState.active);
+      } else {
+        closeLocSuggestions();
+        priceLocation(input.value);
+      }
+    } else if (event.key === 'Escape') {
+      closeLocSuggestions();
+    }
+  });
+
+  submit?.addEventListener('click', () => {
+    closeLocSuggestions();
+    priceLocation(input.value);
+  });
+
+  menu?.addEventListener('pointerdown', event => {
+    const btn = event.target.closest('[data-loc-index]');
+    if (!btn || btn.disabled) return;
+    event.preventDefault();
+    chooseLocSuggestion(Number(btn.dataset.locIndex));
+  });
+
+  document.addEventListener('click', event => {
+    if (!root?.contains(event.target)) closeLocSuggestions();
+  });
+}
+
+async function priceLocation(raw, resolved = null) {
+  const q = (raw || '').trim();
+  if (!q && !resolved) return;
+  setLocStatus('locating…');
+  try {
+    let lon, lat, label;
+    if (resolved && Number.isFinite(resolved.lon) && Number.isFinite(resolved.lat)) {
+      ({ lon, lat } = resolved);
+      label = resolved.label || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    } else if (parseLatLonInput(q)) {
+      const coord = parseLatLonInput(q);
+      ({ lon, lat, label } = coord);
+    }
+    else {
+      const g = await geocodeAddress(q);
+      if (!g) { setLocStatus('address not found'); return; }
+      ({ lon, lat, label } = g);
+    }
+    if (!state.countiesGeo) { setLocStatus('map not ready'); return; }
+    const cf = findFeature(lon, lat, state.countiesGeo.features);
+    if (!cf) { setLocStatus('point is outside US counties'); return; }
+    const fips = String(cf.id);
+    const dd = state.drilldown[fips];
+    const T = 4, X = 2500;
+    const pc = perCustomerCell(fips, T);
+    const er = +(document.getElementById('expenseRatio')?.value) || 0.20;
+    const tm = +(document.getElementById('targetMargin')?.value) || 0.15;
+    const pcRetail = (pc && pc.lambda_customer_mean != null)
+      ? pc.lambda_customer_mean * X / Math.max(0.01, 1 - er - tm) : null;
+
+    const lb = state.locBasis?.[fips];
+    let rel = null, posTxt = '', validated = false;
+    if (lb && lb.validated) {                          // pilot -> validated town relativity
+      if (!state.pilotGeo) state.pilotGeo = await (await fetch('./data/location_basis_pilot.geojson', { cache: 'no-store' })).json();
+      const town = findFeature(lon, lat, state.pilotGeo.features);
+      if (town) { rel = town.properties[`rel_T${T}`]; posTxt = `${town.properties.city} · ${town.properties.tercile}`; validated = true; }
+    }
+    if (rel == null) {                                 // elsewhere -> tract density rank -> extrapolated
+      if (!state.tractDensity) state.tractDensity = await (await fetch('./data/tract_density.json', { cache: 'no-store' })).json();
+      const tg = await tractAt(lon, lat);
+      const rank = tg ? tractRankInCounty(tg, fips) : null;
+      if (rank != null) { rel = relFromRank(rank, T); posTxt = `${rank < 0.34 ? 'rural' : rank < 0.67 ? 'mid' : 'urban'} (p${Math.round(rank * 100)})`; }
+    }
+    const locPrice = (pcRetail != null && rel != null) ? pcRetail * rel : null;
+
+    if (locMarker) locMarker.remove();
+    locMarker = new maplibregl.Marker({ color: '#0b6e74' }).setLngLat([lon, lat]).addTo(map);
+    map.flyTo({ center: [lon, lat], zoom: 9, duration: 700 });
+    showLocPrice({ label, county: dd ? `${dd.county}, ${dd.state}` : `FIPS ${fips}`, pcRetail, rel, locPrice, posTxt, validated, T, X });
+    saveRecentLocation({ label, lat, lon, county: dd ? `${dd.county}, ${dd.state}` : `FIPS ${fips}` });
+    setLocStatus(validated ? 'validated pilot' : 'shadow / extrapolated');
+  } catch (e) {
+    console.warn('priceLocation failed', e);
+    setLocStatus('lookup failed');
+  }
+}
+function setLocStatus(t) {
+  const e = document.getElementById('locStatus');
+  if (!e) return;
+  e.textContent = t || '';
+  e.hidden = !t;
+}
+function showLocPrice(r) {
+  let p = document.getElementById('locPricePanel');
+  if (!p) { p = document.createElement('aside'); p.id = 'locPricePanel'; p.className = 'locbasis-read'; document.querySelector('.map-stage')?.appendChild(p); }
+  const money = (v) => v != null ? fmt.money(v) : '—';
+  const lbl = r.label.length > 44 ? r.label.slice(0, 44) + '…' : r.label;
+  p.innerHTML = `
+    <div class="lb-head">
+      <div class="lb-title">
+        <div class="lb-eyebrow">Location price · <span class="lb-shadow">${r.validated ? 'validated' : 'extrapolated · shadow'}</span></div>
+        <strong>${escapeHtml(lbl)}</strong>
+        <span class="lb-sub">${escapeHtml(r.county)}${r.posTxt ? ' · ' + escapeHtml(r.posTxt) : ''}</span>
+      </div>
+      <button class="lb-close" type="button" aria-label="Close">×</button>
+    </div>
+    <table class="lb-table"><tbody>
+      <tr><td>per-customer (T=${r.T}h · $${fmt.num(r.X)})</td><td>${money(r.pcRetail)}</td></tr>
+      <tr><td>location relativity</td><td>${r.rel != null ? r.rel.toFixed(2) + '×' : '—'}</td></tr>
+      <tr><td><strong>location price</strong></td><td><strong>${money(r.locPrice)}</strong></td></tr>
+    </tbody></table>
+    <div class="lb-foot">per-customer × within-county location relativity. Shadow, not active pricing.${r.validated ? '' : ' Relativity extrapolated outside the CT/MA/RI pilot.'}</div>`;
+  p.querySelector('.lb-close')?.addEventListener('click', () => { p.hidden = true; if (locMarker) { locMarker.remove(); locMarker = null; } });
+  p.hidden = false;
+}
+wireLocationSearch();
 
 function renderMapTrendPanel(fips, anchorEvent = null, opts = {}) {
   const panel = document.getElementById('mapTrendPanel');
@@ -1678,6 +2298,7 @@ function syncMatrixViewSeg() {
 }
 
 const matrixModeNotes = {
+  locadj: 'Location-adjusted · per-customer price × within-county location relativity (urban–rural range). Shadow. Relativity validated on CT/MA/RI; applied (extrapolated) elsewhere — amber = extrapolated.',
   customer: 'Annual per-policy premium (one policy = one metered electric account). One documented data constraint in <a href="#" data-library-section="assumptions">A011</a> — the synchronous-outage approximation. <button class="mode-note-link" type="button" data-library-section="per-customer-walkthrough">Read the per-customer walkthrough →</button>',
   county: 'Reference view · v0 county-trigger rate. Useful for sensitivity comparison against the per-customer headline; not the price quoted to a policyholder. <button class="mode-note-link" type="button" data-library-section="pricing">Read the pricing methodology →</button>',
   multiplier: 'Customer-impact multiplier per cell — <code>mean(mean_customers / MCC | duration ≥ T)</code>. Diagnostic view: what the per-customer chain multiplies <code>λ_county</code> by, before pricing math. <button class="mode-note-link" type="button" data-library-section="per-customer-walkthrough">Read the walkthrough →</button>',
@@ -1760,6 +2381,7 @@ function renderMatrix(fips) {
     const text = matrixModeNotes[mode] || '';
     const tag = mode === 'customer' ? '<strong>Per-customer · </strong>'
               : mode === 'multiplier' ? '<strong>Multiplier · </strong>'
+              : mode === 'locadj' ? '<strong>Location-adjusted · </strong>'
               : '<strong>County trigger · </strong>';
     modeNoteEl.innerHTML = tag + text;
     modeNoteEl.hidden = false;
@@ -1832,6 +2454,28 @@ function renderMatrix(fips) {
           if (status === 'caution') {
             td.title = `caution · ${gateReasonText(pcCell.coverage_gate_reason)}`;
           }
+          td.addEventListener('click', () => openDrilldown(fips, T, X));
+        }
+      } else if (view === 'locadj') {
+        // Final price = per-customer price × within-county location relativity range
+        // (urban..rural). Relativity is universal (CT/MA/RI-fitted); VALIDATED in
+        // the pilot, EXTRAPOLATED (shadow) elsewhere.
+        const lb = state.locBasis?.[fips];
+        const status = pcCell?.coverage_gate_status;
+        const relT = locRelRange(T);
+        if (!pcCell || status === 'not_available' || !relT) {
+          td.className = 'not-available';
+          td.textContent = '—';
+          td.title = pcCell ? gateReasonText(pcCell.coverage_gate_reason) : 'no per-customer view';
+        } else {
+          const baseCust = kind === 'pure' ? pcCell.lambda_customer_mean * X
+                                           : (pcCell.lambda_customer_mean * X) / denom;
+          const lo = baseCust * relT.min, hi = baseCust * relT.max;
+          const validated = !!(lb && lb.validated);
+          td.className = (status === 'caution' || !validated) ? 'caution' : 'available';
+          td.innerHTML = `${fmt.money(lo)}<span style="opacity:.5"> – </span>${fmt.money(hi)}`;
+          td.title = `per-customer ${fmt.moneyCents(baseCust)} × location ${relT.min.toFixed(2)}–${relT.max.toFixed(2)} `
+                   + `(urban–rural) · ${validated ? 'validated (CT/MA/RI)' : 'extrapolated · shadow'}`;
           td.addEventListener('click', () => openDrilldown(fips, T, X));
         }
       }
@@ -1980,11 +2624,11 @@ function syncTrendThresholdControls() {
   }
   const patternOption = document.querySelector('#mapColorBy option[value="pattern"]');
   if (patternOption) {
-    patternOption.textContent = `Predictability pattern · T=${state.trendT}h (descriptive)`;
+    patternOption.textContent = `Predictability routing · T=${state.trendT}h`;
   }
   const shadowOption = document.querySelector('#mapColorBy option[value="shadow"]');
   if (shadowOption) {
-    shadowOption.textContent = `Shadow λ adjustment · T=${state.trendT}h`;
+    shadowOption.textContent = `Shadow frequency factor · T=${state.trendT}h`;
   }
 }
 
@@ -2563,12 +3207,12 @@ function renderShadowPricingImpact(fips, T, opts = {}) {
   const retailText = retailDelta == null ? '—' : `${retailDelta >= 0 ? '+' : ''}${fmt.money(retailDelta)}`;
   const cap = s.cap_applied ? ' · capped' : '';
   const loadHint = s.uncertainty_load_hint_pct ? ` · load hint ${fmtPct0(s.uncertainty_load_hint_pct)}` : '';
-  const reason = s.reason || 'Shadow pricing reason unavailable.';
+  const reason = s.reason || 'Shadow frequency reason unavailable.';
 
   return `
     <div class="shadow-impact${compact}">
       <div class="shadow-impact-head">
-        <span>Shadow pricing impact</span>
+        <span>Shadow frequency read</span>
         <strong>${escapeHtml(deltaText)}</strong>
       </div>
       <div class="shadow-impact-grid">
@@ -2616,7 +3260,7 @@ function renderPredictabilityBlock(fips, T, opts = {}) {
       </div>
       ${renderShadowPricingImpact(fips, T, opts)}
       <div class="pattern-summary-note">
-        ${escapeHtml(patternGroupText(group))} · shadow summary: ${escapeHtml(shadowCrossT)}
+        ${escapeHtml(patternGroupText(group))} · frequency summary: ${escapeHtml(shadowCrossT)}
       </div>
     </div>
   `;
@@ -2702,7 +3346,7 @@ function renderTrendBlock(fips, T, targetId = 'panelE', opts = {}) {
     : '';
   const disclaimer = opts.showDisclaimer === false ? '' : `
     <div class="trend-disclaimer">
-      <strong>Shadow-pricing boundary.</strong> This trend does not mutate active v0 premiums. It feeds the candidate shadow λ layer, which can be promoted only after backtest evidence supports activation. Note: part of the upward signal across counties may reflect EAGLE-I coverage improving over the years rather than actual outage rates rising — read the <button class="mode-note-link" type="button" data-library-section="outage-trend">outage-trend methodology →</button> for caveats.
+      <strong>Forward-regime boundary.</strong> This trend does not mutate active v0 premiums. It feeds predictability routing: some patterns produce a shadow frequency read, while noisy, episodic, or sparse patterns route to uncertainty, hazard, grid, or quoteability review. Note: part of the upward signal across counties may reflect EAGLE-I coverage improving over the years rather than actual outage rates rising — read the <button class="mode-note-link" type="button" data-library-section="outage-trend">outage-trend methodology →</button> for caveats.
     </div>
   `;
 
@@ -2874,8 +3518,32 @@ const LIBRARY_SECTIONS = {
     path: null,           // hand-rendered welcome page
   },
   'roadmap': {
-    title: 'Forward-looking roadmap',
+    title: 'Pricing roadmap',
     path: './methodology/roadmap.md',
+  },
+  'baseline-adjustment': {
+    title: 'Basis-risk adjustment framework',
+    path: './plan/outage_baseline_adjustment_framework.md',
+  },
+  'location-basis': {
+    title: 'Location basis methodology',
+    path: './methodology/location_basis_methodology.md',
+  },
+  'location-basis-preop': {
+    title: 'Location basis risk pre-op',
+    path: './plan/location_basis_risk_preop_plan.md',
+  },
+  'lambda-shadow-verification': {
+    title: 'Lambda shadow verification',
+    path: './plan/lambda_shadow_pricing_verification_plan.md',
+  },
+  'trigger-source-options': {
+    title: 'Trigger source options',
+    path: './plan/trigger_source_options.md',
+  },
+  'forward-modeling-plan': {
+    title: 'Forward-regime modeling plan',
+    path: './plan/forward_looking_modeling_plan.md',
   },
   'per-customer-walkthrough': {
     title: 'Per-customer view — end-to-end',
@@ -2898,7 +3566,7 @@ const LIBRARY_SECTIONS = {
     path: './methodology/filtration_methodology.md',
   },
   'pricing': {
-    title: 'Pricing',
+    title: 'Baseline pricing',
     path: './methodology/pricing_methodology.md',
   },
   'assumptions': {
@@ -2918,7 +3586,7 @@ const LIBRARY_SECTIONS = {
     path: './methodology/fundamentals/outage_predictability_fundamentals.md',
   },
   'lambda-shadow-pricing': {
-    title: 'Lambda shadow pricing',
+    title: 'Shadow frequency read',
     path: './methodology/fundamentals/lambda_shadow_pricing_fundamentals.md',
   },
   'outage-trend-validation': {
@@ -2974,17 +3642,23 @@ function setLibraryTitle(text) {
 
 function renderLibraryOverview() {
   const sections = [
-    { key: 'roadmap', meta: 'What\'s next', desc: 'Forward-looking tracks organized into three buckets — basis-risk adjustments, trigger alignment, forward-regime improvements. Status, why it matters, what unlocks each one.' },
+    { key: 'roadmap', meta: 'Pricing flow', desc: 'Baseline, basis-risk adjustments, forward-regime reads, and trigger alignment in the order the pricing story should be read.' },
+    { key: 'pricing', meta: 'Baseline', desc: 'The empirical county baseline and premium math: lambda(T), pure premium, retail premium, and current v0 boundaries.' },
+    { key: 'baseline-adjustment', meta: 'Basis risk', desc: 'The adjustment framework for correcting data-grain gaps before adding forward-looking signals.' },
+    { key: 'location-basis', meta: 'Basis risk', desc: 'End-to-end location-basis methodology: the granularity ladder, Census/CONUS data, density → tercile → price, honest validation (what works / what does not), and the work still ahead.' },
+    { key: 'location-basis-preop', meta: 'Basis risk', desc: 'Execution plan for the next location-basis shadow artifact: unit, features, caps, validation, and stop conditions.' },
+    { key: 'outage-predictability', meta: 'Forward-regime routing', desc: 'Empirical pattern labels that route counties to frequency, uncertainty/load, hazard context, or quoteability review.' },
+    { key: 'lambda-shadow-pricing', meta: 'Forward frequency read', desc: 'Candidate lambda and premium-pressure rules from patterns whose native mechanism is frequency. Shipped as review layer.' },
+    { key: 'lambda-shadow-verification', meta: 'Forward-regime review', desc: 'Validation checklist for every pattern category before any shadow-lambda rule becomes active pricing.' },
+    { key: 'forward-modeling-plan', meta: 'Hazard + grid WIP', desc: 'Hazard/weather and grid condition are first-class forward-regime lanes, not sub-parts of predictability.' },
+    { key: 'trigger-source-options', meta: 'Trigger alignment', desc: 'Live payout oracle options and why trigger alignment is separate from pricing-source methodology.' },
     { key: 'competitive-landscape', meta: 'Strategy', desc: 'Who else is in the parametric outage segment (Adaptive / GridProtect, Whisker Labs Ting, PowerOutage.US, adjacent-vertical proof points). How we position relative to each.' },
-    { key: 'per-customer-walkthrough', meta: 'Walkthrough', desc: 'End-to-end nuance-by-nuance walk through the per-customer pricing chain, with a worked Boone, MO example.' },
-    { key: 'pricing', meta: 'Pipeline · pricing', desc: 'The v0 pricing math (λ(T) → Pure → Retail) plus the per-customer view evidence.' },
-    { key: 'outage-predictability', meta: 'Trend · confidence', desc: 'Pattern labels for whether a county trend is smooth, noisy, episodic, sparse, or better read as a step change.' },
-    { key: 'lambda-shadow-pricing', meta: 'Trend · shadow pricing', desc: 'Candidate λ and premium-pressure rules if trend/pattern evidence is activated after validation.' },
+    { key: 'per-customer-walkthrough', meta: 'Walkthrough', desc: 'End-to-end nuance-by-nuance walk through the shipped per-customer pricing chain, with a worked Boone, MO example.' },
     { key: 'event-catalog', meta: 'Pipeline · events', desc: 'The event-construction algorithm (three knobs: threshold / gap tolerance / minimum duration).' },
     { key: 'aggregation', meta: 'Pipeline · rate', desc: 'How per-event records roll up to per-county summaries and how the annualization denominator is defined.' },
     { key: 'filtration', meta: 'Pipeline · tiers', desc: 'The five-gate Green / Amber / Red modelability classification (D1 through D5).' },
     { key: 'data-ingestion', meta: 'Pipeline · sources', desc: 'How raw EAGLE-I data is acquired, and what sources we deliberately do not use as the base layer.' },
-    { key: 'assumptions', meta: 'Cross-cutting', desc: 'Stable-ID registry of every explicit assumption (A001–A010). Cite by ID; never restate.' },
+    { key: 'assumptions', meta: 'Cross-cutting', desc: 'Stable-ID registry of every explicit assumption. Cite by ID; never restate.' },
   ];
   const cardsHtml = sections.map(s => `
     <button type="button" class="welcome-card" data-section="${s.key}">
@@ -3032,13 +3706,20 @@ function rewriteLibraryMarkdownLinks(html) {
     'outage_predictability_fundamentals.md': 'outage-predictability',
     'lambda_shadow_pricing_fundamentals.md': 'lambda-shadow-pricing',
     'outage_trend_validation_plan.md': 'outage-trend-validation',
+    'outage_baseline_adjustment_framework.md': 'baseline-adjustment',
+    'location_basis_methodology.md': 'location-basis',
+    'location_basis_risk_preop_plan.md': 'location-basis-preop',
+    'lambda_shadow_pricing_verification_plan.md': 'lambda-shadow-verification',
+    'trigger_source_options.md': 'trigger-source-options',
+    'trigger_source_implications.md': 'trigger-source-options',
+    'forward_looking_modeling_plan.md': 'forward-modeling-plan',
   };
   return html.replace(/<a\s+href="([^"]+)"([^>]*)>/g, (match, href, attrs) => {
     if (/^https?:/i.test(href)) {
       return `<a href="${href}"${attrs} target="_blank" rel="noopener">`;
     }
     // Strip optional ./ and any leading ../methodology/ prefix
-    const fileMatch = href.match(/([a-z_]+\.md)(#.*)?$/i);
+    const fileMatch = href.match(/([a-z0-9_]+\.md)(#.*)?$/i);
     if (fileMatch && filenameToSection[fileMatch[1]]) {
       const section = filenameToSection[fileMatch[1]];
       const hash = fileMatch[2] || '';
@@ -3096,7 +3777,7 @@ async function navigateLibrary(sectionKey) {
   }
 }
 
-// ============ SIDEBAR · WHAT'S NEXT WIDGET ============
+// ============ SIDEBAR · CURRENT STATUS WIDGET ============
 // Compact roadmap surface in the sidebar. Mirrors docs/methodology/roadmap.md
 // at-a-glance. Click any item to open the library at the full roadmap.
 //
@@ -3104,49 +3785,97 @@ async function navigateLibrary(sectionKey) {
 // status changes there, change it here too. The library section is the long
 // form; this is the glanceable summary.
 
-// Three categorical buckets, in the order the team works through them.
-// The order is structural, not arbitrary: data-input adjustments first
-// (basis risk), then the live-oracle bridge (trigger alignment), then
-// forward signals layered on top. The "Why this order matters" section
-// of docs/methodology/roadmap.md captures the principle.
+// Compact pricing roadmap in the order the team wants readers to understand:
+// baseline first, then basis-risk corrections, then forward-regime reads,
+// then trigger alignment as the separate live-oracle contract layer.
 const ROADMAP_GROUPS = [
   {
+    key: 'basis-risk',
     title: 'Basis-risk adjustments',
+    lead: 'Fix the gap between what the county data measures and what the policy sells.',
+    bullets: ['customer basis is already in the headline price', 'location basis is now active design work', 'these are data-grain corrections, not forward forecasts'],
+    note: 'We do basis risk before forward-regime work because a better forecast does not fix a misaligned product grain.',
+    section: 'baseline-adjustment',
     items: [
       {
+        key: 'customer-basis',
         name: 'Customer basis risk',
         status: 'shipped',
-        desc: 'Adjusted via the per-customer chain (this release)',
+        desc: 'Per-customer chain is the headline price',
+        lead: 'Corrects the county-event rate into a per-policy expected-loss view.',
+        bullets: ['active in the dashboard price', 'documented A011 assumption', 'phase 4 validation remains refinement'],
+        note: 'This is the prototype for basis-risk corrections: documented assumption, clear resolution path, visible pricing effect.',
+        section: 'per-customer-walkthrough',
       },
       {
+        key: 'location-basis',
         name: 'Location basis risk',
-        status: 'research',
-        desc: 'Per-premise vs county-aggregate',
+        status: 'wip',
+        desc: 'County average to insured-location bridge',
+        lead: 'Builds the next basis-risk correction: how a specific location differs from its county average.',
+        bullets: ['pre-op plan written', 'shadow artifact first', 'utility and local geography as first bridge'],
+        note: 'This should become a capped review layer before any active location modifier.',
+        section: 'location-basis-preop',
       },
     ],
   },
   {
-    title: 'Trigger alignment',
+    key: 'forward-regime',
+    title: 'Forward-regime engines',
+    lead: 'Read whether the future should differ from history through three lanes: predictability routing, hazard/weather, and grid condition.',
+    bullets: ['predictability is empirical shape and routing', 'hazard/weather is a first-class mechanism', 'grid condition is a first-class mechanism'],
+    note: 'Predictability is useful now, but it is not the hazard model. Hazard and grid should explain patterns before any final forward price movement is activated.',
+    section: 'roadmap',
     items: [
       {
-        name: 'Trigger source alignment',
-        status: 'blocked',
-        desc: 'Awaiting vendor / live-oracle data',
-      },
-    ],
-  },
-  {
-    title: 'Forward-regime improvements',
-    items: [
-      {
-        name: 'Grid condition',
-        status: 'planned',
-        desc: 'Utility reliability + capex signals',
+        key: 'predictability-shadow',
+        name: 'Predictability routing',
+        status: 'shipped',
+        desc: 'Empirical shape routes the mechanism',
+        lead: 'Labels annual outage histories so the county routes to frequency, uncertainty/load, hazard context, or quoteability review.',
+        bullets: ['shipped as review layer', 'not the hazard model', 'feeds frequency shadow only when the pattern supports it'],
+        note: 'This is the empirical read/routing layer. It should not absorb hazard or grid logic.',
+        section: 'outage-predictability',
       },
       {
+        key: 'hazard-weather',
         name: 'Hazard & weather',
-        status: 'planned',
-        desc: 'Storm regime + climate signals',
+        status: 'wip',
+        desc: 'Storm, wildfire, flood, climate engine',
+        lead: 'Adds storm, wildfire, flood, wind, winter-weather, heat, and climate context as its own forward-regime mechanism.',
+        bullets: ['teammate hazard handoff', 'episodic counties need this context', 'not yet active pricing'],
+        note: 'Hazard should explain volatile/episodic counties before any final hazard load or frequency support is used.',
+        section: 'forward-modeling-plan',
+      },
+      {
+        key: 'grid-condition',
+        name: 'Grid condition',
+        status: 'wip',
+        desc: 'Utility reliability + capex signals',
+        lead: 'Asks whether the serving grid is stronger or weaker than history alone implies.',
+        bullets: ['utility reliability', 'AMI and service-territory signals', 'capex/opex and hardening later'],
+        note: 'Keep this separate from location basis so the same utility signal is not counted twice.',
+        section: 'forward-modeling-plan',
+      },
+    ],
+  },
+  {
+    key: 'trigger-alignment',
+    title: 'Trigger alignment',
+    lead: 'Align the historical pricing source with the live payout oracle.',
+    bullets: ['trigger source options are documented', 'not a pricing estimator', 'requires selected live oracle and overlap data'],
+    note: 'This is a separate contract/oracle layer, so it sits last in the roadmap.',
+    section: 'trigger-source-options',
+    items: [
+      {
+        key: 'trigger-source',
+        name: 'Trigger source alignment',
+        status: 'discussion',
+        desc: 'Live payout oracle bridge',
+        lead: 'Connects historical pricing events to the eventual live payout trigger.',
+        bullets: ['options documented', 'not a pricing estimator', 'needs selected oracle and overlap data'],
+        note: 'No longer an undefined blocker, but still not implementable until a live source is selected.',
+        section: 'trigger-source-options',
       },
     ],
   },
@@ -3156,17 +3885,140 @@ function renderRoadmapList() {
   const list = document.getElementById('roadmapList');
   if (!list) return;
   list.innerHTML = ROADMAP_GROUPS.map(group => `
-    <div class="roadmap-group-title">${escapeHtml(group.title)}</div>
+    <div class="roadmap-group-header">
+      <div class="roadmap-group-title">${escapeHtml(group.title)}</div>
+      ${infoButtonMarkup({
+        key: group.key,
+        title: group.title,
+        lead: group.lead,
+        bullets: group.bullets,
+        note: group.note,
+        readMore: { section: group.section || 'roadmap', label: 'Read in library' },
+      }, 'sidebar-roadmap-group')}
+      ${infoPanelMarkup({
+        key: group.key,
+        title: group.title,
+        lead: group.lead,
+        bullets: group.bullets,
+        note: group.note,
+        readMore: { section: group.section || 'roadmap', label: 'Read in library' },
+      }, 'sidebar-roadmap-group')}
+    </div>
     ${group.items.map(item => `
-      <button type="button" class="roadmap-item" data-library-section="roadmap" title="Open in library">
+      <div class="roadmap-item">
         <span class="roadmap-status ${item.status}">${escapeHtml(item.status)}</span>
-        <div class="roadmap-item-body">
-          <div class="roadmap-name">${escapeHtml(item.name)}</div>
-          <div class="roadmap-desc">${escapeHtml(item.desc)}</div>
+        <div class="roadmap-title-row">
+          <button type="button" class="roadmap-link roadmap-title-link" data-library-section="${escapeHtml(item.section || 'roadmap')}" title="Open in library">
+            <span class="roadmap-name">${escapeHtml(item.name)}</span>
+          </button>
+          ${roadmapItemInfoButtonMarkup({
+            key: item.key,
+            title: item.name,
+            lead: item.lead,
+            bullets: item.bullets,
+            note: item.note,
+            readMore: { section: item.section || 'roadmap', label: 'Read in library' },
+          }, 'sidebar-roadmap')}
         </div>
-      </button>
+        <button type="button" class="roadmap-link roadmap-desc-link" data-library-section="${escapeHtml(item.section || 'roadmap')}" title="Open in library">
+          <span class="roadmap-desc">${escapeHtml(item.desc)}</span>
+        </button>
+        ${infoPanelMarkup({
+          key: item.key,
+          title: item.name,
+          lead: item.lead,
+          bullets: item.bullets,
+          note: item.note,
+          readMore: { section: item.section || 'roadmap', label: 'Read in library' },
+        }, 'sidebar-roadmap')}
+      </div>
     `).join('')}
   `).join('');
+}
+
+function clampSidebarWidth(px) {
+  const viewport = window.innerWidth || 1200;
+  const min = viewport < 900 ? 240 : 300;
+  const max = Math.min(460, Math.max(min, Math.floor(viewport * 0.42)));
+  return Math.min(Math.max(Math.round(px), min), max);
+}
+
+function currentSidebarWidth() {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim();
+  const parsed = Number.parseFloat(raw);
+  if (Number.isFinite(parsed)) return parsed;
+  return clampSidebarWidth(window.innerWidth * 0.22);
+}
+
+function setSidebarWidth(px, persist = false) {
+  const width = clampSidebarWidth(px);
+  document.documentElement.style.setProperty('--sidebar-width', `${width}px`);
+  if (persist) {
+    try {
+      window.localStorage.setItem('outageDashboard.sidebarWidth', String(width));
+    } catch (err) {
+      // Ignore storage failures; resizing should still work for this session.
+    }
+  }
+}
+
+function resetSidebarWidth() {
+  const viewport = window.innerWidth || 1200;
+  const width = clampSidebarWidth(Math.min(Math.max(viewport * 0.22, 320), 380));
+  setSidebarWidth(width, true);
+}
+
+function wireSidebarResize() {
+  const handle = document.getElementById('sidebarResizeHandle');
+  if (!handle) return;
+
+  try {
+    const stored = Number.parseFloat(window.localStorage.getItem('outageDashboard.sidebarWidth'));
+    if (Number.isFinite(stored)) setSidebarWidth(stored, false);
+  } catch (err) {
+    // Local storage is optional.
+  }
+
+  let activePointer = null;
+
+  handle.addEventListener('pointerdown', event => {
+    event.preventDefault();
+    activePointer = event.pointerId;
+    document.body.classList.add('is-resizing-sidebar');
+    handle.setPointerCapture?.(event.pointerId);
+  });
+
+  handle.addEventListener('pointermove', event => {
+    if (activePointer !== event.pointerId) return;
+    setSidebarWidth(event.clientX, false);
+  });
+
+  function endResize(event) {
+    if (activePointer !== event.pointerId) return;
+    activePointer = null;
+    document.body.classList.remove('is-resizing-sidebar');
+    handle.releasePointerCapture?.(event.pointerId);
+    setSidebarWidth(currentSidebarWidth(), true);
+  }
+
+  handle.addEventListener('pointerup', endResize);
+  handle.addEventListener('pointercancel', endResize);
+  handle.addEventListener('dblclick', resetSidebarWidth);
+
+  handle.addEventListener('keydown', event => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'Home') return;
+    event.preventDefault();
+    if (event.key === 'Home') {
+      resetSidebarWidth();
+      return;
+    }
+    const delta = event.key === 'ArrowLeft' ? -16 : 16;
+    setSidebarWidth(currentSidebarWidth() + delta, true);
+  });
+
+  window.addEventListener('resize', () => {
+    setSidebarWidth(currentSidebarWidth(), false);
+  });
 }
 
 function wireLibrary() {
@@ -3230,3 +4082,4 @@ boot();
 wireOnboarding();
 wireLibrary();
 renderRoadmapList();
+wireSidebarResize();

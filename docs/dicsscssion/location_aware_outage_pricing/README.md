@@ -17,6 +17,7 @@ history and local outage probability.
 |---|---|
 | `01_problem_framing.md` | First discussion note: what spatial grain we have, what a location-based policy needs, and why this can affect pricing. |
 | `02_research_backlog.md` | Questions and research tasks before we redesign pricing or trigger logic. |
+| `03_location_basis_risk_design.md` | Design note for the county-to-location basis-risk modifier, including utility identity, first-use guardrails, validation, and open questions. |
 
 ## Current Working View
 
@@ -41,3 +42,6 @@ Use this folder to decide the right v1 architecture before implementing:
 3. how county history should be adjusted for a specific policy location;
 4. which parts belong in pricing, trigger validation, underwriting, and data
    enrichment.
+
+The active execution plan is
+[`../../plan/location_basis_risk_preop_plan.md`](../../plan/location_basis_risk_preop_plan.md).

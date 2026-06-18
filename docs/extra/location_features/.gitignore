@@ -1,0 +1,10 @@
+# secrets — never commit (Census API key)
+.env
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+# large geospatial rasters (NLCD etc.) — reproducible via the fetch lib, not committed
+*.tif
+*.img
+*.vrt
+data/raw/nlcd/

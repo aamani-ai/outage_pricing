@@ -27,7 +27,20 @@ trigger-source strategy, enriched datasets, and forward-looking modeling.
 - [Outage Baseline Adjustment Framework](outage_baseline_adjustment_framework.md)
   (includes the [Customer Impact Modifier](outage_baseline_adjustment_framework.md#customer-impact-modifier)
   proposal for handling event-population severity bias)
+- [Location Basis Risk Pre-Op Plan](location_basis_risk_preop_plan.md) - plan
+  for turning county-level outage pricing into a location-aware basis-risk
+  shadow artifact before any active pricing change.
+- [Lambda Shadow Pricing Verification Plan](lambda_shadow_pricing_verification_plan.md)
+  - validates every predictability category before any shadow lambda rule can
+  become an active pricing proposal.
 - [Portfolio Risk Engine Plan](portfolio_risk_engine_plan.md)
+
+## Related Architecture Discussions
+
+- [Pricing Adjustment Mechanisms](../dicsscssion/pricing_adjustment_mechanisms/)
+  - project-level vocabulary for combining basis/alignment and forward-regime
+  adjustments into a common premium-impact view without treating every factor
+  as the same kind of model.
 
 ## Archive
 

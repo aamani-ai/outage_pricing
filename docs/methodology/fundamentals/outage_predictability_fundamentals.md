@@ -15,9 +15,30 @@ That distinction matters. A county can have a very strong upward slope and still
 be hard to predict if the slope is created by a few jump years, a storm cluster,
 or sparse early history. This layer separates **direction** from **reliability**.
 
-It is descriptive by itself. In the pricing stack it feeds the separate
-lambda-shadow layer, where the pattern label selects a candidate lambda rule
-for review. That shadow rule is not active v0 pricing until it is validated.
+It is descriptive by itself. In the pricing stack it is an empirical routing
+and diagnostic layer. It feeds the separate lambda-shadow layer for patterns
+whose native pricing mechanism is frequency. For other patterns, the label is a
+routing signal into uncertainty/load review, hazard context, grid-condition
+review, or quoteability review. The project-level pricing adjustment mechanism taxonomy
+defines this as:
+
+```text
+pattern -> pricing mechanism -> native candidate -> factor expression
+```
+
+That mechanism framing lives in
+[`../../dicsscssion/pricing_adjustment_mechanisms/01_pricing_adjustment_mechanism_design.md`](../../dicsscssion/pricing_adjustment_mechanisms/01_pricing_adjustment_mechanism_design.md).
+The shadow rule is not active v0 pricing until it is validated.
+
+Important boundary: predictability is **not** the hazard model. It says what
+the annual outage history looks like; hazard/weather and grid condition should
+explain why the risk may be changing.
+
+```text
+Predictability = empirical shape and routing.
+Hazard/weather = storm, wildfire, flood, wind, climate context.
+Grid condition = utility, infrastructure, restoration context.
+```
 
 ## Inputs
 
@@ -60,18 +81,18 @@ county.
 
 The first-pass taxonomy is rule-based:
 
-| Label | Meaning |
-|---|---|
-| **Smooth worsening** | Positive trend, low residual noise, few outliers |
-| **Volatile worsening** | Positive trend, but the line has weak usability |
-| **Step-change up** | Early low-count years followed by a persistent higher level |
-| **Smooth improving** | Negative trend, low residual noise, few outliers |
-| **Volatile improving** | Negative trend, but the line has weak usability |
-| **Step-change down** | Early high-count years followed by a persistent lower level |
-| **Stable regular** | Flat trend and low residual noise |
-| **Stable noisy** | Flat trend, but large year-to-year swings |
-| **Episodic / spiky** | One or two years dominate the history |
-| **Sparse history** | Fewer than 10 qualifying events in the 11-year window |
+| Label | Meaning | Native pricing target |
+|---|---|---|
+| **Smooth worsening** | Positive trend, low residual noise, few outliers | `frequency_lambda` |
+| **Volatile worsening** | Positive trend, but the line has weak usability | `frequency_lambda` plus review |
+| **Step-change up** | Early low-count years followed by a persistent higher level | `frequency_lambda` |
+| **Smooth improving** | Negative trend, low residual noise, few outliers | `frequency_lambda`, guarded |
+| **Volatile improving** | Negative trend, but the line has weak usability | `frequency_lambda` plus review, guarded |
+| **Step-change down** | Early high-count years followed by a persistent lower level | `frequency_lambda`, guarded |
+| **Stable regular** | Flat trend and low residual noise | keep historical frequency |
+| **Stable noisy** | Flat trend, but large year-to-year swings | `load_margin` review |
+| **Episodic / spiky** | One or two years dominate the history | `hazard_context` review |
+| **Sparse history** | Fewer than 10 qualifying events in the 11-year window | `quote_gate` / credibility review |
 
 These labels are not clusters yet. They are transparent rule labels. Clustering
 can come later as a discovery layer after these features are stable.
@@ -123,6 +144,9 @@ events >= T:  4  6  5  7  6 51  5  8  6  7  5
 The annual mean and slope are not enough. One year dominates. This may be a
 storm-history question more than a trend question.
 
+That is the reason this layer routes episodic histories toward
+`hazard_context` instead of forcing a trend-based lambda adjustment.
+
 ## Why This Is The Right Next Step
 
 This layer makes the trend system usable for decision-making without pretending
@@ -133,7 +157,16 @@ we have a full forecast model yet:
 3. It shows where the line is misleading.
 4. It gives us a feature table for later clustering and backtesting.
 5. It creates a map-ready county signal and a clean input for shadow-pricing
-   rules without touching active v0 premiums.
+   or review routing rules without touching active v0 premiums.
+
+After hazard/weather and grid-condition layers exist, this layer should also
+act as a residual diagnostic:
+
+```text
+Does the hazard/grid model explain the observed annual pattern?
+If yes, route the pricing read through that mechanism.
+If no, keep the empirical pattern as a shadow read or review flag.
+```
 
 The next technical step after this is backtesting:
 
@@ -148,7 +181,7 @@ become an active pricing or underwriting input.
 
 ## Dashboard Use
 
-The dashboard now has a descriptive map color mode:
+The dashboard now has a review-layer map color mode:
 
 ```
 Predictability pattern - T=<selected threshold>
@@ -163,12 +196,15 @@ outlier count, peak-year share, and cross-T consistency.
 - **Trend direction is not the same thing as predictability.**
 - **A strong slope can still be low-usability if it is driven by jumps or outliers.**
 - **The first version is rule-based on purpose; it is auditable.**
-- **The pattern layer chooses a candidate shadow-pricing rule, but active v0 remains unchanged.**
+- **The pattern layer routes counties to the right mechanism: frequency,
+  uncertainty/load review, hazard context, or quoteability review.**
 
 ## References
 
 - Pipeline: `curated_outage_data/pipelines/county_predictability/compute_county_predictability.py`
 - Schema: [`curated_outage_data/schemas/county_predictability.md`](../../../curated_outage_data/schemas/county_predictability.md)
 - Shadow pricing: [`lambda_shadow_pricing_fundamentals.md`](lambda_shadow_pricing_fundamentals.md)
+- Pricing adjustment mechanisms:
+  [`../../dicsscssion/pricing_adjustment_mechanisms/01_pricing_adjustment_mechanism_design.md`](../../dicsscssion/pricing_adjustment_mechanisms/01_pricing_adjustment_mechanism_design.md)
 - Input trend layer: [`outage_trend_fundamentals.md`](outage_trend_fundamentals.md)
 - Trend validation plan: [`docs/plan/outage_trend_validation_plan.md`](../../plan/outage_trend_validation_plan.md)

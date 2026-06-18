@@ -1,0 +1,13 @@
+T_hours,density_tercile,relativity_empirical,relativity_v0_shadow
+1,rural,1.762,1.448
+1,mid,1.125,1.163
+1,urban,0.789,0.827
+2,rural,1.775,1.419
+2,mid,1.187,1.203
+2,urban,0.753,0.811
+4,rural,1.9,1.402
+4,mid,1.227,1.228
+4,urban,0.708,0.801
+8,rural,2.058,1.372
+8,mid,1.296,1.27
+8,urban,0.64,0.784
