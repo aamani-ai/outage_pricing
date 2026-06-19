@@ -28,31 +28,84 @@ and the **runtime quote flow** that applies them.
 ### Calibration flow: how the factors were learned
 
 ```text
-PoUS city x utility outage sample
-        |
-        v
-qualifying events by threshold T
-        |
-        v
-per-cell customer outage rate
-        |
-        v
-divide by county exposure-weighted mean
-        |
-        v
-within-county relative target
-        |
-        v
-join land area, compute density, rank within each county
-        |
-        v
-rural / mid / urban density terciles
-        |
-        v
-exposure-weighted empirical relativity by tercile
-        |
-        v
-monotone + mean-1 + capped v0 shadow factors
+Calibration is not one straight line. It is two streams, joined on the
+same county / town / cell rows.
+
+                                      same pilot rows
+                              county + town/cell identity
+                                             |
+                 +---------------------------+---------------------------+
+                 |                                                       |
+                 v                                                       v
+      OUTCOME STREAM: what happened                       FEATURE STREAM: where it happened
+      --------------------------------                     ---------------------------------
+      PoUS city x utility outage sample                    same town/cell identity
+                 |                                                       |
+                 v                                                       v
+      qualifying events by threshold T                     join Census land area
+                 |                                                       |
+                 v                                                       v
+      per-cell customer outage rate                        compute density
+      (customer-share summed over events)                  (pilot: tracked customers / land area)
+                 |                                                       |
+                 v                                                       v
+      divide by county exposure-weighted mean              rank density within each county
+                 |                                                       |
+                 v                                                       v
+      WITHIN-COUNTY RELATIVE TARGET                        RURAL / MID / URBAN DENSITY LABEL
+      "how high vs own county average?"                    "where does this row sit in county?"
+                 |                                                       |
+                 +---------------------------+---------------------------+
+                                             |
+                                             v
+                         join target + density label on the same rows
+                                             |
+                                             v
+                         group rows by rural / mid / urban label
+                                             |
+                                             v
+                         exposure-weighted average relative target
+                                             |
+                                             v
+                         empirical rural / mid / urban relativities
+                                             |
+                                             v
+                         monotone + mean-1 + capped v0 shadow factors
+```
+
+Mermaid version for the same logic:
+
+```mermaid
+flowchart TB
+    K["same pilot rows: county + town/cell identity"]
+
+    K --> O1
+    K --> F1
+
+    subgraph O["Outcome stream: what happened"]
+        O1["PoUS city x utility outage sample"]
+        O2["Qualifying events by threshold T"]
+        O3["Per-cell customer outage rate"]
+        O4["Divide by county exposure-weighted mean"]
+        O5["Within-county relative target"]
+        O1 --> O2 --> O3 --> O4 --> O5
+    end
+
+    subgraph F["Feature stream: where it happened"]
+        F1["Same town/cell identity"]
+        F2["Join Census land area"]
+        F3["Compute density"]
+        F4["Rank density within county"]
+        F5["Rural / mid / urban density label"]
+        F1 --> F2 --> F3 --> F4 --> F5
+    end
+
+    O5 --> J["Join target + density label on same rows"]
+    F5 --> J
+    J --> G["Group by rural / mid / urban"]
+    G --> W["Exposure-weighted average relative target"]
+    W --> R["Empirical rural / mid / urban relativities"]
+    R --> C["Monotone + mean-1 + capped v0 shadow factors"]
 ```
 
 The pilot outcome data is PowerOutage.US (PoUS), CT / MA / RI, Jan-Mar 2019.
