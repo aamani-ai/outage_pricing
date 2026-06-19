@@ -87,7 +87,172 @@ The runtime feature is Census density. The pilot uses town density because PoUS
 is town/city-grained; the national dashboard uses tract density because Census
 tracts provide national address-scale coverage.
 
-## 2. Why the Adjustment Is a Multiplier
+## 2. Worked Example: How the Two Streams Connect
+
+The easiest way to understand the method is to keep two streams separate until
+the last step:
+
+1. **Observed outage stream:** PoUS tells us which towns/cells ran above or below
+   their county average.
+2. **Location feature stream:** Census/rurality tells us whether those same
+   towns/cells are rural, mid, or urban inside their own county.
+
+Then we join those two streams and ask: when a town is rural inside its county,
+how high is its observed relative outage target on average?
+
+### Stream 1: observed outage target from PoUS
+
+Suppose the PoUS pilot gives us three counties, each with three town/cell rows,
+at threshold `T=4h`.
+
+| county | town | tracked customers | observed outage rate |
+|---|---|---:|---:|
+| A | A1 | 10,000 | 0.60 |
+| A | A2 | 20,000 | 0.30 |
+| A | A3 | 30,000 | 0.15 |
+| B | B1 | 10,000 | 0.50 |
+| B | B2 | 20,000 | 0.33 |
+| B | B3 | 30,000 | 0.20 |
+| C | C1 | 10,000 | 0.70 |
+| C | C2 | 20,000 | 0.40 |
+| C | C3 | 30,000 | 0.25 |
+
+Here, **observed outage rate** is the customer-weighted frequency of qualifying
+events in the PoUS sample window. For `T=4h`, each qualifying event contributes:
+
+```text
+customers_out / customers_tracked
+```
+
+So a town with two qualifying events affecting 20% and 10% of tracked customers
+has:
+
+```text
+observed outage rate = 0.20 + 0.10 = 0.30
+```
+
+Next, normalize each town by its **own county's** exposure-weighted mean. For
+County A:
+
+```text
+county_mean_A =
+  (10,000 x 0.60 + 20,000 x 0.30 + 30,000 x 0.15) / 60,000
+= 0.275
+```
+
+Then:
+
+| county | town | observed outage rate | county mean | relative target |
+|---|---|---:|---:|---:|
+| A | A1 | 0.60 | 0.275 | 2.18x |
+| A | A2 | 0.30 | 0.275 | 1.09x |
+| A | A3 | 0.15 | 0.275 | 0.55x |
+
+That last column is the **within-county relative target**. It is the thing we are
+trying to explain with location features:
+
+```text
+relative target = town observed outage rate / county average outage rate
+```
+
+It says A1 ran 2.18x worse than County A's average, while A3 ran 0.55x of County
+A's average.
+
+### Stream 2: density label from Census/rurality
+
+Separately, we compute a density/rurality label for each town. In the pilot:
+
+```text
+density = PoUS tracked customers / Census town land area
+```
+
+The Census part is the **land area**. We use tracked customers as the numerator
+in the pilot because that is the exposure count we observe in PoUS. In the
+national address lookup, we use:
+
+```text
+density = ACS tract population / Census tract land area
+```
+
+For the example, suppose County A has:
+
+| county | town | tracked customers | Census land area | density | within-county label |
+|---|---|---:|---:|---:|---|
+| A | A1 | 10,000 | 100 km² | 100 / km² | rural |
+| A | A2 | 20,000 | 50 km² | 400 / km² | mid |
+| A | A3 | 30,000 | 20 km² | 1,500 / km² | urban |
+
+The label is assigned **inside County A only**. We are not saying `100 / km²`
+is always rural nationally. We are saying A1 is the sparsest town inside County
+A.
+
+### Joining the two streams
+
+Now each town has both:
+
+- an observed **relative target** from PoUS; and
+- a **density label** from the Census/rurality feature.
+
+| county | town | relative target | density label |
+|---|---|---:|---|
+| A | A1 | 2.18x | rural |
+| A | A2 | 1.09x | mid |
+| A | A3 | 0.55x | urban |
+| B | B1 | 1.50x | rural |
+| B | B2 | 1.00x | mid |
+| B | B3 | 0.70x | urban |
+| C | C1 | 2.20x | rural |
+| C | C2 | 1.30x | mid |
+| C | C3 | 0.80x | urban |
+
+Then we pool rows with the same density label across all pilot counties:
+
+```text
+rural average = average target for A1, B1, C1
+mid average   = average target for A2, B2, C2
+urban average = average target for A3, B3, C3
+```
+
+Using the simple unweighted example:
+
+```text
+rural = average(2.18, 1.50, 2.20) = 1.96x
+mid   = average(1.09, 1.00, 1.30) = 1.13x
+urban = average(0.55, 0.70, 0.80) = 0.68x
+```
+
+The production version uses **exposure-weighted** averages, so larger tracked
+customer counts receive more weight. But the intuition is exactly the same:
+
+```text
+observed relative outage targets + density labels -> empirical rural/mid/urban ratios
+```
+
+The actual `T>=4h` pilot result is close to this example:
+
+```text
+rural empirical ~= 1.90x
+mid empirical   ~= 1.23x
+urban empirical ~= 0.71x
+```
+
+After monotonicity, mean-1 renormalization, and the v0 cap, those become the
+shadow pricing factors.
+
+### Where statistical stability enters
+
+The example above explains the mechanism, but it is not enough for validation.
+The stability checks come after the two streams are joined:
+
+- **Is the observed target real or just one-off noise?** Check raw p90, p90 after
+  requiring at least three qualifying events, and credibility-shrunk p90.
+- **Does density consistently point in the expected direction?** Compute
+  within-county Spearman correlations by county, then test whether the county
+  correlations are mostly negative.
+- **Do the bucket factors generalize?** Keep the current values shadow until
+  out-of-region validation, especially outside CT / MA / RI.
+
+## 3. Why the Adjustment Is a Multiplier
 
 The layer is a **frequency relativity**, not a fixed dollar surcharge. The base
 pricing stack is:
@@ -118,7 +283,7 @@ This choice is intentional for four reasons:
 An additive adjustment would depend on payout, load, and county price level; it
 would also be harder to keep mean-1 inside the county.
 
-## 3. What Was Actually Estimated
+## 4. What Was Actually Estimated
 
 We did **not** fit a smooth function such as:
 
@@ -143,7 +308,7 @@ sample. The exact construction lives in:
 - Factor derivation: [`build_density_relativity.py`](../extra/location_features/analysis/build_density_relativity.py)
 - Final dashboard artifact: [`density_relativity.json`](../../price_engine/dashboard/data/density_relativity.json)
 
-## 4. Step-by-Step Derivation
+## 5. Step-by-Step Derivation
 
 ### Step A: Build the within-county target
 
@@ -240,7 +405,7 @@ shadow price factors:
 
 The code path is in [`build_density_relativity.py`](../extra/location_features/analysis/build_density_relativity.py).
 
-## 5. Current Factor Table
+## 6. Current Factor Table
 
 Generated artifact: [`density_relativity_table.csv`](../extra/location_features/analysis/outputs/density_relativity_table.csv).
 
@@ -262,7 +427,7 @@ Generated artifact: [`density_relativity_table.csv`](../extra/location_features/
 The dashboard reads the copied JSON artifact:
 [`price_engine/dashboard/data/density_relativity.json`](../../price_engine/dashboard/data/density_relativity.json).
 
-## 6. Validation Checks
+## 7. Validation Checks
 
 ### Signal-vs-noise target check
 
@@ -315,7 +480,7 @@ more often than chance. We prefer this as the first audit test because it respec
 the within-county design. A single pooled city-level p-value would be easy to make
 look strong but would overweight large counties and blur the design.
 
-## 7. What Is Empirical vs. Policy Choice
+## 8. What Is Empirical vs. Policy Choice
 
 | Component | Type | Reason |
 |---|---|---|
@@ -326,7 +491,7 @@ look strong but would overweight large counties and blur the design.
 | `[0.80, 1.40]` cap | v0 governance throttle | reflects attribution confidence, not the full signal size |
 | national application outside CT/MA/RI | extrapolation | shadow only until out-of-region validation |
 
-## 8. Current Limitations
+## 9. Current Limitations
 
 - The calibration is one region and one season: CT / MA / RI, Jan-Mar 2019.
 - The runtime national feature is Census tract population density, which can
@@ -337,7 +502,7 @@ look strong but would overweight large counties and blur the design.
   impervious / developed land-cover.
 - The factors remain shadow until out-of-region validation and governance review.
 
-## 9. File Map for Reviewers
+## 10. File Map for Reviewers
 
 | Question | File |
 |---|---|
@@ -351,4 +516,3 @@ look strong but would overweight large counties and blur the design.
 | Where is the rho significance audit? | [`density_significance_check.py`](../extra/location_features/analysis/density_significance_check.py) |
 | What alternatives were tested? | [`01_findings.md`](../extra/location_features/docs/01_findings.md) |
 | What is the data lineage? | [`02_end_to_end_and_data_lineage.md`](../extra/location_features/docs/02_end_to_end_and_data_lineage.md) |
-
