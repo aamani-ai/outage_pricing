@@ -35,6 +35,7 @@ Read in pipeline order:
 | 3. Aggregation and annualization | [`aggregation_and_annualization_methodology.md`](aggregation_and_annualization_methodology.md) |
 | 4. Filtration (modelability tiers) | [`filtration_methodology.md`](filtration_methodology.md) |
 | 5. Pricing | [`pricing_methodology.md`](pricing_methodology.md) |
+| 6. Location basis | [`location_basis_methodology.md`](location_basis_methodology.md) |
 
 Cross-cutting:
 
@@ -48,6 +49,10 @@ Pedagogical walkthroughs (long-form, worked examples, nuance-surfaced):
   — end-to-end walk through the per-customer shadow rate, step-by-step,
   with a worked Boone, MO example. Read this if you need to explain the
   per-customer view to a new team member, a stakeholder, or a regulator.
+- [`location_relativity_factor_derivation.md`](location_relativity_factor_derivation.md)
+  — audit appendix for the rural / mid / urban location relativity factors:
+  why they are multiplicative, how the bucket ratios were derived, and which
+  scripts and outputs reproduce the numbers.
 
 Strategic / market reference:
 

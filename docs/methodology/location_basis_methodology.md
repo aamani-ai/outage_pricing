@@ -3,7 +3,7 @@
 - **Status:** v1 shipped as a **shadow** read (map mode + matrix view + address lookup); not active pricing.
 - **First written:** 2026-06-18
 - **Last reviewed:** 2026-06-18
-- **Read alongside:** [Per-Customer Pricing](fundamentals/per_customer_pricing_fundamentals.md), [Pricing Methodology](pricing_methodology.md), [Assumptions Registry](assumptions.md), and the workstream [`docs/extra/location_features/`](../extra/location_features/) (build scripts + findings).
+- **Read alongside:** [Per-Customer Pricing](fundamentals/per_customer_pricing_fundamentals.md), [Pricing Methodology](pricing_methodology.md), [Location Relativity Factor Derivation](location_relativity_factor_derivation.md), [Assumptions Registry](assumptions.md), and the workstream [`docs/extra/location_features/`](../extra/location_features/) (build scripts + findings).
 
 ## Why this file exists
 
@@ -185,6 +185,10 @@ prior), **renormalized to mean-1**, then **capped** for *attribution confidence*
 (how confidently we can place a specific address in the tail — not the signal
 size).
 
+For the audit trail behind these factors — including the exact scripts, output
+artifacts, and the Spearman significance check — see
+[Derivation of Location Relativity Factors](location_relativity_factor_derivation.md).
+
 | density tercile | empirical (T≥4h) | v0 shadow (capped 0.80–1.40) |
 |---|---|---|
 | **rural** (sparsest) | 1.90× | **1.40×** |
@@ -338,5 +342,6 @@ These should be promoted into the [registry](assumptions.md) with stable IDs:
 - Evidence + experiments: [`docs/extra/location_features/docs/01_findings.md`](../extra/location_features/docs/01_findings.md)
 - End-to-end + data lineage: [`docs/extra/location_features/docs/02_end_to_end_and_data_lineage.md`](../extra/location_features/docs/02_end_to_end_and_data_lineage.md)
 - Plain-language primer: [`docs/extra/location_features/docs/00_concepts.md`](../extra/location_features/docs/00_concepts.md)
+- Factor derivation appendix: [Derivation of Location Relativity Factors](location_relativity_factor_derivation.md)
 - Design note: [`docs/dicsscssion/location_aware_outage_pricing/03_location_basis_risk_design.md`](../dicsscssion/location_aware_outage_pricing/03_location_basis_risk_design.md)
 - Per-customer base this composes on: [Per-Customer Pricing](fundamentals/per_customer_pricing_fundamentals.md)

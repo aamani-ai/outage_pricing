@@ -1,0 +1,97 @@
+T_hours,state,county,n_towns,spearman_density_rel
+1,Connecticut,Fairfield,23,-0.4614624505928854
+1,Connecticut,Hartford,28,-0.5867542419266557
+1,Connecticut,Litchfield,26,-0.3811965811965812
+1,Connecticut,Middlesex,15,-0.33571428571428563
+1,Connecticut,New Haven,27,-0.3864468864468864
+1,Connecticut,New London,20,-0.6586466165413534
+1,Connecticut,Tolland,13,-0.005494505494505494
+1,Connecticut,Windham,15,-0.5678571428571427
+1,Massachusetts,Barnstable,14,-0.12087912087912088
+1,Massachusetts,Berkshire,16,-0.5823529411764706
+1,Massachusetts,Bristol,15,-0.2321428571428571
+1,Massachusetts,Dukes,6,-0.7714285714285715
+1,Massachusetts,Essex,21,-0.4701298701298702
+1,Massachusetts,Franklin,11,-0.4090909090909091
+1,Massachusetts,Hampden,7,-0.642857142857143
+1,Massachusetts,Hampshire,6,-0.6571428571428573
+1,Massachusetts,Middlesex,44,-0.30739957716701904
+1,Massachusetts,Norfolk,22,-0.40372670807453415
+1,Massachusetts,Plymouth,23,-0.2341897233201581
+1,Massachusetts,Worcester,50,-0.40062424969988
+1,Rhode Island,Kent,5,0.09999999999999999
+1,Rhode Island,Newport,6,-0.2
+1,Rhode Island,Providence,16,-0.488235294117647
+1,Rhode Island,Washington,8,-0.7142857142857144
+2,Connecticut,Fairfield,23,-0.47430830039525695
+2,Connecticut,Hartford,28,-0.6042692939244664
+2,Connecticut,Litchfield,26,-0.18495726495726494
+2,Connecticut,Middlesex,15,-0.2821428571428571
+2,Connecticut,New Haven,27,-0.41941391941391937
+2,Connecticut,New London,20,-0.7097744360902255
+2,Connecticut,Tolland,13,-0.0879120879120879
+2,Connecticut,Windham,15,-0.7357142857142855
+2,Massachusetts,Barnstable,14,-0.26153846153846155
+2,Massachusetts,Berkshire,16,-0.7176470588235294
+2,Massachusetts,Bristol,15,-0.1928571428571428
+2,Massachusetts,Dukes,6,-0.7714285714285715
+2,Massachusetts,Essex,21,-0.348051948051948
+2,Massachusetts,Franklin,11,-0.4090909090909091
+2,Massachusetts,Hampden,7,-0.5
+2,Massachusetts,Hampshire,6,-0.6571428571428573
+2,Massachusetts,Middlesex,44,-0.34531360112755455
+2,Massachusetts,Norfolk,22,-0.3551665725578769
+2,Massachusetts,Plymouth,23,-0.2509881422924901
+2,Massachusetts,Worcester,50,-0.41867947178871545
+2,Rhode Island,Kent,5,-0.3
+2,Rhode Island,Newport,6,-0.08571428571428573
+2,Rhode Island,Providence,16,-0.55
+2,Rhode Island,Washington,8,-0.7142857142857144
+4,Connecticut,Fairfield,23,-0.35474308300395263
+4,Connecticut,Hartford,28,-0.6004378762999452
+4,Connecticut,Litchfield,26,0.05846153846153846
+4,Connecticut,Middlesex,15,-0.25
+4,Connecticut,New Haven,27,-0.1746031746031746
+4,Connecticut,New London,20,-0.48872180451127817
+4,Connecticut,Tolland,13,0.2912087912087912
+4,Connecticut,Windham,15,-0.682142857142857
+4,Massachusetts,Barnstable,14,-0.44175824175824174
+4,Massachusetts,Berkshire,16,-0.3411764705882353
+4,Massachusetts,Bristol,15,-0.1928571428571428
+4,Massachusetts,Dukes,6,-0.8804062740424288
+4,Massachusetts,Essex,21,-0.4
+4,Massachusetts,Franklin,11,-0.14545454545454548
+4,Massachusetts,Hampden,7,-0.28571428571428575
+4,Massachusetts,Hampshire,6,-0.6571428571428573
+4,Massachusetts,Middlesex,44,-0.24067091878643715
+4,Massachusetts,Norfolk,22,-0.06380575945793338
+4,Massachusetts,Plymouth,23,-0.3236965752389831
+4,Massachusetts,Worcester,50,-0.4130132052821128
+4,Rhode Island,Kent,5,-0.7
+4,Rhode Island,Newport,6,-0.08571428571428573
+4,Rhode Island,Providence,16,-0.8294117647058824
+4,Rhode Island,Washington,8,-0.6190476190476191
+8,Connecticut,Fairfield,23,-0.25691699604743085
+8,Connecticut,Hartford,28,-0.40837553413769423
+8,Connecticut,Litchfield,26,-0.24050638541270966
+8,Connecticut,Middlesex,15,-0.2714285714285714
+8,Connecticut,New Haven,27,-0.30341880341880345
+8,Connecticut,New London,20,-0.45112781954887216
+8,Connecticut,Tolland,13,-0.03846153846153846
+8,Connecticut,Windham,15,-0.6392857142857141
+8,Massachusetts,Barnstable,14,-0.08964786322061984
+8,Massachusetts,Berkshire,16,-0.24429734354768295
+8,Massachusetts,Bristol,15,-0.007207499701564471
+8,Massachusetts,Dukes,6,-0.9411239481143202
+8,Massachusetts,Essex,21,-0.36363636363636365
+8,Massachusetts,Franklin,11,0.0
+8,Massachusetts,Hampden,7,-0.28571428571428575
+8,Massachusetts,Hampshire,6,-0.6
+8,Massachusetts,Middlesex,44,-0.319492441419863
+8,Massachusetts,Norfolk,22,-0.2704686617730096
+8,Massachusetts,Plymouth,23,-0.14381023419014363
+8,Massachusetts,Worcester,50,-0.44812600555547055
+8,Rhode Island,Kent,5,-0.8999999999999998
+8,Rhode Island,Newport,6,0.6761234037828132
+8,Rhode Island,Providence,16,-0.8735294117647058
+8,Rhode Island,Washington,8,-0.6666666666666669
