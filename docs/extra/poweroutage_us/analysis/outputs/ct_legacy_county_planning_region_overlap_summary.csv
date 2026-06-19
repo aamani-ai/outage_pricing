@@ -1,0 +1,20 @@
+legacy_county_fips,legacy_county_name,planning_region_fips,planning_region_name,n_bridge_rows,n_pous_weighted_rows,pous_tracked_customers_2019q1,share_of_legacy_pous_weight,share_of_planning_region_pous_weight,bridge_statuses
+09001,Fairfield,09190,Western Connecticut Planning Region,16,16,249028.0,0.6216243539515512,0.9434701400649368,matched
+09001,Fairfield,09120,Greater Bridgeport Planning Region,7,7,133133.0,0.33232694763091647,1.0,"matched,pous_city_alias"
+09001,Fairfield,09140,Naugatuck Valley Planning Region,1,1,18447.5,0.04604869841753233,0.08847997659399454,matched
+09003,Hartford,09110,Capitol Planning Region,26,26,389692.0,0.9184935171458,0.8543834916653694,matched
+09003,Hartford,09140,Naugatuck Valley Planning Region,1,1,29798.0,0.07023308105865798,0.14292052270214659,matched
+09003,Hartford,09160,Northwest Hills Planning Region,2,2,4783.0,0.011273401795542022,0.07552025768149809,matched
+09005,Litchfield,09160,Northwest Hills Planning Region,19,19,58551.0,0.5832353820101603,0.9244797423185019,matched
+09005,Litchfield,09140,Naugatuck Valley Planning Region,5,5,26918.0,0.2681342763223429,0.12910714242890067,matched
+09005,Litchfield,09190,Western Connecticut Planning Region,2,2,14921.0,0.14863034166749675,0.056529859935063216,matched
+09007,Middlesex,09130,Lower Connecticut River Valley Planning Region,15,15,85704.0,1.0,0.9261592660233204,matched
+09009,New Haven,09170,South Central Connecticut Planning Region,15,15,243596.0,0.6462700901503213,1.0,matched
+09009,New Haven,09140,Naugatuck Valley Planning Region,12,12,133330.0,0.3537299098496787,0.6394923582749582,matched
+09011,New London,09180,Southeastern Connecticut Planning Region,18,17,89147.0,0.9161981891244694,0.8964182286219934,"gazetteer_only,matched"
+09011,New London,09130,Lower Connecticut River Valley Planning Region,2,2,6833.0,0.07022538308958798,0.0738407339766796,matched
+09011,New London,09150,Northeastern Connecticut Planning Region,1,1,1321.0,0.01357642778594259,0.027933433422850013,matched
+09013,Tolland,09110,Capitol Planning Region,12,12,66417.0,0.9931959564541213,0.14561650833463055,matched
+09013,Tolland,09150,Northeastern Connecticut Planning Region,1,1,455.0,0.006804043545878694,0.00962128100484236,matched
+09015,Windham,09150,Northeastern Connecticut Planning Region,14,14,45515.0,0.8154471836032678,0.9624452855723076,matched
+09015,Windham,09180,Southeastern Connecticut Planning Region,1,1,10301.0,0.18455281639673213,0.1035817713780066,matched

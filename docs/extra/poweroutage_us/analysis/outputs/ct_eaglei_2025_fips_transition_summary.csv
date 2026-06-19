@@ -1,0 +1,18 @@
+fips_code,region_name,fips_family,first_seen,last_seen,raw_rows,max_customers_out
+09001,Fairfield,legacy_county_090xx,2025-01-01 01:15,2025-05-31 22:30,10229,9412
+09003,Hartford,legacy_county_090xx,2025-01-01 02:00,2025-05-29 18:30,10064,9853
+09005,Litchfield,legacy_county_090xx,2025-01-01 00:45,2025-05-29 18:30,8013,16582
+09007,Middlesex,legacy_county_090xx,2025-01-01 00:00,2025-05-29 16:30,5376,5044
+09009,New Haven,legacy_county_090xx,2025-01-01 02:15,2025-06-02 16:45,8692,12796
+09011,New London,legacy_county_090xx,2025-01-01 04:30,2025-05-29 18:30,5680,3124
+09013,Tolland,legacy_county_090xx,2025-01-01 14:30,2025-05-29 14:00,4284,4633
+09015,Windham,legacy_county_090xx,2025-01-01 05:30,2025-05-29 17:45,4786,7499
+09110,Capitol Planning Region,planning_region_091xx,2025-05-29 17:00,2025-12-31 23:45,16943,14677
+09120,Greater Bridgeport Planning Region,planning_region_091xx,2025-05-29 17:00,2025-12-31 19:30,7310,23819
+09130,Lower Connecticut River Valley Planning Region,planning_region_091xx,2025-05-29 19:45,2025-12-31 22:45,10034,13777
+09140,Naugatuck Valley Planning Region,planning_region_091xx,2025-05-29 17:00,2025-12-31 23:45,12955,3246
+09150,Northeastern Connecticut Planning Region,planning_region_091xx,2025-05-29 17:00,2025-12-31 23:45,9093,12682
+09160,Northwest Hills Planning Region,planning_region_091xx,2025-05-29 17:00,2025-12-31 19:30,11418,3103
+09170,South Central Connecticut Planning Region,planning_region_091xx,2025-05-29 17:00,2025-12-31 19:15,10863,9281
+09180,Southeastern Connecticut Planning Region,planning_region_091xx,2025-05-29 17:00,2025-12-31 22:45,10525,8294
+09190,Western Connecticut Planning Region,planning_region_091xx,2025-05-29 17:00,2025-12-31 23:45,17100,3815

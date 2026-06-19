@@ -59,11 +59,12 @@ location_features/
 
 ## Gotchas (read before joining)
 
-- **CT county redefinition (2022):** the 2023 Gazetteer files CT towns under the
-  new **planning regions** (GEOID county part `110`, `120`, …), not the legacy
-  counties (`001`–`015`) used by EAGLE-I / PoUS. **Join on `(state, town name)`,
-  never on the gazetteer county FIPS.** Town names are unique within a New
-  England state.
+- **CT county redefinition:** the 2023 Gazetteer files CT towns under the new
+  **planning regions** (GEOID county part `110`, `120`, ...), not the legacy
+  counties (`001`-`015`) used by the PoUS pilot. EAGLE-I raw outage data appears
+  to switch to planning-region FIPS in 2025. **Join on `(state, town name)`,
+  never on the gazetteer county FIPS.** See the
+  [CT FIPS transition bridge](../poweroutage_us/docs/10_connecticut_fips_transition_bridge.md).
 - **`ALAND` excludes water but includes uninhabited land** (forest), so
   `customers / ALAND` reads heavily-forested towns as low-density — which is the
   right direction for rurality, but it conflates "few people" with "much

@@ -148,9 +148,11 @@ simple with density*.
 
 ## Gotchas
 
-- **CT 2022 county redefinition** — the 2023 gazetteer files CT towns under the
-  new planning regions (GEOID county part 110…), not the legacy counties. We join
-  on `(state, town name)`, never the gazetteer county FIPS.
+- **CT county redefinition** — the 2023 gazetteer files CT towns under the new
+  planning regions (GEOID county part `110`...), not the legacy counties. We join
+  on `(state, town name)`, never the gazetteer county FIPS. The EAGLE-I raw
+  outage source appears to switch to planning-region FIPS around 2025-05-29; see
+  the [CT FIPS transition bridge](../../poweroutage_us/docs/10_connecticut_fips_transition_bridge.md).
 - **`ALAND` includes uninhabited land** (forest) → density reads heavily-forested
   towns as low-density. That is the *right direction* for rurality, but it
   conflates "few people" with "much uninhabitable land"; canopy (next) helps

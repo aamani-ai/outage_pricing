@@ -316,11 +316,13 @@ followed exactly this and produced a clear "not yet" — which is the system wor
   verified at the meter.
 - **Not a hazard or forward model.** This is *static* basis risk (where you are),
   not *forward regime* (storm/climate/grid change) — that is a separate lane.
-- **CT footnote.** Connecticut changed counties → planning regions in 2022. The
-  pilot uses **legacy** county FIPS (matching EAGLE-I, `per_customer_view`, and the
-  dashboard map); the national ACS pull handles CT via the pilot to avoid the FIPS
-  mismatch. Resolving a point's county by point-in-polygon over the map's own
-  polygons sidesteps the issue at quote time.
+- **CT footnote.** Connecticut adopted planning-region county-equivalents in
+  Census products beginning in 2022, while our EAGLE-I raw outage source appears
+  to switch from legacy county FIPS (`090xx`) to planning-region FIPS (`091xx`)
+  around 2025-05-29. The v0 quote path should keep a CT address tied to the
+  legacy county price until a stitched CT time series is approved, while also
+  retaining the modern planning-region FIPS for display and future joins. See the
+  [CT FIPS transition bridge](../extra/poweroutage_us/docs/10_connecticut_fips_transition_bridge.md).
 
 ---
 
