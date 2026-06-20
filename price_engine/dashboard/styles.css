@@ -2990,6 +2990,22 @@ body.is-resizing-sidebar {
 [data-theme="dark"] .trend-year-cell.trend-year-outlier > strong {
   color: #f9c784;
 }
+.trend-year-cell.trend-year-missing {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      var(--surface-muted),
+      var(--surface-muted) 6px,
+      var(--surface) 6px,
+      var(--surface) 12px
+    );
+}
+.trend-year-cell.trend-year-missing > strong {
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 
 .trend-fit-note {
   display: block;

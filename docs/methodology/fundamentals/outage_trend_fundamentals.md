@@ -1,10 +1,10 @@
 # Outage Trend (Descriptive Layer) — Fundamentals
 
-*Audience: senior team. Last reviewed: 2026-06-03. Reads naturally after [`event_catalog_fundamentals.md`](event_catalog_fundamentals.md).*
+*Audience: senior team. Last reviewed: 2026-06-20. Reads naturally after [`event_catalog_fundamentals.md`](event_catalog_fundamentals.md).*
 
 ## What the outage trend is, in one paragraph
 
-For each county, we compute the **yearly count of qualifying outage events** across the 11-year window (2015–2025) and fit a **linear regression** to that series. The slope tells us whether the county's event rate appears to be **rising, falling, or holding steady**. The dashboard surfaces this two ways — as a **map color mode** (counties colored red / gray / blue by trend class) and as a **sparkline in the per-county detail panel**. **It is a descriptive view, not a pricing input.** Pricing in v0 still runs against the full 11-year empirical baseline; the trend exists to be the **upstream data foundation** for the future forward-regime modifiers (grid_condition, hazard, weather) — and to give a reviewer a quick visual read on whether a county is drifting.
+For each county, we compute the **yearly count of qualifying outage events** across the 2015–2025 review window and fit a **linear regression** to the observed part of that series. The slope tells us whether the county's event rate appears to be **rising, falling, or holding steady**. A true observed zero stays as `0`; a missing or partial source year is `null` and is excluded from the fit. The dashboard surfaces this two ways — as a **map color mode** (counties colored red / gray / blue by trend class) and as a **sparkline in the per-county detail panel**. **It is a descriptive view, not a pricing input.** Pricing in v0 still runs against the full 11-year empirical baseline; the trend exists to be the **upstream data foundation** for the future forward-regime modifiers (grid_condition, hazard, weather) — and to give a reviewer a quick visual read on whether a county is drifting.
 
 ## What a row looks like
 
@@ -19,11 +19,12 @@ One row per `(fips, T)` at each of the five duration thresholds (T = 2, 4, 8, 12
 Field definitions:
 
 - **years** — the 11 calendar years 2015 through 2025.
-- **yearly_counts** — count of events with `duration_hours ≥ T` in each year for that county.
-- **slope** — linear-regression slope of `yearly_counts` against `years`, in *events per year, per year*. Positive = worsening, negative = improving.
+- **yearly_counts** — count of events with `duration_hours ≥ T` in each year for that county; `null` means the year is missing/partial and not used in the fit.
+- **observed_year_count** — number of calendar years used in the fit.
+- **slope** — linear-regression slope of observed `yearly_counts` against observed `years`, in *events per year, per year*. Positive = worsening, negative = improving.
 - **sigma** — standard error of the slope (estimated from regression residuals).
 - **t_stat** — `slope / sigma`. A one-sided significance score against the null hypothesis of zero slope.
-- **class** — `worsening` if `t_stat > 1.5`, `improving` if `t_stat < -1.5`, `stable` if within the band, `insufficient_data` if `< 10` events total in the window.
+- **class** — `worsening` if `t_stat > 1.5`, `improving` if `t_stat < -1.5`, `stable` if within the band, `insufficient_data` if `< 10` observed events or `< 6` observed calendar years.
 
 ## How to read the visualization (ASCII)
 
@@ -46,6 +47,36 @@ A county's panel-E sparkline plots `yearly_counts` against years, with the regre
 
 The map view applies the same class as a county fill color (red = worsening, gray = stable, blue = improving, very-light gray = insufficient data).
 
+## Observed Zero Vs Missing
+
+This is the most important implementation guardrail for the risk-clustering
+work. EAGLE-I event files are positive-outage observations, not a complete
+county-by-timestamp panel. So a missing county-year and a true quiet county-year
+can both look like "no qualifying events" unless we track observation state.
+
+The v1 trend artifact uses this rule:
+
+```text
+observed zero = inside the FIPS positive-source observation window, but no event >= T
+missing year  = outside that source window, known partial year, or CT transition year
+```
+
+Example:
+
+```text
+year:          2015 2016 2017 2018 2019 2020 2021 2022 2023 2024 2025
+old count:        0    0    1   19   16   38   10   38   28   20   35
+corrected:     null null   1   19   16   38   10   38   28   20   35
+```
+
+The old line could read the first two cells as real zeros and manufacture a
+step-change or worsening slope. The corrected line fits only 2017–2025.
+
+For Connecticut, 2025 is handled explicitly because legacy county FIPS and new
+planning-region FIPS split the year across different geographies. Old CT county
+FIPS exclude 2025 as partial; new CT planning-region FIPS have no full observed
+annual trend yet.
+
 ## Why 2014 is excluded
 
 EAGLE-I coverage begins **2014-11-01** — only the last two months of calendar 2014 are observable. If we included 2014 in the regression, every county's slope would be biased upward purely because 2014's event count is artificially low (partial year). That's a **measurement artifact**, not a real trend. Excluding 2014 gives us 11 full calendar years (2015–2025) with consistent observation windows.
@@ -61,7 +92,7 @@ A single hurricane year (e.g., Ian in FL 2022, Helene in NC 2024) can swamp any 
 | `worsening` | `t_stat > 1.5` | one-sided 87% confidence slope > 0 |
 | `improving` | `t_stat < -1.5` | one-sided 87% confidence slope < 0 |
 | `stable` | within the band | slope indistinguishable from zero |
-| `insufficient_data` | `< 10` events in 11-year window | not enough signal to fit |
+| `insufficient_data` | `< 10` observed events or `< 6` observed years | not enough signal to fit |
 
 `t_stat = 1.5` is the operational gate. It's strict enough to reject most year-to-year noise but loose enough to surface real signal in an 11-year window. With more years of data we'd raise it.
 
@@ -74,10 +105,11 @@ A single hurricane year (e.g., Ian in FL 2022, Helene in NC 2024) can swamp any 
 Then:
 
 2. **11 years is short for structural-trend detection.** A single bad year can pull the slope visibly. The `t_stat` gate at 1.5 is the noise-floor protection but it's not bulletproof.
-3. **No cause attribution.** The trend is cause-agnostic. We cannot say from EAGLE-I alone whether a county's worsening trend is climate-driven (more storms), grid-driven (aging infrastructure), reporting-driven (more utilities feeding in), or policy-driven (more PSPS events).
-4. **The same T sensitivity inherits.** The trend is computed per (fips, T). Counties may have a worsening trend at T=2h but a stable trend at T=24h, or vice versa — short and long outages have different drivers.
-5. **It is descriptive, not prescriptive.** A "worsening" classification does NOT mean the county should be repriced upward. v0 pricing remains the full 11-year empirical baseline; the trend is informational evidence for *future* modifier work, not a pricing input.
-6. **MCC and per-customer caveats inherit.** The trend uses raw event counts, not per-customer counts, so the MCC-vintage and "customer unit varies by utility" caveats from EAGLE-I propagate forward into any future modifier built on top of the trend.
+3. **Observed-window inference is conservative.** The current source mask uses the FIPS positive-event window plus explicit known geography exceptions. That is better than filling missing years with zero, but the ideal next artifact is a true county-year source coverage table.
+4. **No cause attribution.** The trend is cause-agnostic. We cannot say from EAGLE-I alone whether a county's worsening trend is climate-driven (more storms), grid-driven (aging infrastructure), reporting-driven (more utilities feeding in), or policy-driven (more PSPS events).
+5. **The same T sensitivity inherits.** The trend is computed per (fips, T). Counties may have a worsening trend at T=2h but a stable trend at T=24h, or vice versa — short and long outages have different drivers.
+6. **It is descriptive, not prescriptive.** A "worsening" classification does NOT mean the county should be repriced upward. v0 pricing remains the full 11-year empirical baseline; the trend is informational evidence for *future* modifier work, not a pricing input.
+7. **MCC and per-customer caveats inherit.** The trend uses raw event counts, not per-customer counts, so the MCC-vintage and "customer unit varies by utility" caveats from EAGLE-I propagate forward into any future modifier built on top of the trend.
 
 ## How to read the map view (the asymmetric-confound insight)
 
@@ -130,6 +162,7 @@ Three concrete reasons we surface it even with the coverage-drift caveat:
 
 - **The trend is a regression on yearly event counts — descriptive only, not a pricing input.**
 - **Worsening / stable / improving / insufficient-data classes are gated by `t_stat > 1.5` against the noise floor.**
+- **Missing/partial years are not zeros; they are excluded from the fit and displayed separately.**
 - **Some upward signal across counties may reflect EAGLE-I coverage drift, not real grid degradation — read with care.**
 - **It is the upstream signal for future grid_condition / hazard / weather modifiers; those activate only after backtest evidence, not because the trend exists.**
 

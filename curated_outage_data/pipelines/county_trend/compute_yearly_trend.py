@@ -1,7 +1,8 @@
 """County yearly outage-trend pipeline.
 
 Emits per-(FIPS, T, catalog) rows with:
-  - yearly event counts across the full 11-year window (2015-2025 inclusive)
+  - yearly event counts across the 2015-2025 review window
+    (missing/partial source years are represented as null, not zero)
   - linear-regression slope and standard error
   - trend classification (worsening / stable / improving) using a 1.5-sigma gate
 
@@ -42,12 +43,17 @@ TREND_YEARS = list(range(2015, 2026))  # 2015..2025 = 11 full years
 # to reject most noise, loose enough to surface real signal in 11 years.
 T_STAT_GATE = 1.5
 
-# Coverage gate: counties with too few qualifying events across the
-# window cannot support a credible slope. Match the per-customer
-# pipeline's MIN_QUALIFYING_HARD.
+# Coverage gates: counties with too few qualifying events or too few observed
+# calendar years cannot support a credible slope. Match the per-customer
+# pipeline's MIN_QUALIFYING_HARD for event volume, then require a majority of
+# the 11-year review window to be observed before fitting a line.
 MIN_TOTAL_EVENTS_IN_WINDOW = 10
+MIN_OBSERVED_YEARS_FOR_TREND = 6
 
-SOURCE_VERSION = '2026-06-03'
+SOURCE_VERSION = '2026-06-20'
+
+CT_LEGACY_COUNTY_FIPS = {9001, 9003, 9005, 9007, 9009, 9011, 9013, 9015}
+CT_PLANNING_REGION_FIPS = set(range(9110, 9200, 10))
 
 
 def load_catalog_events(catalog_id: str) -> tuple[pd.DataFrame, float]:
@@ -61,7 +67,7 @@ def load_catalog_events(catalog_id: str) -> tuple[pd.DataFrame, float]:
 
 
 def fit_trend(yearly_counts: np.ndarray, years: np.ndarray) -> dict:
-    """Linear regression of yearly_counts vs years.
+    """Linear regression of observed yearly_counts vs observed years.
 
     Returns slope (events/yr/yr), intercept, sigma (std error of slope),
     t_stat, and a categorical class.
@@ -104,25 +110,15 @@ def fit_trend(yearly_counts: np.ndarray, years: np.ndarray) -> dict:
         else:
             trend_class = 'stable'
 
-    # First5 / last5 split comparison — a second descriptive lens.
-    if n >= 10:
-        first5 = float(y[:5].mean())
-        last5 = float(y[-5:].mean())
-        pct_change = (last5 - first5) / first5 if first5 > 0 else None
-    else:
-        first5 = None
-        last5 = None
-        pct_change = None
-
     return {
         'slope_events_per_year': slope,
         'intercept': intercept,
         'sigma': sigma,
         't_stat': t_stat,
         'trend_class': trend_class,
-        'first5_mean': first5,
-        'last5_mean': last5,
-        'pct_change_first5_last5': pct_change,
+        'first5_mean': None,
+        'last5_mean': None,
+        'pct_change_first5_last5': None,
     }
 
 
@@ -139,40 +135,158 @@ def _null_trend() -> dict:
     }
 
 
+def observed_year_metadata(events_fips: pd.DataFrame) -> dict:
+    """Return source-observation metadata for one FIPS.
+
+    The EAGLE-I event catalog only contains positive outage observations. For
+    annual trend fitting, a threshold-specific zero is trustworthy inside a
+    FIPS' observed positive-event window, but leading/trailing years outside
+    that window are not treated as observed zeros.
+
+    This is intentionally conservative and explicit. It also handles the
+    Connecticut 2025 geography transition: old county FIPS and new planning
+    region FIPS are partial-year / non-comparable in 2025, so they are excluded
+    from annual trend fitting until a full-year bridge exists.
+    """
+    fips = int(events_fips['fips'].iloc[0])
+    source_years = {
+        int(y)
+        for y in events_fips['year'].dropna().astype(int).unique().tolist()
+        if int(y) in TREND_YEARS
+    }
+
+    first_source_year = min(source_years) if source_years else None
+    last_source_year = max(source_years) if source_years else None
+
+    observed_mask: list[bool] = []
+    source_presence: list[bool] = []
+    missing_reasons: dict[str, str] = {}
+
+    for year in TREND_YEARS:
+        has_source_presence = year in source_years
+        source_presence.append(has_source_presence)
+
+        observed = (
+            first_source_year is not None
+            and last_source_year is not None
+            and first_source_year <= year <= last_source_year
+        )
+        reason = None if observed else 'outside_fips_positive_source_window'
+
+        if fips in CT_LEGACY_COUNTY_FIPS and year == 2025:
+            observed = False
+            reason = 'ct_legacy_county_partial_2025'
+        elif fips in CT_PLANNING_REGION_FIPS:
+            if year < 2025:
+                observed = False
+                reason = 'ct_planning_region_pre_2025_geography_not_reported'
+            elif year == 2025:
+                observed = False
+                reason = 'ct_planning_region_partial_2025'
+
+        observed_mask.append(observed)
+        if not observed:
+            missing_reasons[str(year)] = reason or 'not_observed'
+
+    return {
+        'observed_year_mask': observed_mask,
+        'source_year_presence': source_presence,
+        'missing_years': [int(y) for y, ok in zip(TREND_YEARS, observed_mask, strict=True) if not ok],
+        'missing_year_reasons': missing_reasons,
+        'observed_year_count': int(sum(observed_mask)),
+        'missing_year_count': int(len(TREND_YEARS) - sum(observed_mask)),
+        'first_source_year': first_source_year,
+        'last_source_year': last_source_year,
+        'observation_policy': (
+            'observed_zero_requires_fips_positive_source_window; '
+            'ct_2025_geography_transition_excluded'
+        ),
+    }
+
+
+def fixed_window_comparison(yearly_counts: list[int | None]) -> dict:
+    """Compute fixed 2015-2019 vs 2021-2025 means only when fully observed."""
+    by_year = dict(zip(TREND_YEARS, yearly_counts, strict=True))
+
+    def mean_if_complete(window: list[int]) -> float | None:
+        values = [by_year.get(y) for y in window]
+        if any(v is None for v in values):
+            return None
+        return float(np.mean([float(v) for v in values]))
+
+    first5 = mean_if_complete(list(range(2015, 2020)))
+    last5 = mean_if_complete(list(range(2021, 2026)))
+    pct_change = (last5 - first5) / first5 if first5 is not None and last5 is not None and first5 > 0 else None
+    return {
+        'first5_mean': first5,
+        'last5_mean': last5,
+        'pct_change_first5_last5': pct_change,
+    }
+
+
+def insufficient_reason(total_events: int, observed_year_count: int) -> str | None:
+    if observed_year_count < MIN_OBSERVED_YEARS_FOR_TREND:
+        return 'fewer_than_min_observed_years'
+    if total_events < MIN_TOTAL_EVENTS_IN_WINDOW:
+        return 'fewer_than_min_events'
+    return None
+
+
 def compute_fips_rows(events_fips: pd.DataFrame, T_grid=T_GRID) -> list[dict]:
     """For each T, compute the yearly trend for this FIPS."""
     rows = []
     years_arr = np.array(TREND_YEARS, dtype=int)
     in_window = events_fips['year'].isin(TREND_YEARS)
     events_window = events_fips[in_window]
+    obs_meta = observed_year_metadata(events_fips)
+    observed_mask = obs_meta['observed_year_mask']
 
     for T in T_grid:
         qual = events_window[events_window['duration_hours'] >= T]
-        # Reindex to fill missing years with 0
+        # Reindex to fill observed years with true zero counts, while keeping
+        # missing/partial source years as null. The old implementation filled
+        # every absent year with 0, which contaminated slopes and clustering.
         per_year = (
             qual.groupby('year').size()
                 .reindex(TREND_YEARS, fill_value=0)
                 .astype(int)
         )
-        yearly_counts = per_year.to_numpy()
-        total_in_window = int(yearly_counts.sum())
+        yearly_counts: list[int | None] = [
+            int(v) if is_observed else None
+            for v, is_observed in zip(per_year.to_numpy(), observed_mask, strict=True)
+        ]
+        observed_pairs = [
+            (year, count)
+            for year, count in zip(TREND_YEARS, yearly_counts, strict=True)
+            if count is not None
+        ]
+        observed_years_arr = np.array([year for year, _ in observed_pairs], dtype=int)
+        observed_counts_arr = np.array([count for _, count in observed_pairs], dtype=int)
+        total_in_window = int(observed_counts_arr.sum()) if len(observed_counts_arr) else 0
+        first_last = fixed_window_comparison(yearly_counts)
 
         row = {
             'T': int(T),
             'years': [int(y) for y in TREND_YEARS],
-            'yearly_counts': [int(v) for v in yearly_counts],
+            'yearly_counts': yearly_counts,
             'total_events_in_window': total_in_window,
             'window_years': len(TREND_YEARS),
+            **obs_meta,
         }
 
-        if total_in_window < MIN_TOTAL_EVENTS_IN_WINDOW:
+        reason = insufficient_reason(total_in_window, int(obs_meta['observed_year_count']))
+        if reason is not None:
             row.update(_null_trend())
             row['trend_class'] = 'insufficient_data'
+            row['insufficient_reason'] = reason
+            row.update(first_last)
             rows.append(row)
             continue
 
-        trend = fit_trend(yearly_counts, years_arr)
+        trend = fit_trend(observed_counts_arr, observed_years_arr)
         row.update(trend)
+        row.update(first_last)
+        row['insufficient_reason'] = None
         rows.append(row)
 
     return rows
@@ -228,6 +342,16 @@ def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
             'years': r['years'],
             'yearly_counts': r['yearly_counts'],
             'total_events_in_window': int(r['total_events_in_window']),
+            'observed_year_mask': r['observed_year_mask'],
+            'source_year_presence': r['source_year_presence'],
+            'observed_year_count': int(r['observed_year_count']),
+            'missing_year_count': int(r['missing_year_count']),
+            'missing_years': r['missing_years'],
+            'missing_year_reasons': r['missing_year_reasons'],
+            'first_source_year': None if pd.isna(r['first_source_year']) else int(r['first_source_year']),
+            'last_source_year': None if pd.isna(r['last_source_year']) else int(r['last_source_year']),
+            'observation_policy': r['observation_policy'],
+            'insufficient_reason': None if pd.isna(r.get('insufficient_reason')) else r.get('insufficient_reason'),
             'slope_events_per_year': _safe_float(r['slope_events_per_year']),
             'intercept': _safe_float(r['intercept']),
             'sigma': _safe_float(r['sigma']),
@@ -256,7 +380,21 @@ def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
                 'worsening': f't_stat > {T_STAT_GATE} (slope significantly > 0)',
                 'improving': f't_stat < -{T_STAT_GATE} (slope significantly < 0)',
                 'stable': 'within the noise band',
-                'insufficient_data': f'< {MIN_TOTAL_EVENTS_IN_WINDOW} events in window',
+                'insufficient_data': (
+                    f'< {MIN_TOTAL_EVENTS_IN_WINDOW} events in observed years or '
+                    f'< {MIN_OBSERVED_YEARS_FOR_TREND} observed calendar years'
+                ),
+            },
+            'observation_policy': {
+                'observed_zero': (
+                    'A zero is treated as a real zero only inside the FIPS positive-source '
+                    'observation window.'
+                ),
+                'missing_year': (
+                    'Leading/trailing years outside that window, and CT 2025 transition '
+                    'years, are encoded as null and excluded from regression.'
+                ),
+                'min_observed_years_for_trend': MIN_OBSERVED_YEARS_FOR_TREND,
             },
             'descriptive_only': (
                 'This is DESCRIPTIVE. The trend is NOT used in v0 pricing. '

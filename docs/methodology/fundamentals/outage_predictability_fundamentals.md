@@ -1,6 +1,6 @@
 # Outage Predictability Pattern - Fundamentals
 
-*Audience: senior team. First drafted: 2026-06-16. Reads naturally after [`outage_trend_fundamentals.md`](outage_trend_fundamentals.md).*
+*Audience: senior team. First drafted: 2026-06-16. Last reviewed: 2026-06-20. Reads naturally after [`outage_trend_fundamentals.md`](outage_trend_fundamentals.md).*
 
 ## What this layer is
 
@@ -47,8 +47,14 @@ from the 2015-2025 annual series:
 
 ```
 year:          2015 2016 2017 2018 2019 2020 2021 2022 2023 2024 2025
-events >= T:     0    0    0   40  105   82  119  131  118  117  118
+events >= T:  null null   0   40  105   82  119  131  118  117  118
 ```
+
+`0` and `null` mean different things:
+
+- `0` means the county-year is observed but has no qualifying event at that T.
+- `null` means the source/geography year is missing or partial and is excluded
+  from residuals, outlier counts, peak-share metrics, and the fitted line.
 
 The existing trend layer fits the line and provides:
 
@@ -70,7 +76,11 @@ The predictability layer adds feature diagnostics around that line.
 | `outlier_count_p10p90` | Years outside the fitted P10-P90 residual band |
 | `peak_share_total` | Whether one year dominates the whole history |
 | `top2_share_total` | Whether two years dominate the whole history |
-| `zero_year_count` | Whether sparse early years distort the line |
+| `zero_year_count` | Observed zero-count years; missing years are separate |
+| `missing_year_count` | Whether source/geography gaps limit the fit |
+| `observed_year_count` | How many calendar years support the label |
+| `step_piecewise_rss_reduction` | Whether a two-level regime fit beats the simple line |
+| `classification_rule` | Which gate assigned the label |
 | `trend_consistency_score` | Whether the trend class is consistent across T values |
 
 These are deliberately simple. The goal is not to create a black-box forecast.
@@ -84,18 +94,28 @@ The first-pass taxonomy is rule-based:
 | Label | Meaning | Native pricing target |
 |---|---|---|
 | **Smooth worsening** | Positive trend, low residual noise, few outliers | `frequency_lambda` |
-| **Volatile worsening** | Positive trend, but the line has weak usability | `frequency_lambda` plus review |
-| **Step-change up** | Early low-count years followed by a persistent higher level | `frequency_lambda` |
+| **Volatile worsening** | Positive trend exists, but the line has weak usability | `frequency_lambda` plus review |
+| **Step-change up** | Observed lower regime followed by an observed higher regime | `frequency_lambda` |
 | **Smooth improving** | Negative trend, low residual noise, few outliers | `frequency_lambda`, guarded |
-| **Volatile improving** | Negative trend, but the line has weak usability | `frequency_lambda` plus review, guarded |
-| **Step-change down** | Early high-count years followed by a persistent lower level | `frequency_lambda`, guarded |
+| **Volatile improving** | Negative trend exists, but the line has weak usability | `frequency_lambda` plus review, guarded |
+| **Step-change down** | Observed higher regime followed by an observed lower regime | `frequency_lambda`, guarded |
 | **Stable regular** | Flat trend and low residual noise | keep historical frequency |
 | **Stable noisy** | Flat trend, but large year-to-year swings | `load_margin` review |
 | **Episodic / spiky** | One or two years dominate the history | `hazard_context` review |
-| **Sparse history** | Fewer than 10 qualifying events in the 11-year window | `quote_gate` / credibility review |
+| **Sparse history** | Fewer than 10 qualifying observed events or fewer than 6 observed years | `quote_gate` / credibility review |
 
 These labels are not clusters yet. They are transparent rule labels. Clustering
 can come later as a discovery layer after these features are stable.
+
+The v1 rule order is:
+
+```text
+observation gate -> dominance gate -> piecewise regime gate -> direction gate -> no-direction gate
+```
+
+That order is important: it stops missing data from becoming a step-change,
+one-year spikes from becoming a trend, and noisy flat histories from being
+called volatile trend without direction.
 
 ## Predictability Score
 
@@ -107,8 +127,9 @@ It rewards:
 - low residual noise
 - few residual-band outliers
 - low one-year dominance
-- few zero-count years
+- few observed zero-count years
 - good line fit where the county is directional
+- enough observed calendar years
 
 Step-change counties are capped at medium usability because a line may show a
 large slope, but the shape is better described as a regime shift. Episodic
@@ -134,6 +155,16 @@ events >= T:  0  0  0 40 105 82 119 131 118 117 118
 The county is clearly worse in later years, but a straight line hides the real
 shape. This should be read as a regime/coverage/structural shift candidate, not
 a smooth linear process.
+
+Important edge case:
+
+```
+events >= T: null null null 40 105 82 119 131 118 117 118
+```
+
+This is not a step-change by itself. The early period is missing, not quiet.
+The corrected rule suppresses the fake step-change and asks for either more
+observed years, a bridged source history, or a separate regime/hazard read.
 
 ### Episodic / Spiky
 
@@ -195,6 +226,7 @@ outlier count, peak-year share, and cross-T consistency.
 
 - **Trend direction is not the same thing as predictability.**
 - **A strong slope can still be low-usability if it is driven by jumps or outliers.**
+- **Missing source years are not zero-outage years.**
 - **The first version is rule-based on purpose; it is auditable.**
 - **The pattern layer routes counties to the right mechanism: frequency,
   uncertainty/load review, hazard context, or quoteability review.**

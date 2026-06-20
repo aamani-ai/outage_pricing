@@ -3698,15 +3698,28 @@ function renderPredictabilityBlock(fips, T, opts = {}) {
   `;
 }
 
+function trendObservedPoints(years, counts) {
+  if (!Array.isArray(years) || !Array.isArray(counts)) return [];
+  return years
+    .map((year, i) => {
+      const raw = counts[i];
+      if (raw == null) return null;
+      const count = Number(raw);
+      if (!Number.isFinite(count)) return null;
+      return { year: Number(year), count };
+    })
+    .filter(Boolean);
+}
+
 function trendResidualBand(years, counts, slope, intercept, bandKey = state.trendBand) {
-  const hasFit = slope != null && intercept != null && Array.isArray(years) && years.length > 2;
-  if (!hasFit || !Array.isArray(counts) || counts.length !== years.length) {
+  const observed = trendObservedPoints(years, counts);
+  const hasFit = slope != null && intercept != null && observed.length > 2;
+  if (!hasFit) {
     return { hasBand: false, config: trendBandConfig(bandKey), points: [], outlierCount: 0 };
   }
 
   const config = trendBandConfig(bandKey);
-  const points = years.map((year, i) => {
-    const count = +counts[i] || 0;
+  const points = observed.map(({ year, count }) => {
     const fitted = intercept + slope * year;
     return { year, count, fitted, residual: count - fitted };
   });
@@ -3773,8 +3786,13 @@ function renderTrendBlock(fips, T, targetId = 'panelE', opts = {}) {
     : '';
   const first5 = t.first5_mean == null ? '—' : fmt.num1(t.first5_mean);
   const last5 = t.last5_mean == null ? '—' : fmt.num1(t.last5_mean);
+  const observedYears = t.observed_year_count ?? trendObservedPoints(years, counts).length;
+  const missingYears = t.missing_year_count ?? Math.max(0, (years?.length || 0) - observedYears);
+  const metaTail = `${years[0]}-${years[years.length - 1]} · ${observedYears}/${years.length} observed yr`;
   const fitNote = cls === 'insufficient_data'
-    ? `<span class="trend-fit-note">Fewer than 10 qualifying events in the 2015-2025 window. Raw annual counts are shown; fitted slope is suppressed.</span>`
+    ? `<span class="trend-fit-note">${escapeHtml(t.insufficient_reason ? t.insufficient_reason.replace(/_/g, ' ') : 'Insufficient observed history')}. Missing/partial years are shown as missing, not zero; fitted slope is suppressed.</span>`
+    : missingYears > 0
+      ? `<span class="trend-fit-note">${missingYears} missing/partial source year${missingYears === 1 ? '' : 's'} excluded from the fit.</span>`
     : '';
   const disclaimer = opts.showDisclaimer === false ? '' : `
     <div class="trend-disclaimer">
@@ -3788,7 +3806,7 @@ function renderTrendBlock(fips, T, targetId = 'panelE', opts = {}) {
       <span class="trend-slope">${slopeText} ${sigmaText}</span>
       ${pctText}
       ${bandText}
-      <span class="trend-meta-tail muted">T=${T}h · ${years[0]}-${years[years.length - 1]} · 11-yr window</span>
+      <span class="trend-meta-tail muted">T=${T}h · ${metaTail}</span>
     </div>
     <div class="trend-stat-strip">
       <div><span>Total</span><strong>${fmt.num(total)}</strong></div>
@@ -3805,22 +3823,31 @@ function renderTrendBlock(fips, T, targetId = 'panelE', opts = {}) {
 }
 
 function trendPeakLabel(years, counts) {
-  if (!years?.length || !counts?.length) return '—';
-  let maxIdx = 0;
-  for (let i = 1; i < counts.length; i += 1) {
-    if ((+counts[i] || 0) > (+counts[maxIdx] || 0)) maxIdx = i;
-  }
-  return `${years[maxIdx]} · ${fmt.num(+counts[maxIdx] || 0)}`;
+  const observed = trendObservedPoints(years, counts);
+  if (!observed.length) return '—';
+  const peak = observed.reduce((best, p) => p.count > best.count ? p : best, observed[0]);
+  return `${peak.year} · ${fmt.num(peak.count)}`;
 }
 
 function renderTrendYearGrid(years, counts, band = null) {
   if (!years?.length || !counts?.length) return '';
-  const maxCount = Math.max(...counts.map(c => +c || 0), 1);
+  const observed = trendObservedPoints(years, counts);
+  const maxCount = Math.max(...observed.map(p => p.count), 1);
   const outlierYears = new Set((band?.points || []).filter(p => p.isOutlier).map(p => p.year));
   return `
     <div class="trend-year-grid" aria-label="Annual qualifying event counts">
       ${years.map((year, i) => {
-        const count = +counts[i] || 0;
+        const raw = counts[i];
+        if (raw == null) {
+          return `
+            <div class="trend-year-cell trend-year-missing">
+              <span>${year}</span>
+              <strong>missing</strong>
+              <i style="height:0"></i>
+            </div>
+          `;
+        }
+        const count = +raw || 0;
         const pct = Math.max(4, (count / maxCount) * 100);
         const isOutlier = outlierYears.has(year);
         return `
@@ -3854,10 +3881,11 @@ function renderTrendSparkline(years, counts, slope, intercept, band = null, cls 
   const innerH = H - padT - padB;
 
   if (!years || years.length === 0) return '';
+  const observed = trendObservedPoints(years, counts);
   const xMin = years[0];
   const xMax = years[years.length - 1];
   const xSpan = Math.max(1, xMax - xMin);
-  const maxCount = Math.max(...counts, 1);
+  const maxCount = Math.max(...observed.map(p => p.count), 1);
   const bandUpperMax = band?.hasBand
     ? Math.max(...band.points.map(p => Number.isFinite(p.upper) ? p.upper : 0))
     : 0;
@@ -3868,8 +3896,10 @@ function renderTrendSparkline(years, counts, slope, intercept, band = null, cls 
   const xToPx = (x) => padL + ((x - xMin) / xSpan) * innerW;
   const yToPx = (y) => padT + innerH - ((y - yMin) / (yMax - yMin)) * innerH;
 
-  const lineY1 = hasFit ? intercept + slope * xMin : null;
-  const lineY2 = hasFit ? intercept + slope * xMax : null;
+  const lineX1 = observed.length ? observed[0].year : xMin;
+  const lineX2 = observed.length ? observed[observed.length - 1].year : xMax;
+  const lineY1 = hasFit ? intercept + slope * lineX1 : null;
+  const lineY2 = hasFit ? intercept + slope * lineX2 : null;
 
   let bandPath = '';
   if (hasFit && band?.hasBand) {
@@ -3881,17 +3911,17 @@ function renderTrendSparkline(years, counts, slope, intercept, band = null, cls 
                 L ${xToPx(first.year)} ${yToPx(Math.max(yMin, first.lower))} Z`;
   }
 
-  const dataPath = counts.map((c, i) =>
-    `${i === 0 ? 'M' : 'L'} ${xToPx(years[i]).toFixed(1)} ${yToPx(c).toFixed(1)}`
+  const dataPath = observed.map((p, i) =>
+    `${i === 0 ? 'M' : 'L'} ${xToPx(p.year).toFixed(1)} ${yToPx(p.count).toFixed(1)}`
   ).join(' ');
 
   const bandPointsByYear = new Map((band?.points || []).map(p => [p.year, p]));
-  const dots = counts.map((c, i) => {
-    const point = bandPointsByYear.get(years[i]);
+  const dots = observed.map((p) => {
+    const point = bandPointsByYear.get(p.year);
     const outlierTitle = point?.isOutlier
-      ? `<title>${years[i]}: ${fmt.num(+c || 0)} annual events outside ${band.config.label}</title>`
+      ? `<title>${p.year}: ${fmt.num(p.count)} annual events outside ${band.config.label}</title>`
       : '';
-    return `<circle cx="${xToPx(years[i]).toFixed(1)}" cy="${yToPx(c).toFixed(1)}" r="${point?.isOutlier ? 4.2 : 3}" class="trend-dot${point?.isOutlier ? ' trend-outlier-dot' : ''}">${outlierTitle}</circle>`;
+    return `<circle cx="${xToPx(p.year).toFixed(1)}" cy="${yToPx(p.count).toFixed(1)}" r="${point?.isOutlier ? 4.2 : 3}" class="trend-dot${point?.isOutlier ? ' trend-outlier-dot' : ''}">${outlierTitle}</circle>`;
   }).join('');
 
   const xMid = Math.round((xMin + xMax) / 2);
@@ -3902,8 +3932,8 @@ function renderTrendSparkline(years, counts, slope, intercept, band = null, cls 
         <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + innerH}" class="trend-axis" />
         <line x1="${padL}" y1="${padT + innerH}" x2="${padL + innerW}" y2="${padT + innerH}" class="trend-axis" />
         ${bandPath ? `<path d="${bandPath}" class="trend-residual-band" fill="${trendBandFill(cls)}" stroke="none" />` : ''}
-        ${hasFit ? `<line x1="${xToPx(xMin)}" y1="${yToPx(lineY1)}" x2="${xToPx(xMax)}" y2="${yToPx(lineY2)}" class="trend-regression-line" />` : ''}
-        <path d="${dataPath}" class="trend-data-line" fill="none" />
+        ${hasFit ? `<line x1="${xToPx(lineX1)}" y1="${yToPx(lineY1)}" x2="${xToPx(lineX2)}" y2="${yToPx(lineY2)}" class="trend-regression-line" />` : ''}
+        ${dataPath ? `<path d="${dataPath}" class="trend-data-line" fill="none" />` : ''}
         ${dots}
         <text x="${xToPx(xMin)}" y="${padT + innerH + 16}" class="trend-axis-label">${xMin}</text>
         <text x="${xToPx(xMid)}" y="${padT + innerH + 16}" class="trend-axis-label trend-axis-label-mid" text-anchor="middle">${xMid}</text>

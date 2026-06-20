@@ -33,6 +33,9 @@ trigger-source strategy, enriched datasets, and forward-looking modeling.
 - [Lambda Shadow Pricing Verification Plan](lambda_shadow_pricing_verification_plan.md)
   - validates every predictability category before any shadow lambda rule can
   become an active pricing proposal.
+- [Risk-Based Clustering Quantification Plan](risk_based_clustering_quantification_plan.md)
+  - fixes missing-year handling first, then defines the statistical path for
+  smooth, volatile, episodic, step-change, stable, and sparse labels.
 - [Portfolio Risk Engine Plan](portfolio_risk_engine_plan.md)
 
 ## Related Architecture Discussions
