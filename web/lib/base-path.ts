@@ -6,4 +6,8 @@
  */
 export const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
+/** internal API URL (raw fetch isn't basePath-prefixed by Next). */
 export const api = (path: string) => `${BASE_PATH}${path}`;
+
+/** static asset in public/ — raw <img src> isn't basePath-prefixed by Next either. */
+export const asset = (path: string) => `${BASE_PATH}${path}`;

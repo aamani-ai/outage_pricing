@@ -6,6 +6,7 @@ import { Building2, Check, ChevronsUpDown, CornerDownRight, Map as MapIcon } fro
 import { NAV } from "@/components/shell/nav-config";
 import { AccountMenu } from "@/components/shell/account-menu";
 import { useQuoteStore, type StudioTab } from "@/lib/quote-store";
+import { asset } from "@/lib/base-path";
 import { cn } from "@/components/ui/utils";
 
 const STUDIO_TABS: { key: StudioTab; label: string }[] = [
@@ -25,9 +26,9 @@ export function Sidebar() {
       {/* brand — official lockup (theme-swapped) · Outage Pricing, inline */}
       <div className="flex h-14 items-center gap-2 px-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/lockup-on-light.svg" alt="InfraSure" className="h-6 w-auto shrink-0 dark:hidden" />
+        <img src={asset("/brand/lockup-on-light.svg")} alt="InfraSure" className="h-6 w-auto shrink-0 dark:hidden" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/lockup-on-dark.svg" alt="InfraSure" className="hidden h-6 w-auto shrink-0 dark:block" />
+        <img src={asset("/brand/lockup-on-dark.svg")} alt="InfraSure" className="hidden h-6 w-auto shrink-0 dark:block" />
         <span className="text-muted-foreground whitespace-nowrap text-[13px]">· Outage Pricing</span>
       </div>
 
