@@ -1,0 +1,50 @@
+name: Promote outage-pricing (flip traffic)
+
+# Manual, deliberate traffic flip — run AFTER validating the "next" preview revision.
+#   promote:  to_tag = next            → sends 100% live traffic to the new Next.js revision
+#   rollback: to_revision = <name>     → sends 100% back to a prior revision (one command, reversible)
+
+on:
+  workflow_dispatch:
+    inputs:
+      to_tag:
+        description: 'Send 100% traffic to this tag (default: next)'
+        default: 'next'
+      to_revision:
+        description: 'OR a specific revision name for rollback (overrides to_tag if set)'
+        default: ''
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    env:
+      SERVICE: outage-pricing
+      REGION: us-central1
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: 'google-github-actions/auth@v3'
+        with:
+          project_id: 'modeling-nonprod-svc-db5x'
+          workload_identity_provider: 'projects/952205173464/locations/global/workloadIdentityPools/infrasure-gh-actions-pool/providers/github-repo-provider'
+          service_account: 'gh-actions-deploy@modeling-nonprod-svc-db5x.iam.gserviceaccount.com'
+
+      - name: Set up Cloud SDK
+        uses: 'google-github-actions/setup-gcloud@v3'
+
+      - name: Flip traffic
+        run: |
+          set -eu
+          if [ -n "${{ inputs.to_revision }}" ]; then
+            echo "Rolling back: 100% → revision ${{ inputs.to_revision }}"
+            gcloud run services update-traffic "$SERVICE" --region "$REGION" \
+              --to-revisions "${{ inputs.to_revision }}=100"
+          else
+            echo "Promoting: 100% → tag ${{ inputs.to_tag }}"
+            gcloud run services update-traffic "$SERVICE" --region "$REGION" \
+              --to-tags "${{ inputs.to_tag }}=100"
+          fi
+          echo "=== live URL ==="
+          gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)'

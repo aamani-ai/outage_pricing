@@ -12,6 +12,7 @@ import { AdjustersTab } from "@/components/studio/tabs/adjusters";
 import { effectiveFactors, useQuoteStore } from "@/lib/quote-store";
 import { cn } from "@/components/ui/utils";
 import { regimeLabel, type StudioData } from "@/components/studio/shared";
+import { api } from "@/lib/base-path";
 
 const SECTION_LABEL: Record<string, string> = {
   breakdown: "Price Breakdown",
@@ -41,7 +42,7 @@ export function StudioView() {
     let cancelled = false;
     setStatus("loading");
     setData(null);
-    fetch(`/api/studio?lat=${loc.lat}&lon=${loc.lon}`)
+    fetch(api(`/api/studio?lat=${loc.lat}&lon=${loc.lon}`))
       .then(async (r) => {
         const j = await r.json();
         if (cancelled) return;

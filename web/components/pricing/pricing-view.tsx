@@ -9,6 +9,7 @@ import { ExpandBox } from "@/components/ui/expand-box";
 import { AddressSearch } from "@/components/pricing/address-search";
 import { Segmented } from "@/components/pricing/segmented";
 import { effectiveFactors, useQuoteStore } from "@/lib/quote-store";
+import { api } from "@/lib/base-path";
 
 // Map is browser-only (MapLibre) — load it client-side, after a location is picked.
 const LocationMap = dynamic(() => import("@/components/pricing/location-map"), {
@@ -63,7 +64,7 @@ export function PricingView() {
     let cancelled = false;
     setStatus("loading");
     setData(null);
-    fetch(`/api/price?lat=${loc.lat}&lon=${loc.lon}`)
+    fetch(api(`/api/price?lat=${loc.lat}&lon=${loc.lon}`))
       .then(async (r) => {
         const j = await r.json();
         if (cancelled) return;

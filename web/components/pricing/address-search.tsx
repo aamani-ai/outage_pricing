@@ -5,6 +5,7 @@ import { Command as CommandPrimitive } from "cmdk";
 import { Building, Building2, Home, Loader2, type LucideIcon, MapPin, Search, Signpost } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/components/ui/utils";
+import { api } from "@/lib/base-path";
 import COUNTIES from "@/lib/data/counties-by-state.json";
 
 const COUNTY_BY_STATE = COUNTIES as Record<string, string[]>;
@@ -116,7 +117,7 @@ export function AddressSearch({
         const queryText = scope ? `${q}, ${scope}` : q;
         const typesParam = TYPE_PARAM[ftype] ? `&types=${encodeURIComponent(TYPE_PARAM[ftype])}` : "";
         const r = await fetch(
-          `/api/geocode?q=${encodeURIComponent(queryText)}&session=${session.current}${typesParam}`,
+          api(`/api/geocode?q=${encodeURIComponent(queryText)}&session=${session.current}${typesParam}`),
           { signal: ac.signal },
         );
         const j = (await r.json()) as { suggestions?: Array<Record<string, any>> };
@@ -153,7 +154,7 @@ export function AddressSearch({
     // interim: show the place, never the user's raw typed text
     setQ(s.place || s.name);
     try {
-      const r = await fetch(`/api/geocode?id=${encodeURIComponent(s.id)}&session=${session.current}`);
+      const r = await fetch(api(`/api/geocode?id=${encodeURIComponent(s.id)}&session=${session.current}`));
       const j = (await r.json()) as { features?: Array<Record<string, any>> };
       const f = j.features?.[0];
       const coords = f?.geometry?.coordinates as unknown;

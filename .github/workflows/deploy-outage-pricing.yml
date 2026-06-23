@@ -1,7 +1,9 @@
 name: Build and Deploy outage-pricing to Cloud Run
 
-# Triggered only on pushes to the deploy/outage-pricing branch. Keeps main
-# non-deploying so iteration is decoupled from production.
+# Triggered on pushes to deploy/outage-pricing. Builds the Next.js dashboard (web/)
+# and deploys it as a NO-TRAFFIC tagged revision ("next") — the live URL keeps serving
+# the current revision until traffic is flipped via promote-outage-pricing.yml. Preview-
+# before-promote (docs/plan/dashboard_redesign/deployment.md). main stays non-deploying.
 
 on:
   push:
@@ -21,35 +23,11 @@ jobs:
       AR_HOST: us-central1-docker.pkg.dev
       AR_PROJECT: modeling-nonprod-svc-db5x
       AR_REPO: infrasuremodelingdocker
-      APP_PATH: price_engine
+      APP_PATH: web
+      BASE_PATH: /dashboard
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Resolve docs symlinks to real copies
-        # The dashboard references docs/methodology/ and docs/plan/ via
-        # symlinks at price_engine/dashboard/{methodology,plan} which point
-        # outside the price_engine/ build path. When `pack build` is invoked
-        # with --path price_engine/, those symlink targets are not reachable
-        # from inside the build context. Replace each symlink with a real
-        # directory copy so the bundle is self-contained inside the
-        # container image.
-        run: |
-          set -eu
-          for link_name in methodology plan; do
-            target_dir="${APP_PATH}/dashboard/${link_name}"
-            source_dir="docs/${link_name}"
-            if [ -L "${target_dir}" ]; then
-              echo "Symlink detected at ${target_dir}; replacing with real copy from ${source_dir}/"
-              rm "${target_dir}"
-              cp -r "${source_dir}" "${target_dir}"
-              ls -la "${target_dir}/" | head -10
-            elif [ -d "${target_dir}" ]; then
-              echo "Real directory already present at ${target_dir} — leaving as-is."
-            else
-              echo "No symlink or directory at ${target_dir} — skipping."
-            fi
-          done
 
       - name: Authenticate to Google Cloud
         uses: 'google-github-actions/auth@v3'
@@ -67,36 +45,25 @@ jobs:
       - name: Setup pack CLI
         uses: buildpacks/github-actions/setup-pack@v5.0.0
 
-      - name: Inject Mapbox token into runtime config
-        # Write the gitignored config.local.js from the MAPBOX_TOKEN Actions
-        # secret so the public token is bundled into the image WITHOUT ever
-        # living in git (the repo is public). The dashboard reads
-        # window.__MAPBOX_TOKEN__ from this file. GitHub masks the secret in logs.
-        run: |
-          echo "window.__MAPBOX_TOKEN__ = '${{ secrets.MAPBOX_TOKEN }}';" > ${{ env.APP_PATH }}/dashboard/config.local.js
-          echo "wrote $(wc -c < ${{ env.APP_PATH }}/dashboard/config.local.js) bytes to config.local.js"
-
-      - name: Build and push image
-        # paketobuildpacks/builder-jammy-base is fine for Python (the libatomic
-        # gotcha that requires -full is Node-specific). The Procfile inside
-        # APP_PATH tells the buildpack to launch `python server.py`.
+      - name: Build and push image (Next.js · Node)
+        # builder-jammy-FULL: the Node buildpack needs libatomic (the -base gotcha).
+        # BP_NODE_RUN_SCRIPTS=build runs `next build`; NEXT_PUBLIC_BASE_PATH bakes the
+        # /dashboard basePath at build so the public URL stays …run.app/dashboard/.
+        # Launch comes from web/Procfile (`web: npm run start` → next start, binds $PORT).
         run: |
           IMAGE="${{ env.AR_HOST }}/${{ env.AR_PROJECT }}/${{ env.AR_REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
           pack build "$IMAGE" \
-            --builder paketobuildpacks/builder-jammy-base \
+            --builder paketobuildpacks/builder-jammy-full \
             --path ${{ env.APP_PATH }} \
+            --env BP_NODE_RUN_SCRIPTS=build \
+            --env NEXT_PUBLIC_BASE_PATH=${{ env.BASE_PATH }} \
             --publish
 
-      - name: Deploy to Cloud Run (PUBLIC)
-        # PUBLIC ACCESS: --allow-unauthenticated grants allUsers the Cloud Run
-        # invoker role, and --no-iap removes the IAP gate, so the dashboard is
-        # reachable by anyone with the URL (no aamani.ai login). 512Mi/1CPU is
-        # plenty for a static-file Python server.
-        #
-        # To RE-RESTRICT to the aamani.ai domain: change the two flags back to
-        #   --iap --no-allow-unauthenticated
-        # and restore the "Grant IAP access to aamani.ai domain" step that bound
-        #   --member='domain:aamani.ai' --role='roles/iap.httpsResourceAccessor'
+      - name: Deploy NO-TRAFFIC tagged revision "next" (PUBLIC)
+        # --no-traffic --tag next: the new revision gets 0% traffic + a private preview URL
+        # (next---outage-pricing-….run.app). The live URL is untouched until the promote
+        # workflow flips traffic. MAPBOX_TOKEN is the server-side token the /api/geocode proxy
+        # reads (never shipped to the client). GitHub masks it in logs.
         run: |
           IMAGE="${{ env.AR_HOST }}/${{ env.AR_PROJECT }}/${{ env.AR_REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
           gcloud run deploy ${{ env.SERVICE }} \
@@ -106,10 +73,15 @@ jobs:
             --no-iap \
             --allow-unauthenticated \
             --service-account project-service-account@modeling-nonprod-svc-db5x.iam.gserviceaccount.com \
-            --memory 512Mi \
-            --cpu 1
+            --memory 1Gi \
+            --cpu 1 \
+            --port 8080 \
+            --set-env-vars MAPBOX_TOKEN=${{ secrets.MAPBOX_TOKEN }},NEXT_PUBLIC_BASE_PATH=${{ env.BASE_PATH }} \
+            --no-traffic \
+            --tag next
 
-      - name: Print service URL
+      - name: Print preview (tagged) URL
         run: |
-          URL=$(gcloud run services describe ${{ env.SERVICE }} --region=${{ env.REGION }} --format='value(status.url)')
-          echo "=== Cloud Run service URL: $URL ==="
+          echo "=== validate this preview URL before promoting traffic ==="
+          gcloud run services describe ${{ env.SERVICE }} --region=${{ env.REGION }} \
+            --format='json(status.traffic)'
