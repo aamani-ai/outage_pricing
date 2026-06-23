@@ -186,7 +186,7 @@ the data levels and bridge logic we can defend.
 
 The first phased build addressing this gap — without committing yet to a
 full location-aware product — is
-[`docs/plan/per_customer_pricing_plan.md`](../../plan/per_customer_pricing_plan.md).
+[`docs/plan/per_customer_pricing_plan.md`](../../plan/02_per_customer/per_customer_pricing_plan.md).
 That plan treats the **customer-experience rate** as the intermediate
 quantity we can build today (Path A in the plan), reserves a slot for the
 location-basis factor described here (Path B), and uses PowerOutage.US

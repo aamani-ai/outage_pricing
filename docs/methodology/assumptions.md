@@ -23,7 +23,7 @@ that way" and follow a citation to a single entry here.
 In a methodology or plan file:
 
 ```text
-We treat raw EAGLE-I timestamps as UTC instants ([A001](../methodology/assumptions.md#a001--eagle-i-raw-timestamps-are-utc)).
+We treat raw EAGLE-I timestamps as UTC instants ([A001](assumptions.md#a001--eagle-i-raw-timestamps-are-utc)).
 ```
 
 Do not restate the assumption text outside this file. If you find
@@ -74,7 +74,7 @@ the duration histogram.
 annualization-window boundaries would be misaligned by up to several
 hours. `S(T)` at small T (e.g. 2 h) would be biased.
 
-**Cited from.** [Data Ingestion §Time semantics](data_ingestion_methodology.md#time-semantics), [Event Catalog Creation §Time](event_catalog_creation_methodology.md#time-semantics), `price_engine/data/SCHEMA.md`.
+**Cited from.** [Data Ingestion §Time semantics](01_eventization/data_ingestion_methodology.md#time-semantics), [Event Catalog Creation §Time](01_eventization/event_catalog_creation_methodology.md#time-semantics), `price_engine/data/SCHEMA.md`.
 
 ---
 
@@ -99,7 +99,7 @@ customer-impact modifier — not in event existence.
 events, inflate `S(T)`, and over-price every contract. A lower (negative)
 threshold is not possible.
 
-**Cited from.** [Event Catalog Creation §Choice B](event_catalog_creation_methodology.md#snapshot-threshold), `price_engine/data/EVENT_CONSTRUCTION.md`. Closely related to [A009](#a009--per-customer-customer_impact_multiplier-first-order-estimator), which addresses the downstream effect of this choice on per-customer expected loss.
+**Cited from.** [Event Catalog Creation §Choice B](01_eventization/event_catalog_creation_methodology.md#snapshot-threshold), `price_engine/data/EVENT_CONSTRUCTION.md`. Closely related to [A009](#a009--per-customer-customer_impact_multiplier-first-order-estimator), which addresses the downstream effect of this choice on per-customer expected loss.
 
 ---
 
@@ -124,7 +124,7 @@ would have duration zero, which is physically impossible.
 event, equivalent to ~25% on a 1-h median. S(T) curves would shift
 left.
 
-**Cited from.** [Event Catalog Creation §Interval rules](event_catalog_creation_methodology.md#interval-rules), `price_engine/data/SCHEMA.md`.
+**Cited from.** [Event Catalog Creation §Interval rules](01_eventization/event_catalog_creation_methodology.md#interval-rules), `price_engine/data/SCHEMA.md`.
 
 ---
 
@@ -153,7 +153,7 @@ ratio. A naive 12-year denominator would understate `lambda` by
 ~12/11.167 = 7.5%; per-county first/last would overstate rates for
 quiet counties.
 
-**Cited from.** [Aggregation and Annualization](aggregation_and_annualization_methodology.md), `price_engine/data/SCHEMA.md`, `price_engine/data/annualization_meta.json`.
+**Cited from.** [Aggregation and Annualization](02_per_customer/aggregation_and_annualization_methodology.md), `price_engine/data/SCHEMA.md`, `price_engine/data/annualization_meta.json`.
 
 ---
 
@@ -178,7 +178,7 @@ amount of evidence, not a smoothed curve. Counties with thin data have
 noisy S(T) at long T. v0 accepts this and exposes it through the
 modelability filter.
 
-**Cited from.** [Pricing](pricing_methodology.md), `price_engine/data/SCHEMA.md`, `price_engine/plan/02_pricing_math.md`.
+**Cited from.** [Pricing](cross_cutting/pricing_methodology.md), `price_engine/data/SCHEMA.md`, `price_engine/plan/02_pricing_math.md`.
 
 ---
 
@@ -204,7 +204,7 @@ up by the load denominator," not an uncertainty-adjusted price.
 slot for UncLoad is structural; activating it changes the retail
 premium chain.
 
-**Cited from.** [Pricing](pricing_methodology.md), `price_engine/plan/02_pricing_math.md`, dashboard pricing controls.
+**Cited from.** [Pricing](cross_cutting/pricing_methodology.md), `price_engine/plan/02_pricing_math.md`, dashboard pricing controls.
 
 ---
 
@@ -250,10 +250,10 @@ counts 1–3 keep absolute tail dollars small). Bites first in
 hazard-prone counties (hurricane belt, storm corridors, fire zones) as
 the book scales, because both `p` and `N` rise together there. Treated
 as a **lagged-implementation track** rather than an immediate gate; see
-[concentration_and_portfolio_risk.md](concentration_and_portfolio_risk.md)
+[concentration_and_portfolio_risk.md](cross_cutting/concentration_and_portfolio_risk.md)
 and the [roadmap entry](roadmap.md#portfolio-concentration-handling-lagged).
 
-**Cited from.** [Pricing](pricing_methodology.md), `price_engine/plan/02_pricing_math.md`, [`docs/plan/portfolio_risk_engine_plan.md`](../plan/portfolio_risk_engine_plan.md), [`concentration_and_portfolio_risk.md`](concentration_and_portfolio_risk.md), [Roadmap §Portfolio concentration handling (lagged)](roadmap.md#portfolio-concentration-handling-lagged).
+**Cited from.** [Pricing](cross_cutting/pricing_methodology.md), `price_engine/plan/02_pricing_math.md`, [`docs/plan/portfolio_risk_engine_plan.md`](../plan/05_forward_regime/portfolio_risk_engine_plan.md), [`concentration_and_portfolio_risk.md`](cross_cutting/concentration_and_portfolio_risk.md), [Roadmap §Portfolio concentration handling (lagged)](roadmap.md#portfolio-concentration-handling-lagged).
 
 ---
 
@@ -336,7 +336,7 @@ per-customer pricing chain (see
    per-building vs per-facility reporters) carry a unit-noise term that
    we cannot remove without per-utility unit metadata.
 
-**Cited from.** [Pricing](pricing_methodology.md), [Filtration](filtration_methodology.md), `price_engine/data/SCHEMA.md`, `price_engine/data/INVENTORY.md`, dashboard Peak % MCC tooltip, [`fundamentals/eagle_i_data_fundamentals.md`](fundamentals/eagle_i_data_fundamentals.md), [`fundamentals/per_customer_pricing_fundamentals.md`](fundamentals/per_customer_pricing_fundamentals.md).
+**Cited from.** [Pricing](cross_cutting/pricing_methodology.md), [Filtration](cross_cutting/filtration_methodology.md), `price_engine/data/SCHEMA.md`, `price_engine/data/INVENTORY.md`, dashboard Peak % MCC tooltip, [`fundamentals/eagle_i_data_fundamentals.md`](cross_cutting/eagle_i_data_fundamentals.md), [`fundamentals/per_customer_pricing_fundamentals.md`](02_per_customer/per_customer_pricing_fundamentals.md).
 
 ---
 
@@ -382,7 +382,7 @@ the event."
 the per-customer plan). If the first-order estimator is biased, the
 shadow rate is recomputed before it reaches the dashboard.
 
-**Cited from.** [`docs/plan/per_customer_pricing_plan.md`](../plan/per_customer_pricing_plan.md), [Pricing §Per-customer view](pricing_methodology.md), [Phase 1 notebook (executed 2026-05-30)](../../notebooks/outputs/per_customer_rate_phase1/per_customer_rate_phase1.html).
+**Cited from.** [`docs/plan/per_customer_pricing_plan.md`](../plan/02_per_customer/per_customer_pricing_plan.md), [Pricing §Per-customer view](cross_cutting/pricing_methodology.md), [Phase 1 notebook (executed 2026-05-30)](../../notebooks/outputs/per_customer_rate_phase1/per_customer_rate_phase1.html).
 
 ---
 
@@ -438,7 +438,7 @@ outlier major-storm events, `multiplier_median` shows by how much; the
 gap between mean and median is itself a heavy-tail diagnostic for the
 qualifying-event population.
 
-**Cited from.** [`docs/plan/per_customer_pricing_plan.md`](../plan/per_customer_pricing_plan.md) (Phase 1 gate close), [Phase 1 notebook §F3](../../notebooks/outputs/per_customer_rate_phase1/per_customer_rate_phase1.html).
+**Cited from.** [`docs/plan/per_customer_pricing_plan.md`](../plan/02_per_customer/per_customer_pricing_plan.md) (Phase 1 gate close), [Phase 1 notebook §F3](../../notebooks/outputs/per_customer_rate_phase1/per_customer_rate_phase1.html).
 
 ---
 
@@ -487,7 +487,7 @@ are distributed relative to the trigger threshold `T`:
   radius is out for the full event (correctly triggers) plus a much
   larger set of brief restoration-churn outages well below T (lifts M
   but does not trigger). Worked Cases B and C in the
-  [per-customer view walkthrough](per_customer_view_walkthrough.md#why-it-is-a-model-and-not-a-measurement)
+  [per-customer view walkthrough](02_per_customer/per_customer_view_walkthrough.md#why-it-is-a-model-and-not-a-measurement)
   show overstatement factors of ~3× in the canonical core+periphery
   case.
 - **Knife-edge regime — durations clustered at T** (Case D in the
@@ -503,7 +503,7 @@ top of the explicit retail loadings (`TM`, `ER`, `UncLoad`), bounded
 only by market-price discipline. This cushion is real on the mean
 but provides **no protection against portfolio concentration tail
 risk** — that is [A007](#a007--each-policy-is-priced-standalone-no-portfolio-correlation-in-v0)
-territory; see [`concentration_and_portfolio_risk.md`](concentration_and_portfolio_risk.md).
+territory; see [`concentration_and_portfolio_risk.md`](cross_cutting/concentration_and_portfolio_risk.md).
 The dashboard's sensitivity footnote brackets the plausible range with
 two complementary views of the same headline (see [A010](#a010--mean-not-max-of-customers_out--mcc-is-the-headline-per-customer-estimator)
 for the formal distinction):
@@ -524,7 +524,7 @@ cannot measure from EAGLE-I alone.
 contracted PowerOutage.US live feed, or utility OMS overlap — carry
 individual outage lifespans and let us measure the synchronous-vs-
 staggered mix directly. The concrete first step is documented in
-[Phase 4 of the per-customer pricing plan](../plan/per_customer_pricing_plan.md#phase-4--external-validation-against-poweroutageus-per-outage-data).
+[Phase 4 of the per-customer pricing plan](../plan/02_per_customer/per_customer_pricing_plan.md#phase-4--external-validation-against-poweroutageus-per-outage-data).
 The output would be either (a) confirmation that the synchronous
 approximation is within the sensitivity band, or (b) an empirical
 correction factor that tightens the headline. Pending that work, the
@@ -536,4 +536,213 @@ chain on top of v0; every other piece (`λ_county`, `S(T)`, MCC,
 annualization, ER / TM defaults) is inherited from v0's existing
 assumption stack (A001–A008).
 
-**Cited from.** [Per-customer view walkthrough §The one assumption you must read](per_customer_view_walkthrough.md#the-one-assumption-you-must-read--a011), [`customer_impact_v1` model card](../../curated_outage_data/model_cards/customer_impact_v1.md), [Per-Customer Pricing Plan](../plan/per_customer_pricing_plan.md), dashboard mode-notes for the per-customer view.
+**Cited from.** [Per-customer view walkthrough §The one assumption you must read](02_per_customer/per_customer_view_walkthrough.md#the-one-assumption-you-must-read--a011), [`customer_impact_v1` model card](../../curated_outage_data/model_cards/customer_impact_v1.md), [Per-Customer Pricing Plan](../plan/02_per_customer/per_customer_pricing_plan.md), dashboard mode-notes for the per-customer view.
+
+---
+
+### A012 — Per-customer exposure uses one global window (dilutes partial-coverage counties)
+
+- **Category:** math, data
+- **Status:** active — flagged; per-county fix is a pending pricing decision
+- **First written:** 2026-06-22
+- **Last reviewed:** 2026-06-22
+- **Owner:** modeling
+
+**Statement.** `compute_per_customer_lambda.py` divides every county's qualifying-event
+count by the **same global** `source_observation_years` (~11.17 yr, per
+[A004](#a004--annualization-denominator-is-the-source-observation-window)); it is not
+adjusted for per-county source coverage. A county whose source was reliably observed
+for only part of the window is still divided by the full ~11.17 yr, so its
+`lambda_county` — and therefore `lambda_customer` — is biased **low**.
+
+**Justification (why A004 chose this, and where it breaks).** A004 deliberately avoids
+per-county first/last-event windows because they inflate rates for genuinely *quiet*
+counties whose first outage happened late. That is correct for a quiet-but-fully-observed
+county. It does **not** hold for a county with genuine **missing source years** (e.g.
+Texas 2016, where 135/254 counties have zero all-duration source events): there the
+global window counts unobserved years as exposure and dilutes the rate. A004's
+denominator conflates "quiet" with "unobserved."
+
+**Impact if wrong / direction of bias.** Direction is **understatement** →
+**anti-conservative** (under-pricing). It pulls **opposite** to the
+[A011](#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation)
+conservative cushion, so in poorly-covered counties the exposure dilution **erodes the
+A011 cushion** — and invisibly, because the cell-read `C_source` historically used this
+same flat number. Magnitude scales with the coverage gap: a county truly observed ~8 of
+~12 yr is ~1.4× understated; Concho TX (interior 2016 gap) ~1.2×.
+
+**Detection vs fix (sequencing).**
+- *Detection (shipped, diagnostic):* the Step 1–2 cell read now computes `C_source` from
+  **per-county** coverage (distinct observed years / window) + known-gap hard-flags, so
+  affected cells read **Thin** instead of falsely **Strong**. No price change.
+- *Fix (pending pricing decision):* replace the global denominator with **per-county
+  observed years**, counting only genuinely-observed years — which preserves A004's
+  anti-inflation intent (a fully-observed quiet county keeps the full window) while
+  excluding true source gaps. This moves `lambda_customer` for affected counties and must
+  be validated, so it is sequenced as its own item, not slipped into the diagnostic.
+- *Prerequisite:* the per-year observed-vs-missing **source-coverage mask** (also the
+  Step-3 clustering prerequisite) is the shared artifact powering both the fix and a
+  fuller `C_source`.
+
+**Cited from.** [`inner_event_shape_diagnostics.ipynb`](../../notebooks/02_per_customer/inner_event_shape_diagnostics.ipynb) (Step 1–2 cell read), [Eventization & Frequency Contract discussion](../dicsscssion/eventization_frequency_contract/01_eventization_frequency_discussion.md) (observed-zero vs missing-year); related to [A004](#a004--annualization-denominator-is-the-source-observation-window) and [A011](#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation).
+
+### A013 — Risk regime is behavior-based (outage history alone; cause data deferred)
+
+- **Category:** modeling
+- **Status:** active — Step-3 design decision
+- **First written:** 2026-06-22
+- **Last reviewed:** 2026-06-22
+- **Owner:** modeling
+
+**Statement.** The Step-3 risk regime is derived **only** from a county's masked annual
+qualifying-event count series and features computed from it. Cause covariates
+(weather / climate, grid condition, asset age, geography, hazard exposure) are **not** inputs
+to regime derivation. The regime classifies *behavior* ("episodic / trendy / flat"), not *cause*.
+
+**Justification.** Behavior is observable in the counts; cause is not required to detect it. A
+behavior-based regime is defensible to a carrier with no climate model in the room, and it lets
+the regime be built today on EAGLE-I history. Cause data enters later as (1) a richer forecasting
+expert the regime routes to, or (2) enrichment that explains/refines a regime — neither is
+load-bearing for routing.
+
+**Impact if wrong / direction.** If behavior alone is too weak to separate counties that need
+different estimators, the backtest's aggregate routing-vs-flat check (Q2) fails and we default to
+flat — a visible null result, not a hidden error. No price bias either direction.
+
+**Cited from.** [`regime_routing_backtest_plan.md`](../plan/03_risk_clustering/regime_routing_backtest_plan.md); [`OUTAGE_MODELING_FRAMEWORK.md`](../OUTAGE_MODELING_FRAMEWORK.md) Step 3 ▸ Reframe.
+
+### A014 — Regime derived at T=8h and asserted T-invariant (one per county)
+
+- **Category:** modeling
+- **Status:** active — **partially validated** (moderate, not exact T-stability; see result below)
+- **First written:** 2026-06-22
+- **Last reviewed:** 2026-06-22
+- **Owner:** modeling
+
+**Statement.** A county receives **one primary** regime label, derived from its annual series at the
+**T = 8h** duration threshold — *not* a separate label per T. It is **not** asserted blanket-invariant
+(that was the original framing); instead the classifier is run at every T and each county carries a
+**cross-T stability flag** (Option C). High-agreement counties are trusted as a fixed identity;
+T-sensitive counties are flagged for lower confidence and handled per-T in Step-5 forecasting. See
+[`regime_classification_methodology.md`](03_risk_clustering/regime_classification_methodology.md) §5.
+
+**Validation result (2026-06-22, [`regime_classification.ipynb`](../../notebooks/03_risk_clustering/regime_classification.ipynb)).** Mean cross-T agreement (T=2/4/12/24 vs T=8h) is **≈0.60** on the
+5-outcome label — well above chance — so the regime carries real cross-T signal but is an
+**approximation, not a rigid identity**. Each county carries a stability flag; T-sensitive ones are
+flagged lower-confidence rather than trusted as fixed. (The earlier backtest prototype found the
+same shape: 57/62% per-T on its labels, more stable on the binary stable-vs-typed split.) Treat
+T=8h as the reference label and route low-agreement counties cautiously.
+
+**Justification.** T=8h is the robustly-conservative threshold (strong structural over-count, low
+boundary mass — [A011](#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation),
+[`04_duration_conservatism.md`](../dicsscssion/eventization_frequency_contract/04_duration_conservatism.md)).
+One regime per county is a routing identity, not a per-threshold estimate — consistent with the
+"router, not forecast" framing.
+
+**Impact if wrong / direction.** If a county's behavior genuinely differs by T, a single label
+mis-routes the other thresholds. Mitigation: the backtest's **cross-T stability check (Q3)**
+measures regime agreement across thresholds; material disagreement downgrades the label to flat
+or flags it, rather than silently trusting T=8h.
+
+**Cited from.** [`regime_routing_backtest_plan.md`](../plan/03_risk_clustering/regime_routing_backtest_plan.md).
+
+### A015 — When the data can't support a label, the classifier ABSTAINS (`insufficient`)
+
+- **Category:** modeling
+- **Status:** active — Step-3 design decision (the "abstain, don't force" reframe)
+- **First written:** 2026-06-22
+- **Last reviewed:** 2026-06-22
+- **Owner:** modeling
+
+**Statement.** A county is assigned the explicit **`insufficient`** outcome — *not* force-fit a
+behavioral regime — when (a) too few observed years (`n < 5`, *short-history*), (b) too few total
+events (`< 15`, *low-volume* — peak-share etc. are ratios of ~nothing), or (c) a detected jump/surge
+has fewer than 3 post-change years (*recent-change* — too new to call trend vs shift vs one-off).
+~11% of counties land here. The other counties get `stable / trend / shift / episodic`; a genuinely
+constant series is `stable`.
+
+**Justification.** Short / near-zero / recently-changed histories cannot support a defensible label;
+forcing one produces confident *wrong* labels (an earlier draft mislabeled Cherry NE `[0,2,4,0,22,39]`
+as "trend"). Abstaining is honest and protects the labels that genuinely hold. The issue in these
+cases is the data and the framing, not the rule logic.
+
+**Impact if wrong / direction.** Some counties that *could* be typed are left `insufficient` (a missed
+classification, not a wrong one). Conservative by construction; revisited as histories lengthen.
+
+**Cited from.** [`regime_routing_backtest_plan.md`](../plan/03_risk_clustering/regime_routing_backtest_plan.md); inherits the masked series from [A012](#a012--per-customer-exposure-uses-one-global-window-dilutes-partial-coverage-counties)'s prerequisite mask.
+
+### A016 — The all-duration coverage mask is applied as a proxy for T-specific observability
+
+- **Category:** data
+- **Status:** active — flagged; cross-resolution proxy, not yet T-validated
+- **First written:** 2026-06-22
+- **Last reviewed:** 2026-06-22
+- **Owner:** modeling
+
+**Statement.** The source-coverage onset mask (observed vs missing per `(fips, year)`) is derived
+from **all-duration** EAGLE-I event presence, then applied **unchanged** to the threshold-specific
+series (e.g. T=8h) used for regime routing. A `(fips, year)` judged under-covered on all-duration
+activity is nulled for *every* T.
+
+**Justification.** Coverage is a property of whether the county's feed was reporting at all, which
+is threshold-agnostic — a sensor that wasn't onboarded missed long and short outages alike. So
+all-duration presence is a defensible single coverage signal across thresholds, and it lets one
+mask serve all T.
+
+**Impact if wrong / direction.** Applying it to T=8h **discards ~1,469 county-years that still
+carried a non-null T=8h count — 772 of them nonzero, totalling ~3,073 genuine ≥8h events**,
+concentrated in 2015–2017. If all-duration low coverage does *not* imply those specific ≥8h events
+were unreliable, the mask is over-nulling real long-outage signal in early years (direction:
+removes early events → contributes to the survivorship skew toward flat for ramp counties). The
+backtest is conservative either way (fewer, more-reliable years), but the proportions shift.
+
+**Detection / mitigation (shipped).** The notebook reports the discarded-event count explicitly,
+stratifies the regime distribution by first-observed-year and a confidence tier (so ramp-masked
+short-history counties are visibly lower-confidence, not silently "flat"), and the permutation
+test confirms the mask is **not** the source of the routing skill (improvement collapses to ≈−10%
+under shuffled targets *with the mask in place*). **Open:** derive or sanity-check a T-specific
+coverage signal before this ships to the actuarial consultant.
+
+**Cited from.** [`regime_routing_backtest_plan.md`](../plan/03_risk_clustering/regime_routing_backtest_plan.md); [`regime_classification.ipynb`](../../notebooks/03_risk_clustering/regime_classification.ipynb); builds on the mask in [`05_source_coverage_mask.md`](../dicsscssion/eventization_frequency_contract/05_source_coverage_mask.md); related to [A014](#a014--regime-derived-at-t8h-and-asserted-t-invariant-one-per-county).
+
+### A017 — The premium range is a year-based (overdispersion-aware) confidence band, not Poisson-on-K
+
+- **Category:** modeling
+- **Status:** active — v1 for the dashboard premium range (iterable; see learning log)
+- **First written:** 2026-06-23
+- **Last reviewed:** 2026-06-23
+- **Owner:** modeling
+
+**Statement.** The premium is shown as a band `{low, point, high}`. The band is the **confidence in
+the per-customer frequency λ(T)**, computed by **bootstrapping the observed annual qualifying-event
+counts** (resample the observed years; 80% interval on the mean rate outward, 90% in the Studio) and
+carrying it linearly through `premium = λ·X/(1−ER−TM)`. The earlier candidate — an exact **Poisson
+interval on the total count K** — is **rejected for the band**: it assumes independent events and is
+overconfident. Heterogeneity (the per-customer multiplier `median..max`) is **not** the band; it is a
+separate *position-in-county* read. The three are distinct: (a) confidence = the band; (b)
+heterogeneity = position; (c) location/geocode = the gate that resolves (b) and can widen the band
+when placement is weak.
+
+**Justification.** Outages **cluster** (a storm causes many correlated outages), so the annual-count
+variance far exceeds the Poisson mean. Measured directly on the masked annual series: median
+dispersion index `var/mean = 5.0` at T=8h (12.6 at T=2h), with **94% of counties overdispersed**
+(D>1) at T=8h. The year-based bootstrap band comes out a **median ~2.1× wider** than Poisson (up to
+8–10× for storm-clustered counties). The bootstrap uses the *real* observed year-to-year variation,
+needs **no fitted distribution** (consistent with the v0 empirical method), and still widens at
+longer T and thinner counties.
+
+**Impact if wrong / direction.** The year-based band conflates sampling noise, clustering, **and** any
+trend (worsening counties carry trend-driven annual variance) — so it may slightly **over-state**
+uncertainty for strongly-trending counties (direction: wider, conservative). Trend handling is a
+Step-5 forward concern. For counties with **<5 observed years** or near-zero events at long T (43
+zero / 76 tiny at T=8h; 89 / 225 at T=24h) the band is unreliable → route to `insufficient` /
+**suppress the point quote** rather than show a meaningless range.
+
+**Detection / mitigation.** Overdispersion measured from the masked annual series; band method
+validated in [`premium_range`](../../notebooks/premium_range/outward_range_exploration.ipynb). **v1 by
+design — iterable** once the dashboard ships (negative-binomial, Bühlmann credibility, Bayesian
+Gamma-Poisson are documented alternatives). Engine returns `{low, point, high}` + a `band_driver` tag;
+never blends confidence with heterogeneity (`communicate_to_share`). Recommend **precomputing** the
+band in the pipeline (the bootstrap needs the per-year counts) and shipping it in the catalog.
+
+**Cited from.** [`07_outward_range.md`](../dicsscssion/dashboard_redesign/07_outward_range.md); learning log [`premium_range_clustering.md`](../learning_logs/premium_range_clustering.md); builds on the masked annual series from [A012](#a012--per-customer-exposure-uses-one-global-window-dilutes-partial-coverage-counties) / [A016](#a016--the-all-duration-coverage-mask-is-applied-as-a-proxy-for-t-specific-observability).

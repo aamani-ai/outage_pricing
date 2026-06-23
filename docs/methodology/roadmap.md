@@ -73,8 +73,8 @@ holdout years before it moves an active premium.
   reproducible, and audit-friendly.
 - **Current read:** keep this as the starting point even as better adjustment
   layers are added.
-- **Methodology:** [Pricing](pricing_methodology.md);
-  [County-Trigger Pricing fundamentals](fundamentals/county_trigger_pricing_fundamentals.md).
+- **Methodology:** [Pricing](cross_cutting/pricing_methodology.md);
+  [County-Trigger Pricing fundamentals](02_per_customer/county_trigger_pricing_fundamentals.md).
 
 ### Event catalog and modelability tiers - **done / active**
 
@@ -82,9 +82,9 @@ holdout years before it moves an active premium.
   labels counties Green / Amber / Red for modelability.
 - **Why it matters:** prevents the dashboard from treating weak historical
   evidence as fully quoteable evidence.
-- **Methodology:** [Event Catalog Creation](event_catalog_creation_methodology.md),
-  [Aggregation and Annualization](aggregation_and_annualization_methodology.md),
-  [Filtration](filtration_methodology.md).
+- **Methodology:** [Event Catalog Creation](01_eventization/event_catalog_creation_methodology.md),
+  [Aggregation and Annualization](02_per_customer/aggregation_and_annualization_methodology.md),
+  [Filtration](cross_cutting/filtration_methodology.md).
 
 ## 2. Basis-Risk Adjustments
 
@@ -99,8 +99,8 @@ sells. These are not climate forecasts. They are data-grain corrections.
   rates are not the same thing as per-policy expected loss.
 - **Current read:** done - discussed with the team and verified. This is the
   active headline rate in the dashboard.
-- **Plan:** [Per-Customer Pricing Plan](../plan/per_customer_pricing_plan.md).
-- **Walkthrough:** [Per-customer view - end-to-end](per_customer_view_walkthrough.md).
+- **Plan:** [Per-Customer Pricing Plan](../plan/02_per_customer/per_customer_pricing_plan.md).
+- **Walkthrough:** [Per-customer view - end-to-end](02_per_customer/per_customer_view_walkthrough.md).
 - **Model card:** [`customer_impact_v1`](../../curated_outage_data/model_cards/customer_impact_v1.md).
 
 ### Location basis risk - **under review**
@@ -111,7 +111,7 @@ sells. These are not climate forecasts. They are data-grain corrections.
   utility territory, feeder, vegetation, terrain, and restoration context.
 - **Current read:** design and pilot evidence are in; targeting completion this
   week. This is not active premium movement yet.
-- **Plan:** [Location Basis Risk Pre-Op Plan](../plan/location_basis_risk_preop_plan.md).
+- **Plan:** [Location Basis Risk Pre-Op Plan](../plan/04_location_basis/location_basis_risk_preop_plan.md).
 - **Design note:** [Location Basis Risk Design](../dicsscssion/location_aware_outage_pricing/03_location_basis_risk_design.md).
 
 ## 3. Forward-Regime Reads And Modifiers
@@ -144,9 +144,11 @@ models explain the observed pattern or whether a county remains review-only.
   trust the line, use a recent regime, keep the average, or require review.
 - **Pricing boundary:** shown as a pricing-read / shadow layer. It does not
   mutate active v0 premiums until category verification and holdout review pass.
-- **Methodology:** [Outage Predictability Pattern](fundamentals/outage_predictability_fundamentals.md);
-  [Lambda Shadow Pricing](fundamentals/lambda_shadow_pricing_fundamentals.md).
-- **Verification:** [Lambda Shadow Pricing Verification Plan](../plan/lambda_shadow_pricing_verification_plan.md).
+- **Methodology (current):** [Risk Clustering — Regime Classification](03_risk_clustering/README.md)
+  (the 5 outcomes + abstain reframe; supersedes the 7-shape predictability/lambda-shadow layer below).
+- **Superseded (context):** [Outage Predictability Pattern](03_risk_clustering/outage_predictability_fundamentals.md);
+  [Lambda Shadow Pricing](03_risk_clustering/lambda_shadow_pricing_fundamentals.md) — the lambda-shadow
+  price-move is now Step-5-gated; see [Verification Plan](../plan/03_risk_clustering/lambda_shadow_pricing_verification_plan.md).
 
 ### Grid condition - **work in progress**
 
@@ -157,7 +159,7 @@ models explain the observed pattern or whether a county remains review-only.
   fragmentation, ownership type, capex/opex and hardening signals.
 - **Current read:** work in progress. This is part of the advanced
   cause-attribution lane, but no active pricing modifier is ready.
-- **Plan:** [Forward-Looking Modeling Plan - Grid condition modifier](../plan/forward_looking_modeling_plan.md#grid-condition-modifier).
+- **Plan:** [Forward-Looking Modeling Plan - Grid condition modifier](../plan/05_forward_regime/forward_looking_modeling_plan.md#grid-condition-modifier).
 
 ### Hazard and weather - **work in progress**
 
@@ -167,8 +169,8 @@ models explain the observed pattern or whether a county remains review-only.
 - **Current read:** work in progress. This is the teammate-dependent hazard
   input and should plug into the pricing stack after the baseline and
   basis-risk layers are coherent.
-- **Plan:** [Forward-Looking Modeling Plan - Hazard modifier](../plan/forward_looking_modeling_plan.md#hazard-modifier);
-  [Adjustment Framework resource backlog](../plan/outage_baseline_adjustment_framework.md#resource-backlog-for-adjustment-work).
+- **Plan:** [Forward-Looking Modeling Plan - Hazard modifier](../plan/05_forward_regime/forward_looking_modeling_plan.md#hazard-modifier);
+  [Adjustment Framework resource backlog](../plan/cross_cutting/outage_baseline_adjustment_framework.md#resource-backlog-for-adjustment-work).
 
 ## 4. Trigger Alignment
 
@@ -185,8 +187,8 @@ policy would decide payout.
   contract pays against a different event definition.
 - **Current read:** option space framed; vendor diligence ahead. Implementation
   still needs a selected live oracle and overlap data.
-- **Plan:** [Trigger Source Options](../plan/trigger_source_options.md);
-  [Trigger Source Implications](../plan/trigger_source_implications.md).
+- **Plan:** [Trigger Source Options](../plan/cross_cutting/trigger_source_options.md);
+  [Trigger Source Implications](../plan/cross_cutting/trigger_source_implications.md).
 
 ## Parked Architectural Tracks
 
@@ -197,13 +199,13 @@ sequence.
 
 - **What it does:** prices portfolios of multiple policies with correlated
   outage loss, instead of treating each policy as standalone.
-- **Plan:** [Portfolio Risk Engine Plan](../plan/portfolio_risk_engine_plan.md).
+- **Plan:** [Portfolio Risk Engine Plan](../plan/05_forward_regime/portfolio_risk_engine_plan.md).
 
 ### Portfolio concentration handling - **parked**
 
 - **What it does:** handles tail/concentration risk as the book grows in hazard
   counties.
-- **Reference:** [Concentration and Portfolio Risk](concentration_and_portfolio_risk.md).
+- **Reference:** [Concentration and Portfolio Risk](cross_cutting/concentration_and_portfolio_risk.md).
 
 ## Current Priority
 

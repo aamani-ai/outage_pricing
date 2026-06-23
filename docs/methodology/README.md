@@ -7,6 +7,13 @@ detailed implementation specs that currently live next to the code
 `price_engine/plan/02_pricing_math.md`, `price_engine/ARCHITECTURE.md`,
 etc.) into a single, regulator-friendly reference.
 
+> **Start with the [end-to-end framework](../OUTAGE_MODELING_FRAMEWORK.md)** for the
+> whole pipeline at a glance. This folder is now organized into step subfolders —
+> `01_eventization/`, `02_per_customer/`, `03_risk_clustering/`,
+> `04_location_basis/`, `05_forward_regime/`, `cross_cutting/` — that mirror the
+> framework's five steps. The senior-brief reading order lives in
+> [`00_reading_order.md`](00_reading_order.md).
+
 ## What this folder is
 
 A canonical methodology reference. Each file describes one step of the
@@ -30,12 +37,12 @@ Read in pipeline order:
 
 | Step | File |
 |---|---|
-| 1. Data ingestion | [`data_ingestion_methodology.md`](data_ingestion_methodology.md) |
-| 2. Event catalog creation | [`event_catalog_creation_methodology.md`](event_catalog_creation_methodology.md) |
-| 3. Aggregation and annualization | [`aggregation_and_annualization_methodology.md`](aggregation_and_annualization_methodology.md) |
-| 4. Filtration (modelability tiers) | [`filtration_methodology.md`](filtration_methodology.md) |
-| 5. Pricing | [`pricing_methodology.md`](pricing_methodology.md) |
-| 6. Location basis | [`location_basis_methodology.md`](location_basis_methodology.md) |
+| 1. Data ingestion | [`data_ingestion_methodology.md`](01_eventization/data_ingestion_methodology.md) |
+| 2. Event catalog creation | [`event_catalog_creation_methodology.md`](01_eventization/event_catalog_creation_methodology.md) |
+| 3. Aggregation and annualization | [`aggregation_and_annualization_methodology.md`](02_per_customer/aggregation_and_annualization_methodology.md) |
+| 4. Filtration (modelability tiers) | [`filtration_methodology.md`](cross_cutting/filtration_methodology.md) |
+| 5. Pricing | [`pricing_methodology.md`](cross_cutting/pricing_methodology.md) |
+| 6. Location basis | [`location_basis_methodology.md`](04_location_basis/location_basis_methodology.md) |
 
 Cross-cutting:
 
@@ -45,18 +52,22 @@ Cross-cutting:
 
 Pedagogical walkthroughs (long-form, worked examples, nuance-surfaced):
 
-- [`per_customer_view_walkthrough.md`](per_customer_view_walkthrough.md)
+- **★ [`cross_cutting/end_to_end_worked_example.md`](cross_cutting/end_to_end_worked_example.md)
+  — one county (Honolulu, HI) traced through *every* step with real numbers (mask → λ(T) →
+  per-customer → regime → location → range → premium). The best single artifact for seeing how the
+  pipeline composes into one quote; also surfaces the cross-step windowing subtlety (A012/A016).**
+- [`per_customer_view_walkthrough.md`](02_per_customer/per_customer_view_walkthrough.md)
   — end-to-end walk through the per-customer shadow rate, step-by-step,
   with a worked Boone, MO example. Read this if you need to explain the
   per-customer view to a new team member, a stakeholder, or a regulator.
-- [`location_relativity_factor_derivation.md`](location_relativity_factor_derivation.md)
+- [`location_relativity_factor_derivation.md`](04_location_basis/location_relativity_factor_derivation.md)
   — audit appendix for the rural / mid / urban location relativity factors:
   why they are multiplicative, how the bucket ratios were derived, and which
   scripts and outputs reproduce the numbers.
 
 Strategic / market reference:
 
-- [`competitive_landscape.md`](competitive_landscape.md) — the
+- [`competitive_landscape.md`](cross_cutting/competitive_landscape.md) — the
   canonical reference for who else is in the parametric outage segment
   (Adaptive Insurance / GridProtect, Whisker Labs Ting, PowerOutage.US,
   adjacent-vertical proof points like Parametrix and Ki). How we
@@ -64,8 +75,9 @@ Strategic / market reference:
 
 ## Status
 
-All files in this folder were created as skeletons on **2026-05-30**.
-Each file's `Status` field at the top records its current maturity:
+Each file's `Status` field at the top records its current maturity (the four
+canonical how-to docs — data ingestion, aggregation, filtration, pricing —
+remain skeletons whose detail still lives in `price_engine/`):
 
 - `skeleton` — section headers exist but content is placeholder
 - `in-progress` — partially populated as the corresponding work executes

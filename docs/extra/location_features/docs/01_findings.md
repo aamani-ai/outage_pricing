@@ -176,5 +176,5 @@ a 30 m raster (a complex source) → it gets the full onboarding-notebook treatm
 ## Cross-references
 
 - Target build + size attribution: [`../../poweroutage_us/docs/06_findings.md`](../../poweroutage_us/docs/06_findings.md) sets 6–7.
-- Research plan + target definition: [`../../../plan/location_basis_research_plan.md`](../../../plan/location_basis_research_plan.md).
+- Research plan + target definition: [`../../../plan/location_basis_research_plan.md`](../../../plan/04_location_basis/location_basis_research_plan.md).
 - Spatial entity resolution (town↔county↔utility): [`../../poweroutage_us/docs/09_spatial_entity_resolution.md`](../../poweroutage_us/docs/09_spatial_entity_resolution.md).

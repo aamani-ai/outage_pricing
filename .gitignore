@@ -11,6 +11,10 @@ notebooks/outputs/
 docs/extra/outage_modeling_us/
 docs/extra/hazard_modeling/
 
+# Dashboard-rebuild reference symlinks (renewablesinfo web/principles, old dashboard).
+# Reference, NOT constraint — local-only pointers; never committed (repo is public).
+docs/extra/references/
+
 # Reproducible local EAGLE-I inputs and generated price-engine artifacts.
 price_engine/data/raw/
 price_engine/data/*.parquet
@@ -52,3 +56,13 @@ docs/extra/outage_data/
 # Deploy: written by CI from the MAPBOX_TOKEN Actions secret. Local dev: create
 # this file by hand. Never committed (repo is public; push protection blocks it).
 price_engine/dashboard/config.local.js
+
+# local dev scratch (notebook builders, throwaway analysis)
+scratchpad/
+
+# New dashboard app (P1+): deps, build output, local secrets — source is tracked, these are not.
+web/node_modules/
+web/.next/
+web/dist/
+web/coverage/
+web/config.local.js

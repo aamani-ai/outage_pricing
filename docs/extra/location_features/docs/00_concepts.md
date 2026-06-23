@@ -90,4 +90,4 @@ town (single-town colors are noisy in one quiet season).
 - The evidence: [`01_findings.md`](01_findings.md) (density vs size; canopy follow-up).
 - The shareable notebook: [`../analysis/notebooks/02_nlcd_canopy.ipynb`](../analysis/notebooks/02_nlcd_canopy.ipynb).
 - Why a "relativity" / how it composes with the other layers: [`../../../dicsscssion/location_aware_outage_pricing/03_location_basis_risk_design.md`](../../../dicsscssion/location_aware_outage_pricing/03_location_basis_risk_design.md).
-- Method + target definition: [`../../../plan/location_basis_research_plan.md`](../../../plan/location_basis_research_plan.md).
+- Method + target definition: [`../../../plan/location_basis_research_plan.md`](../../../plan/04_location_basis/location_basis_research_plan.md).

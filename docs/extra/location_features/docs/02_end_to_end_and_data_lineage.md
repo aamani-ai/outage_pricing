@@ -117,4 +117,4 @@ PoUS-free.
 - Shareable executed notebook: [`../analysis/notebooks/02_nlcd_canopy.ipynb`](../analysis/notebooks/02_nlcd_canopy.ipynb) (+ `.html`)
 - Map: [`../analysis/outputs/town_relativity_map.png`](../analysis/outputs/town_relativity_map.png)
 - Design + pricing stack: [`../../../dicsscssion/location_aware_outage_pricing/03_location_basis_risk_design.md`](../../../dicsscssion/location_aware_outage_pricing/03_location_basis_risk_design.md)
-- Method + target definition: [`../../../plan/location_basis_research_plan.md`](../../../plan/location_basis_research_plan.md)
+- Method + target definition: [`../../../plan/location_basis_research_plan.md`](../../../plan/04_location_basis/location_basis_research_plan.md)

@@ -11,7 +11,7 @@ features.
 > [`docs/02_end_to_end_and_data_lineage.md`](docs/02_end_to_end_and_data_lineage.md),
 > with the evidence in [`docs/01_findings.md`](docs/01_findings.md).
 
-Motivation and method: [`../../plan/location_basis_research_plan.md`](../../plan/location_basis_research_plan.md).
+Motivation and method: [`../../plan/location_basis_research_plan.md`](../../plan/04_location_basis/location_basis_research_plan.md).
 What we are predicting (the target): the mean-1 within-county relative-outage
 rate built in [`../poweroutage_us/docs/06_findings.md`](../poweroutage_us/docs/06_findings.md)
 (Finding sets 6–7). Step 2a already showed the within-county signal is
@@ -75,4 +75,4 @@ location_features/
 - Spatial entity resolution (why town↔county↔utility is tricky):
   [`../poweroutage_us/docs/09_spatial_entity_resolution.md`](../poweroutage_us/docs/09_spatial_entity_resolution.md)
 - Research plan & target definition:
-  [`../../plan/location_basis_research_plan.md`](../../plan/location_basis_research_plan.md)
+  [`../../plan/location_basis_research_plan.md`](../../plan/04_location_basis/location_basis_research_plan.md)

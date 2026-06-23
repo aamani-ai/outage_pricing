@@ -10,12 +10,12 @@ This note turns the location-basis-risk discussion into a concrete design
 track. It is meant to sit before implementation, not after it.
 
 Implementation companion:
-[`../../plan/location_basis_risk_preop_plan.md`](../../plan/location_basis_risk_preop_plan.md).
+[`../../plan/location_basis_risk_preop_plan.md`](../../plan/04_location_basis/location_basis_risk_preop_plan.md).
 
 ## Empirical Update — 2026-06-17 (Steps 1–2b of the research plan)
 
 The research plan
-([`../../plan/location_basis_research_plan.md`](../../plan/location_basis_research_plan.md))
+([`../../plan/location_basis_research_plan.md`](../../plan/04_location_basis/location_basis_research_plan.md))
 has produced its first results — findings in
 [`../../extra/poweroutage_us/docs/06_findings.md`](../../extra/poweroutage_us/docs/06_findings.md)
 sets 6–7 and
