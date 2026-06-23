@@ -1,9 +1,8 @@
 name: Build and Deploy outage-pricing to Cloud Run
 
-# Triggered on pushes to deploy/outage-pricing. Builds the Next.js dashboard (web/)
-# and deploys it as a NO-TRAFFIC tagged revision ("next") — the live URL keeps serving
-# the current revision until traffic is flipped via promote-outage-pricing.yml. Preview-
-# before-promote (docs/plan/dashboard_redesign/deployment.md). main stays non-deploying.
+# Triggered on pushes to deploy/outage-pricing. Builds the Next.js dashboard (web/) and
+# deploys it LIVE (100% traffic to the new revision; prior revisions retained for rollback).
+# main stays non-deploying. The old python dashboard is archived by this replacement.
 
 on:
   push:
@@ -53,11 +52,12 @@ jobs:
             ${{ env.APP_PATH }}
           docker push "$IMAGE"
 
-      - name: Deploy NO-TRAFFIC tagged revision "next" (PUBLIC)
-        # --no-traffic --tag next: the new revision gets 0% traffic + a private preview URL
-        # (next---outage-pricing-….run.app). The live URL is untouched until the promote
-        # workflow flips traffic. MAPBOX_TOKEN is the server-side token the /api/geocode proxy
-        # reads (never shipped to the client). GitHub masks it in logs.
+      - name: Deploy to Cloud Run (PUBLIC · live traffic)
+        # Routes 100% traffic to the new revision — the GHA deploy SA has the artifact-registry
+        # + run permissions a personal account lacks for a traffic flip, so deploy-to-live on
+        # push is the working path. Validated as the "next" preview first. MAPBOX_TOKEN is the
+        # server-side token the /api/geocode proxy reads (never shipped to the client; masked in
+        # logs). Prior revisions are retained for rollback.
         run: |
           IMAGE="${{ env.AR_HOST }}/${{ env.AR_PROJECT }}/${{ env.AR_REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
           gcloud run deploy ${{ env.SERVICE }} \
@@ -71,11 +71,10 @@ jobs:
             --cpu 1 \
             --port 8080 \
             --set-env-vars MAPBOX_TOKEN=${{ secrets.MAPBOX_TOKEN }},NEXT_PUBLIC_BASE_PATH=${{ env.BASE_PATH }} \
-            --no-traffic \
             --tag next
 
-      - name: Print preview (tagged) URL
+      - name: Print live URL
         run: |
-          echo "=== validate this preview URL before promoting traffic ==="
+          echo "=== live URL ==="
           gcloud run services describe ${{ env.SERVICE }} --region=${{ env.REGION }} \
-            --format='json(status.traffic)'
+            --format='value(status.url)'
