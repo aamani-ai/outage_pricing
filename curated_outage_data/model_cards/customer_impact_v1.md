@@ -10,13 +10,13 @@
 - **Version:** `2026-05-30`
 - **Owner:** modeling
 - **Lifecycle category:** bias-correction (per
-  [adjustment framework](../../docs/plan/outage_baseline_adjustment_framework.md#modifier-lifecycle))
+  [adjustment framework](../../docs/plan/cross_cutting/outage_baseline_adjustment_framework.md#modifier-lifecycle))
 - **Last reviewed:** 2026-05-30
 
 ## What this model is
 
 > **Pedagogical reference:** the nuance-by-nuance walkthrough lives at
-> [`docs/methodology/per_customer_view_walkthrough.md`](../../docs/methodology/per_customer_view_walkthrough.md).
+> [`docs/methodology/per_customer_view_walkthrough.md`](../../docs/methodology/02_per_customer/per_customer_view_walkthrough.md).
 > Read that file alongside this card when you need to explain to anyone
 > what each step in the chain represents and what the modelling
 > tradeoffs are.
@@ -40,7 +40,7 @@ Formal specification: [A009](../../docs/methodology/assumptions.md#a009--per-cus
 
 - Not a per-location / per-premise factor. That is Path B of the master plan
   and requires a trigger-source bridge (see
-  [`docs/plan/trigger_source_implications.md`](../../docs/plan/trigger_source_implications.md)).
+  [`docs/plan/trigger_source_implications.md`](../../docs/plan/cross_cutting/trigger_source_implications.md)).
 - Not a forward-looking adjustment (climate, grid, hazard). Those overlays
   stack multiplicatively *on top of* a customer-aware baseline; this card is
   about getting the baseline right first.
@@ -166,11 +166,11 @@ of this date. Terminal state of the per-customer pricing plan is
 
 The activation checklist below is satisfied. The bias-correction
 lifecycle pattern recorded in
-[the adjustment framework](../../docs/plan/outage_baseline_adjustment_framework.md#modifier-lifecycle)
+[the adjustment framework](../../docs/plan/cross_cutting/outage_baseline_adjustment_framework.md#modifier-lifecycle)
 treats external validation as **refinement** (not a hard gate) when a
 data constraint is documented in the assumptions registry, as A011 now
 is. The full reasoning lives in
-[the walkthrough's "One assumption you must read" section](../../docs/methodology/per_customer_view_walkthrough.md#the-one-assumption-you-must-read--a011).
+[the walkthrough's "One assumption you must read" section](../../docs/methodology/02_per_customer/per_customer_view_walkthrough.md#the-one-assumption-you-must-read--a011).
 
 ## Activation checklist (status at graduation)
 

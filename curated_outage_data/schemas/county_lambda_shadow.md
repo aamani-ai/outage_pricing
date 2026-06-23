@@ -95,4 +95,4 @@ main pricing matrix remains v0 unless/until this shadow method is promoted.
 
 - Predictability schema: [`county_predictability.md`](county_predictability.md)
 - Trend schema: [`county_yearly_trend.md`](county_yearly_trend.md)
-- Fundamentals: [`docs/methodology/fundamentals/outage_predictability_fundamentals.md`](../../docs/methodology/fundamentals/outage_predictability_fundamentals.md)
+- Fundamentals: [`docs/methodology/fundamentals/outage_predictability_fundamentals.md`](../../docs/methodology/03_risk_clustering/outage_predictability_fundamentals.md)

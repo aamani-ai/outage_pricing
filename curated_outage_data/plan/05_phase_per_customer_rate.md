@@ -4,7 +4,7 @@ This file is a **thin hook** that pulls the per-customer-rate work into the
 `curated_outage_data/` phase plan. The master plan and the canonical
 sequencing live elsewhere:
 
-- **Master plan:** [`docs/plan/per_customer_pricing_plan.md`](../../docs/plan/per_customer_pricing_plan.md)
+- **Master plan:** [`docs/plan/per_customer_pricing_plan.md`](../../docs/plan/02_per_customer/per_customer_pricing_plan.md)
 - **Schema:** [`schemas/per_customer_lambda.md`](../schemas/per_customer_lambda.md)
 - **Pipeline:** [`pipelines/per_customer_rate/`](../pipelines/per_customer_rate/)
 - **Model card:** [`model_cards/customer_impact_v1.md`](../model_cards/customer_impact_v1.md)

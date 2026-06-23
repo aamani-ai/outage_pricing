@@ -1,6 +1,6 @@
 # `per_customer_rate/` — Pipeline
 
-Phase 2 of the [Per-Customer Pricing Plan](../../../docs/plan/per_customer_pricing_plan.md).
+Phase 2 of the [Per-Customer Pricing Plan](../../../docs/plan/02_per_customer/per_customer_pricing_plan.md).
 Emits the per-customer shadow rate alongside the v0 county-trigger rate, per
 catalog. Does not modify v0 pricing.
 

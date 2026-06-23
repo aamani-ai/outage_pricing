@@ -153,6 +153,6 @@ The JSON payload includes a per-FIPS `summary` object:
 ## Cross-References
 
 - Trend schema: [`county_yearly_trend.md`](county_yearly_trend.md)
-- Fundamentals: [`docs/methodology/fundamentals/outage_predictability_fundamentals.md`](../../docs/methodology/fundamentals/outage_predictability_fundamentals.md)
+- Fundamentals: [`docs/methodology/fundamentals/outage_predictability_fundamentals.md`](../../docs/methodology/03_risk_clustering/outage_predictability_fundamentals.md)
 - Shadow pricing schema: [`county_lambda_shadow.md`](county_lambda_shadow.md)
 - Pipeline: `curated_outage_data/pipelines/county_predictability/compute_county_predictability.py`

@@ -129,6 +129,6 @@ When a year is missing or partial, the count is `null`, not zero:
 
 ## Cross-references
 
-- Methodology: [`docs/methodology/fundamentals/outage_trend_fundamentals.md`](../../docs/methodology/fundamentals/outage_trend_fundamentals.md)
+- Methodology: [`docs/methodology/fundamentals/outage_trend_fundamentals.md`](../../docs/methodology/03_risk_clustering/outage_trend_fundamentals.md)
 - Roadmap: forward-regime modifier section in [`docs/methodology/roadmap.md`](../../docs/methodology/roadmap.md)
-- Forward modifier plan: [`docs/plan/forward_looking_modeling_plan.md`](../../docs/plan/forward_looking_modeling_plan.md)
+- Forward modifier plan: [`docs/plan/forward_looking_modeling_plan.md`](../../docs/plan/05_forward_regime/forward_looking_modeling_plan.md)

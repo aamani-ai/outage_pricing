@@ -2,7 +2,7 @@
 
 Per-(FIPS, T, catalog) shadow rate for per-customer expected outage frequency,
 emitted by Phase 2 of the
-[Per-Customer Pricing Plan](../../docs/plan/per_customer_pricing_plan.md).
+[Per-Customer Pricing Plan](../../docs/plan/02_per_customer/per_customer_pricing_plan.md).
 
 This artifact lives **outside** `price_engine/` and does not modify v0 pricing.
 
@@ -136,8 +136,8 @@ documents the exact check.
 
 ## Cross-references
 
-- [Per-Customer Pricing Plan](../../docs/plan/per_customer_pricing_plan.md)
-- [Pricing Methodology](../../docs/methodology/pricing_methodology.md)
+- [Per-Customer Pricing Plan](../../docs/plan/02_per_customer/per_customer_pricing_plan.md)
+- [Pricing Methodology](../../docs/methodology/cross_cutting/pricing_methodology.md)
 - [Assumptions registry](../../docs/methodology/assumptions.md) (A004, A005, A008, A009, A010)
 - Pipeline: [`../pipelines/per_customer_rate/`](../pipelines/per_customer_rate/)
 - Model card: [`../model_cards/customer_impact_v1.md`](../model_cards/customer_impact_v1.md)

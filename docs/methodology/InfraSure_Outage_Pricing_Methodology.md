@@ -92,10 +92,11 @@ county-event rate. The conversion from the county rate to the customer rate is a
 > a one-line note. It is plumbing that corrects the public data's grain — **not** a
 > client-facing pricing layer.
 
-**Worked anchor (illustrative).** Alachua County, FL · T = 4h · X = $500:
-county event rate λ_county ≈ 307/yr → customer-level λ ≈ 0.20/yr → pure ≈ $100/yr →
-**retail ≈ $154/yr**. The customer retail lands in a commercially sensible band
+**Worked anchor.** Alachua County, FL · T = 4h · X = $500 (eagle-i-45min, mean estimator):
+county event rate λ_county ≈ 307/yr → customer-level λ ≈ 0.102/yr → pure ≈ $51/yr →
+**retail ≈ $79/yr**. The customer retail lands in a commercially sensible band
 (~$10–300/yr depending on cell), which is the whole point of working at customer grain.
+*(Reconciled 2026-06-23 to the live computed catalog; an earlier round illustration showed ≈$154.)*
 
 **Guardrails.** Modelability tiers gate credibility — green quotes, amber quotes with a
 caution band, red is suppressed.

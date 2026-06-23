@@ -10,7 +10,7 @@ This folder holds phase plans for the curated outage data workstream.
 | 1 | Cause attribution | Enrich outage events with likely cause labels and evidence. | Next |
 | 2 | Grid condition features | Build utility, capex, reliability, and infrastructure-context features. | Parked |
 | 3 | Forward-looking modeling support | Prepare modeling-ready targets/features for future risk adjustment. | Parked |
-| Hook | [Per-customer shadow rate](05_phase_per_customer_rate.md) | Implementation hook for the customer-impact bias correction track. **Master plan:** [`docs/plan/per_customer_pricing_plan.md`](../../docs/plan/per_customer_pricing_plan.md). | **Active — Phase 2 closed 2026-05-30** |
+| Hook | [Per-customer shadow rate](05_phase_per_customer_rate.md) | Implementation hook for the customer-impact bias correction track. **Master plan:** [`docs/plan/per_customer_pricing_plan.md`](../../docs/plan/02_per_customer/per_customer_pricing_plan.md). | **Active — Phase 2 closed 2026-05-30** |
 
 ## Files
 

@@ -139,7 +139,7 @@ tripped up, and a reminder that A012/A016 are live simplifications to revisit.
 
 ```text
   mask        eventization_frequency_contract/05_source_coverage_mask.md (+ worked example there)
-  per-cust    02_per_customer/per_customer_view_walkthrough.md (Alachua anchor → ≈$154)
+  per-cust    02_per_customer/per_customer_view_walkthrough.md (Boone MO; Alachua county λ=307 → customer retail ≈$79 @4h/$500, live catalog)
   regime      03_risk_clustering/regime_classification_methodology.md (Cherry NE, Baldwin AL)
   location    04_location_basis/location_relativity_factor_derivation.md
   range       learning_logs/premium_range_clustering.md

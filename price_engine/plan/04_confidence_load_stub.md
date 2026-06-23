@@ -92,7 +92,7 @@ Margin (10%)               $ 30.77
 Retail premium             $307.69
 ```
 
-In v0 the row is visible with `$0.00` and a tooltip "Uncertainty load deferred to v0.5 — see [`04_confidence_load_stub.md`](../plan/04_confidence_load_stub.md)." This is deliberate. It tells viewers (insurance team especially) that this dial exists and is coming, so the v0 number is not yet a defensible market price — it is a *baseline* that still needs an uncertainty layer.
+In v0 the row is visible with `$0.00` and a tooltip "Uncertainty load deferred to v0.5 — see [`04_confidence_load_stub.md`](04_confidence_load_stub.md)." This is deliberate. It tells viewers (insurance team especially) that this dial exists and is coming, so the v0 number is not yet a defensible market price — it is a *baseline* that still needs an uncertainty layer.
 
 ## Why this matters for v0 even though we don't implement it
 

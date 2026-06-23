@@ -138,7 +138,7 @@ v0 engine prices on event frequency and duration only.
 
 These fields are reserved for the planned
 `customer_impact_modifier` described in
-[`docs/plan/outage_baseline_adjustment_framework.md`](../../docs/plan/outage_baseline_adjustment_framework.md#customer-impact-modifier).
+[`docs/plan/outage_baseline_adjustment_framework.md`](../../docs/plan/cross_cutting/outage_baseline_adjustment_framework.md#customer-impact-modifier).
 Any move to use them in pricing must follow the activation rules in that
 document.
 

@@ -99,7 +99,7 @@ The `min_customers` field is preserved on every event row, so anyone who later w
 The `min_customers`, `max_customers`, `mean_customers`, and derived
 `peak_out_pct_mcc` fields are the data primitives for the planned
 `customer_impact_modifier`. See
-[`docs/plan/outage_baseline_adjustment_framework.md`](../../docs/plan/outage_baseline_adjustment_framework.md#customer-impact-modifier)
+[`docs/plan/outage_baseline_adjustment_framework.md`](../../docs/plan/cross_cutting/outage_baseline_adjustment_framework.md#customer-impact-modifier)
 for placement, activation rules, and rollout path. They are not used in v0
 pricing.
 

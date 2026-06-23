@@ -66,3 +66,4 @@ web/.next/
 web/dist/
 web/coverage/
 web/config.local.js
+web/.env*.local

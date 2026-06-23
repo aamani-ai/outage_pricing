@@ -69,13 +69,31 @@ Per county, the yearly count of qualifying **≥8h** outage events, 2015–2025,
 
  INSUFFICIENT   we can't confidently type it — the honest abstention (NOT a behavior). reasons:
     short-history  too few observed years        ·  low-volume  too few events (a ratio of ~nothing)
-    recent-change  a jump/surge in the last 1–2 yrs — too new to call trend vs shift vs one-off
+    recent-change  a level move (up OR down) in the last 1–2 observed yrs — too new to call trend/shift/one-off
            → we say so rather than force-fit a wrong label. ~11% of counties land here.
 ```
 
 > **The reframe that makes the labels true: ABSTAIN, don't force.** For thin / near-zero /
-> recently-changed counties the rule logic isn't wrong — the *data* can't support a label, so the
-> honest output is `insufficient` (with a reason), which protects the labels that genuinely hold.
+> recently-changed counties the rule logic isn't wrong — the *evidence* can't yet support a label
+> (too little data, or too recent a change), so the honest output is `insufficient` (with a reason),
+> which protects the labels that genuinely hold.
+
+> **Two faces of the abstention — they must NOT read the same to an underwriter.** `insufficient`
+> lumps two situations that mean opposite things:
+>
+> ```text
+>   sparse data    short-history · low-volume   genuinely too little to say          (~219 counties)
+>   recent-change  data-RICH, a recent move     ample history (median ~183 ≥8h events;
+>                  too new to type yet           Middlesex MA = 2,282) — it's the RECENCY,
+>                                                not the data volume, that blocks a label   (~125)
+> ```
+>
+> The bare word "insufficient" implies *no data* — right for the first, badly misleading for the second.
+> **Surfacing rule (dashboard + any carrier-facing output): show the reason, never the bare label.** The
+> dashboard renders `recent-change` as **"Recent change"** (data-rich, recently moved — weigh the long-run
+> average with care; check a real change vs a reporting taper near the present) and
+> `short-history` / `low-volume` as **"Insufficient data"** (sparse). The classifier logic and the
+> `insufficient` schema label are **unchanged** — this is a communication rule, not a regime change.
 
 `shift` absorbs the old `recent`/`step` pair — behaviorally both are "the county moved to a new
 level"; *which* forecaster to use (3-yr-mean vs last-value) is a Step-5 question, kept here only as

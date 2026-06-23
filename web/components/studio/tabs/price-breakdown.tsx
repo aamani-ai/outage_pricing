@@ -1,0 +1,207 @@
+"use client";
+
+import { useMemo } from "react";
+import { ArrowRight } from "lucide-react";
+import type { EChartsOption } from "echarts";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { InfoHint } from "@/components/ui/info-hint";
+import { EChart, tooltipStyle, useChartColors } from "@/components/charts/echart";
+import { usd, pct, type Stack, type StudioData, type StudioTab } from "@/components/studio/shared";
+
+export function PriceBreakdownTab({
+  data,
+  stack,
+  T,
+  X,
+  ER,
+  TM,
+  onNavigate,
+}: {
+  data: StudioData;
+  stack: NonNullable<Stack>;
+  T: number;
+  X: number;
+  ER: number;
+  TM: number;
+  onNavigate: (tab: StudioTab) => void;
+}) {
+  const c = useChartColors();
+  const cell = data.county.T[String(T)];
+
+  // pure-risk decomposition (baseline × location × forward → additive $ buckets) + exact dollar split
+  const baseLam = cell?.lam ?? 0;
+  const locF = stack.location.relativity;
+  const retail = stack.premium.point;
+  const retailR = Math.round(retail);
+  const pureR = Math.round(stack.pure);
+  const baselineR = Math.round(baseLam * X);
+  const locR = Math.round(baseLam * (locF - 1) * X);
+  const fwdR = pureR - baselineR - locR; // residual keeps the pure-risk buckets summing to pureR
+  const loadR = Math.max(0, retailR - pureR);
+  const expR = ER + TM > 0 ? Math.round((loadR * ER) / (ER + TM)) : 0;
+  const mgnR = loadR - expR;
+
+  const waterfall = useMemo<EChartsOption>(() => {
+    const cats = ["Pure risk", "+ Expenses", "+ Margin", "Retail"];
+    const lbl = (idx: number, val: number) => ({
+      show: true,
+      position: "top" as const,
+      color: c.text,
+      fontSize: 10,
+      formatter: (p: { dataIndex: number }) => (p.dataIndex === idx ? usd(val) : ""),
+    });
+    return {
+      grid: { left: 6, right: 12, top: 16, bottom: 34, containLabel: true },
+      legend: {
+        data: ["Baseline", "Location", "Forward", "Expenses", "Margin", "Retail"],
+        bottom: 0,
+        icon: "roundRect",
+        itemWidth: 9,
+        itemHeight: 9,
+        selectedMode: false,
+        textStyle: { color: c.text, fontSize: 11 },
+      },
+      tooltip: { trigger: "item", valueFormatter: (v) => usd(Number(v)), ...tooltipStyle(c) },
+      xAxis: {
+        type: "category",
+        data: cats,
+        axisTick: { show: false },
+        axisLine: { lineStyle: { color: c.axis } },
+        axisLabel: { color: c.text, fontSize: 11 },
+      },
+      yAxis: {
+        type: "value",
+        axisLabel: { color: c.sub, fontSize: 10, formatter: (v: number) => `$${v}` },
+        splitLine: { lineStyle: { color: c.grid } },
+      },
+      series: [
+        { name: "base", type: "bar", stack: "t", silent: true, itemStyle: { color: "transparent" }, data: [0, pureR, pureR + expR, 0] },
+        { name: "Baseline", type: "bar", stack: "t", barWidth: "52%", itemStyle: { color: c.bar }, data: [baselineR, 0, 0, 0] },
+        { name: "Location", type: "bar", stack: "t", barWidth: "52%", itemStyle: { color: c.loc }, data: [locR, 0, 0, 0] },
+        { name: "Forward", type: "bar", stack: "t", barWidth: "52%", itemStyle: { color: c.fwd }, data: [fwdR, 0, 0, 0], label: lbl(0, pureR) },
+        { name: "Expenses", type: "bar", stack: "t", barWidth: "52%", itemStyle: { color: c.barSoft }, data: [0, expR, 0, 0], label: lbl(1, expR) },
+        { name: "Margin", type: "bar", stack: "t", barWidth: "52%", itemStyle: { color: c.amber }, data: [0, 0, mgnR, 0], label: lbl(2, mgnR) },
+        { name: "Retail", type: "bar", stack: "t", barWidth: "52%", itemStyle: { color: c.green }, data: [0, 0, 0, retailR], label: lbl(3, retailR) },
+      ],
+    };
+  }, [c, baselineR, locR, fwdR, expR, mgnR, pureR, retailR]);
+
+  const factors = [
+    {
+      label: `Baseline λ_customer (${T}h)`,
+      val: `${cell?.lam.toFixed(3)} /yr`,
+      status: stack.baseline.status,
+      note: "per-customer annual frequency",
+      tab: "baseline" as StudioTab,
+      cta: "Baseline",
+    },
+    {
+      label: "× Location (within-county)",
+      val: `×${stack.location.relativity.toFixed(2)}`,
+      status: stack.location.status,
+      note: stack.location.relativity === 1 ? "not yet applied" : "adjusted",
+      tab: "adjusters" as StudioTab,
+      cta: "Adjusters",
+    },
+    {
+      label: "× Forward (climate + grid)",
+      val: `×${stack.forward.factor.toFixed(2)}`,
+      status: stack.forward.status,
+      note: stack.forward.factor === 1 ? "not yet plugged in" : "adjusted",
+      tab: "adjusters" as StudioTab,
+      cta: "Adjusters",
+    },
+  ];
+
+  return (
+    <div className="space-y-5">
+      {/* factor build-up — multiplicative chain into pure premium */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-sm">Factor build-up</CardTitle>
+              <CardDescription>baseline → location → forward → pure premium</CardDescription>
+            </div>
+            <InfoHint title="How the premium is built">
+              <p>
+                We start from the county&rsquo;s per-customer outage frequency (the <b>baseline</b> λ), apply the
+                within-county <b>location</b> factor and the <b>forward</b> (climate + grid) factor, multiply by the
+                payout, then divide by (1 − expenses − margin).
+              </p>
+              <p>
+                Each pill shows how solid that input is — <b>active</b> (in the price today), <b>modeled</b> (an
+                estimate), <b>placeholder</b> (not plugged in yet, shown at 1.00×). Open a row to see its evidence.
+              </p>
+            </InfoHint>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-0">
+          {factors.map((row) => (
+            <div key={row.label} className="border-border/60 flex items-center justify-between gap-3 border-b py-2.5 text-sm">
+              <span className="text-foreground/80 min-w-0">
+                {row.label}
+                <span className="text-muted-foreground/60 text-xs"> · {row.note}</span>
+              </span>
+              <div className="flex shrink-0 items-center gap-3">
+                <span className="text-muted-foreground tabular-nums">{row.val}</span>
+                <StatusBadge status={row.status} />
+                <button
+                  type="button"
+                  onClick={() => onNavigate(row.tab)}
+                  className="text-primary hover:bg-muted inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs"
+                >
+                  {row.cta} <ArrowRight className="size-3" />
+                </button>
+              </div>
+            </div>
+          ))}
+          <div className="flex items-center justify-between py-2.5 text-sm">
+            <span className="text-foreground/80">
+              Pure premium = adjusted λ × {usd(X)}
+            </span>
+            <span className="tabular-nums">{usd(stack.pure)}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* dollar waterfall — pure → expenses → margin → retail (ECharts, hover for values) */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-sm">Where the premium goes</CardTitle>
+              <CardDescription>pure risk grossed up to the retail premium · hover any bar</CardDescription>
+            </div>
+            <InfoHint title="Pure · expenses · margin">
+              <p>
+                The pure risk cost (expected payouts) is grossed up by an <b>expenses</b> load and a{" "}
+                <b>target margin</b> to the retail premium.
+              </p>
+              <p>
+                Expense ratio and margin are platform-wide — set them in <b>Settings</b>. (Currently {pct(ER)} /{" "}
+                {pct(TM)}.)
+              </p>
+            </InfoHint>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-3 flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1">
+            <span className="text-muted-foreground text-sm">Annual premium</span>
+            <span className="text-base font-semibold tabular-nums">{usd(retail)}</span>
+            {stack.bandDriver !== "none" && (
+              <span className="text-muted-foreground text-xs tabular-nums">
+                · likely {usd(stack.premium.low)}–{usd(stack.premium.high)} ·{" "}
+                <button type="button" onClick={() => onNavigate("baseline")} className="text-primary hover:underline">
+                  why?
+                </button>
+              </span>
+            )}
+          </div>
+          <EChart option={waterfall} height={260} />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

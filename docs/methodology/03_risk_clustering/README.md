@@ -68,6 +68,14 @@ A significance-gated rule tree, **defaulting to `stable`**, applied to each coun
 data earns it — stable, trending, shifted, or storm-spiked — and we say "insufficient" (with the
 reason) when it doesn't. It's an identity, not a forecast, and it moves no price.*
 
+> **Surfacing note (docs ↔ dashboard consistency).** `insufficient` has two faces that must not read the
+> same: `low-volume` / `short-history` are genuinely **sparse**, but `recent-change` is **data-rich**
+> (median ~183 ≥8h events; e.g. Middlesex MA = 2,282) — the recency, not the data, blocks a label. The
+> bare word "insufficient" implies *no data* and misleads on `recent-change`. Rule: **show the reason,
+> never the bare label.** The dashboard renders `recent-change` as **"Recent change"** and the sparse
+> ones as **"Insufficient data."** Classifier logic + schema label are unchanged — communication only.
+> Full callout: [methodology §3](regime_classification_methodology.md).
+
 ## Cross-references
 
 | | |
