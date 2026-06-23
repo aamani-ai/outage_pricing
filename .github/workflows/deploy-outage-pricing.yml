@@ -73,8 +73,16 @@ jobs:
             --set-env-vars MAPBOX_TOKEN=${{ secrets.MAPBOX_TOKEN }},NEXT_PUBLIC_BASE_PATH=${{ env.BASE_PATH }} \
             --tag next
 
-      - name: Print live URL
+      - name: Route 100% traffic to the new revision
+        # Earlier --no-traffic deploys pinned traffic to a specific (old) revision, so a plain
+        # deploy won't auto-migrate. --to-latest forces 100% onto the just-deployed revision and
+        # restores auto-migration going forward. The GHA deploy SA is authorized for this.
+        run: |
+          gcloud run services update-traffic ${{ env.SERVICE }} --region ${{ env.REGION }} --to-latest
+
+      - name: Print live URL + traffic split
         run: |
           echo "=== live URL ==="
-          gcloud run services describe ${{ env.SERVICE }} --region=${{ env.REGION }} \
-            --format='value(status.url)'
+          gcloud run services describe ${{ env.SERVICE }} --region=${{ env.REGION }} --format='value(status.url)'
+          echo "=== traffic split ==="
+          gcloud run services describe ${{ env.SERVICE }} --region=${{ env.REGION }} --format='value(status.traffic)'
