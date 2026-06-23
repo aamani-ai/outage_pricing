@@ -42,22 +42,16 @@ jobs:
       - name: Configure Docker for GAR
         run: gcloud auth configure-docker ${{ env.AR_HOST }} --quiet
 
-      - name: Setup pack CLI
-        uses: buildpacks/github-actions/setup-pack@v5.0.0
-
-      - name: Build and push image (Next.js · Node)
-        # builder-jammy-FULL: the Node buildpack needs libatomic (the -base gotcha).
-        # BP_NODE_RUN_SCRIPTS=build runs `next build`; NEXT_PUBLIC_BASE_PATH bakes the
-        # /dashboard basePath at build so the public URL stays …run.app/dashboard/.
-        # Launch comes from web/Procfile (`web: npm run start` → next start, binds $PORT).
+      - name: Build and push image (Next.js · Docker)
+        # Dockerfile (not buildpacks): Turbopack's `next build` rejects the buildpack's
+        # symlinked node_modules. NEXT_PUBLIC_BASE_PATH bakes the /dashboard basePath at build.
         run: |
           IMAGE="${{ env.AR_HOST }}/${{ env.AR_PROJECT }}/${{ env.AR_REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
-          pack build "$IMAGE" \
-            --builder paketobuildpacks/builder-jammy-full \
-            --path ${{ env.APP_PATH }} \
-            --env BP_NODE_RUN_SCRIPTS=build \
-            --env NEXT_PUBLIC_BASE_PATH=${{ env.BASE_PATH }} \
-            --publish
+          docker build \
+            --build-arg NEXT_PUBLIC_BASE_PATH=${{ env.BASE_PATH }} \
+            -t "$IMAGE" \
+            ${{ env.APP_PATH }}
+          docker push "$IMAGE"
 
       - name: Deploy NO-TRAFFIC tagged revision "next" (PUBLIC)
         # --no-traffic --tag next: the new revision gets 0% traffic + a private preview URL
