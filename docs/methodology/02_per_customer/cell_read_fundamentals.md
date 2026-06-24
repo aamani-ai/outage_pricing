@@ -45,20 +45,24 @@ This is Chris's question. It reads the **shape** of the county's outages to say 
 built-in margin the price carries — and crucially, *where* that margin thins out. Two layers:
 
 ```text
- (1) CUSHION LEVEL — absolute, by duration: how much built-in over-statement (A011) is here
-       short T (2h / 4h)   ->  runs close   ->  VERIFY ("are we undercutting short?")
-       mid                 ->  some cushion
-       long  T (8h / 12h+) ->  well-cushioned       ->  conservative (mean over-states ~2-3x)
+ (1) CUSHION LEVEL — established ONLY where it is robust, gated by trigger duration:
+       short T (2h / 4h)   ->  NOT ESTABLISHED   ->  VERIFY (we make no cushion claim here)
+       long  T (8h / 12h+) ->  well-cushioned    ->  conservative (mean over-states ~2-3x)
 
- (2) CUSHION TILT — within-T vs peers (secondary, for cross-county comparison):
+ (2) CUSHION TILT — within-T vs peers (secondary analyst detail, long T only):
        spikier than peers -> extra cushion · typical -> no lean · flatter -> less cushion
 ```
 
-**The LEVEL is the part that answers Chris.** The conservatism is real but **not uniform**:
-strongest at long durations, thinnest at 2h / 4h — exactly the zone he worried we might
-undercut. (Nationally: at 2h, ~71% of cells run close; by 8h, 93%+ carry at least mild
-cushion; at 24h, 91% strong.) So the read says *"we're conservative, and here is precisely
-where that breaks down."* The TILT is a secondary "which county stands out at this duration."
+**Why a hard duration gate, not a peak/mean band.** `peak_to_mean` is *duration-blind*: one event
+can carry a high peak/mean yet, at a short trigger, hide a broad short-duration plateau that the
+full-event MEAN (what we price) dilutes — so a high peak/mean can mean *less* conservatism at 2h/4h,
+not more. It reads cleanly as cushion only at long durations. So at short triggers we make **no
+cushion claim** — the read shows **"not established · verify"** — matching our own
+[duration-conservatism analysis](../../../notebooks/01_eventization/duration_conservatism_analysis.ipynb)
+("2–4h: thin + timing-sensitive → verify, don't lead"). The rigorous short-trigger frequency
+(recovering the within-event duration shape — a load-duration view — from the 15-min path) is a
+**deliberate, deferred build**; we lead with longer triggers until the business needs short ones.
+The TILT is a secondary "which county stands out at this duration," long-T only.
 
 The two axes are deliberately **different questions**: TRUST = how much to believe it;
 POSTURE = how conservative it is (LEVEL) and how it compares to peers (TILT). **Posture
@@ -73,8 +77,11 @@ never moves the price by itself** — it tells the underwriter where the margin 
    C_evt      λ_county spread across the 30/45/60-min catalogs  (stable -> high)
 
  POSTURE, from the cell's median peak_to_mean (= max/mean per event):
-   cushion LEVEL = absolute band:  p2m_med >= 3 well-cushioned · >= 1.5 some cushion · else runs close
-   cushion TILT  = within-T percentile:  <=40th flatter · >=60th spikier · else typical
+   cushion LEVEL = GATED by trigger duration (peak/mean is duration-blind, so it only licenses
+                   a cushion claim at long T):
+       T >= 8h  ->  p2m_med >= 3 well-cushioned · >= 1.5 some cushion · else runs close
+       T <  8h  ->  "not established" (route Verify) — no cushion claim; rigorous read deferred
+   cushion TILT  = within-T percentile (long T only):  <=40th flatter · >=60th spikier · else typical
    reported alongside, NOT scored: mm_ratio (mean/median), pct_mcc_p90/p99, coverage_gate
 ```
 
@@ -109,7 +116,7 @@ never moves the price by itself** — it tells the underwriter where the margin 
 
 - **TRUST = how much to believe it; POSTURE = how conservative it is, and where that breaks down.**
 - **TRUST is weakest-link** of coverage / volume / stability — one bad check caps it.
-- **POSTURE LEVEL answers Chris:** conservative at long durations, thinnest cushion at 2h/4h (the verify zone). **TILT** is the secondary "spikier/flatter than peers."
+- **POSTURE LEVEL answers Chris:** we claim a conservative cushion **only at long triggers (≥8h)**; short triggers (2–4h) read **"not established · verify"** — the priced mean is duration-blind there, and the rigorous short-trigger read is a deliberate, deferred build. **TILT** is the secondary "spikier/flatter than peers" (long T only).
 - **It explains and routes; it never moves the price.**
 
 ## References

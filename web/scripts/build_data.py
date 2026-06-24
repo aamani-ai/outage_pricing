@@ -107,21 +107,33 @@ def main() -> None:
     )
     cr["fips"] = cr["fips"].str.zfill(5)
 
+    # Posture surfaces a cushion claim ONLY where it is established. Our duration-conservatism
+    # analysis shows the A011 cushion is robust at long triggers (>=8h) but THIN + timing-sensitive
+    # at 2-4h, where the priced event-MEAN is duration-blind: a broad short plateau can be diluted
+    # by a long thin tail, so peak/mean cannot establish a cushion. At short triggers we therefore
+    # make NO cushion claim -> level "not established", route "Verify" (lead with longer triggers).
+    # The rigorous short-trigger treatment (within-event load-duration recovery from the 15-min
+    # path) is a deliberate, deferred build. Posture never moves the price. See cell_read_fundamentals.md.
+    CUSHION_ESTABLISHED_MIN_T = 8
+
     def route(trust, level, gate):
         if gate == "not_available" or trust == "Thin":
             return "Suppress"
-        if trust == "Strong" and level == "runs close":
-            return "Verify"  # the short-T undercut zone Chris flagged
         if trust == "Medium":
             return "Caveat"
         return "Quote"
 
     cell = {}
     for _, r in cr.iterrows():
-        T = str(int(r["T"]))
+        Ti = int(r["T"])
+        T = str(Ti)
         pcc = pc.get(str(int(r["fips"])))
         e = pcc.get(T) if pcc else None
         trust, level = clean(r["trust_lbl"]), clean(r["cushion_level"])
+        rt = route(trust, level, clean(r["coverage_gate_status"]))
+        if Ti < CUSHION_ESTABLISHED_MIN_T and rt != "Suppress":
+            level = "not established"  # duration-blind read can't claim a cushion at short triggers
+            rt = "Verify"
         mmv = float(r["mm_ratio"]) if pd.notna(r["mm_ratio"]) else float("nan")
         rec = {
             "trust": trust,
@@ -133,7 +145,7 @@ def main() -> None:
             "pctile": fnum(r["p2m_pctile"], 2),
             "n_obs": int(r["n_obs_years"]) if pd.notna(r["n_obs_years"]) else 0,
             "mm": round(mmv, 1) if math.isfinite(mmv) else None,
-            "route": route(trust, level, clean(r["coverage_gate_status"])),
+            "route": rt,
         }
         if e:
             rec["pct"] = [fnum(e.get(k), 6) for k in ("pct_mcc_p10", "pct_mcc_p50", "pct_mcc_p90", "pct_mcc_p99")]
