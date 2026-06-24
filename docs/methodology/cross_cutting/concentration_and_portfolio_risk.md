@@ -1,6 +1,6 @@
 # Concentration and Portfolio Risk — Deep Dive
 
-*Audience: senior team. Last reviewed: 2026-06-03. Status: **lagged implementation, not an immediate threat at SMB scale**. Companion to [A007](../assumptions.md#a007--each-policy-is-priced-standalone-no-portfolio-correlation-in-v0) and the [Portfolio aggregation roadmap entry](../roadmap.md#portfolio-aggregation--parked-v1).*
+*Audience: senior team. Last reviewed: 2026-06-24. Status: **lagged implementation, not an immediate threat at SMB scale**. Companion to [A007](../assumptions.md#a007--each-policy-is-priced-standalone-no-portfolio-correlation-in-v0) and the [Portfolio aggregation roadmap entry](../roadmap.md#portfolio-aggregation--parked-v1).*
 
 ## One-paragraph framing
 
@@ -49,6 +49,48 @@ Suppose 100 SMBs in the same hurricane-belt county each carry a $500 payout, and
 | Tail event | ~0 probability of all 100 hitting | **30 % probability** of all 100 hitting → loss = **$50,000** in a single year |
 
 The mean ties out. The standard deviation is 10× higher. The one-year `$50,000` loss — over 3× the annual expected loss — is a **routine** outcome in the true model (it happens whenever a county event lands), not a freak tail event. This is where capital reserves and reinsurance live.
+
+## The question that always comes up — "for N customers, isn't it just N× the premium?"
+
+Yes — the expected-loss premium scales linearly with `N`, and that is correct. The reason it *feels*
+wrong is that the premium has **two parts** that behave differently in `N`, so "concentration changes
+the price" and "concentration doesn't change the price" are **both true — of different parts**:
+
+```text
+ premium per customer  =  expected-loss part   +   concentration / capital load
+                          ( p · X )                ( a function of how concentrated the book is )
+                          N-INVARIANT per customer  N-DEPENDENT
+```
+
+**The `÷ MCC` conversion is right, and `N×` is right for Part 1.** `multiplier = mean(customers_out)/MCC`
+is the average *fraction* of the county's customers out per event; `λ_customer = λ_county × multiplier`
+spreads the county's total customer-outage-experiences over its `MCC` customers → **one** customer's
+expected ≥T frequency. It is a **mean**, and means add:
+
+- 1 customer → `p·X` · 2 → `2·p·X` · 3 → `3·p·X`. The `N` is a **head-count**, not a multiplier on
+  anyone's individual price. Adding a neighbour does **not** raise *your* `p·X` — your outage risk does
+  not worsen because someone else bought a policy. The book total grows because there are more policies;
+  **no individual's expected-loss price moved.** *(This is the sense in which "concentration doesn't
+  change the premium.")*
+- Not over-charging, either: one county event triggers all `N` at once, but each collects its own payout
+  `X`, so expected total payout `= N·p·X`. `N×` is the right charge, not a double-count.
+
+**Part 2 — the concentration load — is the part that *does* move the price, and it is `N`-dependent by
+design.** As a county fills up, the correlated-tail / capital cost rises (variance `~N²`, see above), and
+a concentration load passes that through. That load **can re-price the concentrated book — including
+existing customers at renewal** — or be charged to new entrants in a hot county. So "an old insurance
+head adds a concentration load that changes premiums" is exactly right; it just lives in **Part 2, not in
+the `÷MCC` conversion.**
+
+**Why it looks like a contradiction today:** v0 charges **Part 1 only**
+([A007](../assumptions.md#a007--each-policy-is-priced-standalone-no-portfolio-correlation-in-v0)). So
+*right now*, adding customers changes **no one's** price — it only adds another `p·X` to the book total.
+The day we switch on the concentration load (Part 2, deferred), it **will** change premiums in
+concentrated counties. That is the missing layer doing its job, not a flaw surfacing.
+
+**One-line rule:** keep `N` **out** of the per-customer conversion — putting it there would corrupt the
+individual expected loss and break the linearity that makes book EL `= N · p·X`. Put `N` into a
+**separate concentration load on top.** *Mean in the conversion; tail in the load.*
 
 ## Why the overestimation cushion does not help
 
