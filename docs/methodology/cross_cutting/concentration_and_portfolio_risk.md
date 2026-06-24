@@ -75,6 +75,14 @@ expected ≥T frequency. It is a **mean**, and means add:
 - Not over-charging, either: one county event triggers all `N` at once, but each collects its own payout
   `X`, so expected total payout `= N·p·X`. `N×` is the right charge, not a double-count.
 
+> **Watch the label: `N·p·X` is the *mean*, not the worst case.** It is the probability-weighted
+> expected total (scales `N×`, identical correlated or not). The *worst case* — all `N` out at once — is
+> `N·X`. Correlation changes neither the mean (`N·p·X`) nor the worst-case size (`N·X`); it changes the
+> **probability** of that worst case: `~pᴺ` (negligible) if independent → `~p` (likely) if correlated.
+> The **concentration load** prices that now-likely `N·X` tail — it is *extra, on top of* the `N·p·X`
+> expected loss, never a re-scaling of it. So the full premium for `N` correlated policies is `N ·
+> (expected-loss premium) + concentration load` — more than `N×`, because the load adds on top.
+
 **Part 2 — the concentration load — is the part that *does* move the price, and it is `N`-dependent by
 design.** As a county fills up, the correlated-tail / capital cost rises (variance `~N²`, see above), and
 a concentration load passes that through. That load **can re-price the concentrated book — including
