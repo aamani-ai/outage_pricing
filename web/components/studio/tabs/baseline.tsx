@@ -42,8 +42,7 @@ const ROUTE_STYLE: Record<string, string> = {
 };
 const C_LABELS = ["coverage", "sample", "stability"];
 
-/** Where the conservative cushion is actually established — by trigger duration, not peak/mean.
- *  Short triggers (2–4h) read "verify, not established"; long triggers (>=8h) carry the robust cushion. */
+/** The cushion claim by trigger duration — short (2–4h) verify, long (>=8h) cushioned. */
 function CushionByTrigger({ T }: { T: number }) {
   return (
     <div>
@@ -70,29 +69,34 @@ function CushionByTrigger({ T }: { T: number }) {
         })}
       </div>
       <p className="text-muted-foreground/70 mt-2 text-[11px] leading-relaxed">
-        We claim a conservative cushion only where it&rsquo;s <b className="text-foreground">robust (≥8h)</b>. Short
-        triggers (2–4h) read <b className="text-tier-amber">verify</b> — the duration-blind event-average can dilute the
-        short-trigger count. The rigorous short-trigger treatment is a deliberate, deferred build.
+        Claimed only where it&rsquo;s <b className="text-foreground">robust (≥8h)</b>; 2–4h read{" "}
+        <b className="text-tier-amber">verify</b> — rigorous short-trigger treatment is deferred.
       </p>
-      <div className="border-border/50 mt-2.5 border-t pt-2.5">
-        <div className="text-muted-foreground mb-1 text-[10px] font-medium uppercase tracking-wider">
-          Why ≥8h carries the cushion
-        </div>
-        <ul className="text-muted-foreground/80 space-y-1 text-[11px] leading-relaxed">
-          <li>
-            <b className="text-foreground">Established</b> — long outages are single coherent surges, so the event count
-            captures them (it isn&rsquo;t hiding shorter episodes; boundary mass is low at 8h+).
-          </li>
-          <li>
-            <b className="text-foreground">Conservative</b> — at long durations the priced mean over-states true
-            per-customer exposure (A011, ~2–3×).
-          </li>
-        </ul>
-        <p className="text-muted-foreground/60 mt-1.5 text-[10px] leading-relaxed">
-          Short triggers fail both — sub-episodes hide inside longer events and the mean dilutes the peak — so we
-          verify, not claim.
-        </p>
+    </div>
+  );
+}
+
+/** Why ≥8h carries the cushion — the two pillars, full-width beneath the per-cell detail. */
+function WhyCushion() {
+  return (
+    <div className="border-border/50 border-t pt-3">
+      <div className="text-muted-foreground mb-2 text-[10px] font-medium uppercase tracking-wider">
+        Why ≥8h carries the cushion
       </div>
+      <div className="grid gap-x-5 gap-y-2 text-xs sm:grid-cols-2">
+        <div className="text-muted-foreground">
+          <b className="text-foreground">Established</b> — long outages are single coherent surges, so the event count
+          captures them; hiding an extra short episode would take an event ≥2× the trigger — rare at 8h+.
+        </div>
+        <div className="text-muted-foreground">
+          <b className="text-foreground">Conservative</b> — at long durations the priced mean over-states true
+          per-customer exposure (A011, ~2–3×).
+        </div>
+      </div>
+      <p className="text-muted-foreground/60 mt-2 text-[11px] leading-relaxed">
+        Short triggers fail both — sub-episodes hide inside longer events and the mean dilutes the peak — so we verify,
+        not claim.
+      </p>
     </div>
   );
 }
@@ -262,59 +266,49 @@ export function BaselineTab({ data, T }: { data: StudioData; T: number }) {
           {cur && (
             <div className="mt-4">
               <ExpandBox title={`Trust & posture detail · ${T}h`}>
-                <div className="grid gap-5 md:grid-cols-[1fr_20rem]">
-                  <div className="min-w-0 space-y-2 text-xs">
-                    <div className="text-sm font-medium">
-                      {T}h · <span className={trustTone(cur.trust)}>{cur.trust}</span> ·{" "}
-                      <span className={levelTone(cur.level)}>{cur.level}</span>
-                    </div>
-                    <div className="text-muted-foreground">
-                      <b className="text-foreground">Trust {cur.tnum.toFixed(2)}</b> — binds on{" "}
-                      {cur.C.map((v, i) => (
-                        <span key={i}>
-                          {i > 0 && " · "}
-                          <span className={i === minIdx ? "text-foreground font-medium" : ""}>
-                            {C_LABELS[i]} {v.toFixed(2)}
-                            {i === minIdx && " ◄"}
+                <div className="space-y-4">
+                  <div className="grid gap-5 md:grid-cols-[1fr_20rem]">
+                    <div className="min-w-0 space-y-2 text-xs">
+                      <div className="text-sm font-medium">
+                        {T}h · <span className={trustTone(cur.trust)}>{cur.trust}</span> ·{" "}
+                        <span className={levelTone(cur.level)}>{cur.level}</span>
+                      </div>
+                      <div className="text-muted-foreground">
+                        <b className="text-foreground">Trust {cur.tnum.toFixed(2)}</b> — binds on{" "}
+                        {cur.C.map((v, i) => (
+                          <span key={i}>
+                            {i > 0 && " · "}
+                            <span className={i === minIdx ? "text-foreground font-medium" : ""}>
+                              {C_LABELS[i]} {v.toFixed(2)}
+                              {i === minIdx && " ◄"}
+                            </span>
                           </span>
-                        </span>
-                      ))}{" "}
-                      <span className="text-muted-foreground/70">(weakest link wins)</span>
+                        ))}{" "}
+                        <span className="text-muted-foreground/70">(weakest link wins)</span>
+                      </div>
+                      {cur.level === "not established" ? (
+                        <div className="text-muted-foreground">
+                          <b className="text-tier-amber">Cushion not established.</b> A short outage can hide a broad
+                          plateau that the full-event average dilutes — the duration-blind peak/mean (
+                          <span className="tabular-nums">{cur.p2m}</span>) is analyst-only here. {cur.n_obs} observed
+                          years.
+                        </div>
+                      ) : (
+                        <>
+                          <div className="text-muted-foreground">
+                            <b className="text-foreground">Posture</b> peak/mean {cur.p2m} → {cur.level} · {cur.tilt} than
+                            peers ({Math.round(cur.pctile * 100)}th pctile)
+                          </div>
+                          <div className="text-muted-foreground">
+                            {cur.n_obs} observed years
+                            {cur.mm != null && <> · mean ≈ {cur.mm}× median (heavy-tailed)</>}
+                          </div>
+                        </>
+                      )}
                     </div>
-                    {cur.level === "not established" ? (
-                      <>
-                        <div className="text-muted-foreground">
-                          <b className="text-tier-amber">Cushion not established at {T}h.</b> A short outage can hide a
-                          broad plateau of customers who cross {T}h, which the full-event average dilutes — so the
-                          duration-blind peak/mean (<span className="tabular-nums">{cur.p2m}</span>, analyst detail only)
-                          can&rsquo;t establish a cushion here.
-                        </div>
-                        <div className="text-muted-foreground">{cur.n_obs} observed years</div>
-                        <p className="text-muted-foreground/80 border-border/60 border-t pt-2 leading-relaxed">
-                          Our duration analysis flags <b className="text-foreground/80">2–4h as verify, don&rsquo;t lead</b>.
-                          The rigorous short-trigger frequency (recovering the within-event duration shape from the 15-min
-                          data) is a deliberate, deferred build. Posture is context only — it never moves the price.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <div className="text-muted-foreground">
-                          <b className="text-foreground">Posture</b> peak/mean {cur.p2m} → {cur.level} · {cur.tilt} than
-                          peers ({Math.round(cur.pctile * 100)}th pctile)
-                        </div>
-                        <div className="text-muted-foreground">
-                          {cur.n_obs} observed years
-                          {cur.mm != null && <> · mean ≈ {cur.mm}× median (heavy-tailed)</>}
-                        </div>
-                        <p className="text-muted-foreground/80 border-border/60 border-t pt-2 leading-relaxed">
-                          A011 — the priced <b className="text-foreground/80">mean</b> assumes synchronous restoration;
-                          real staggered restoration builds in the cushion at long durations. Posture is context only — it
-                          never moves the price.
-                        </p>
-                      </>
-                    )}
+                    <CushionByTrigger T={T} />
                   </div>
-                  <CushionByTrigger T={T} />
+                  <WhyCushion />
                 </div>
               </ExpandBox>
             </div>
