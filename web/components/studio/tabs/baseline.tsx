@@ -74,6 +74,25 @@ function CushionByTrigger({ T }: { T: number }) {
         triggers (2–4h) read <b className="text-tier-amber">verify</b> — the duration-blind event-average can dilute the
         short-trigger count. The rigorous short-trigger treatment is a deliberate, deferred build.
       </p>
+      <div className="border-border/50 mt-2.5 border-t pt-2.5">
+        <div className="text-muted-foreground mb-1 text-[10px] font-medium uppercase tracking-wider">
+          Why ≥8h carries the cushion
+        </div>
+        <ul className="text-muted-foreground/80 space-y-1 text-[11px] leading-relaxed">
+          <li>
+            <b className="text-foreground">Established</b> — long outages are single coherent surges, so the event count
+            captures them (it isn&rsquo;t hiding shorter episodes; boundary mass is low at 8h+).
+          </li>
+          <li>
+            <b className="text-foreground">Conservative</b> — at long durations the priced mean over-states true
+            per-customer exposure (A011, ~2–3×).
+          </li>
+        </ul>
+        <p className="text-muted-foreground/60 mt-1.5 text-[10px] leading-relaxed">
+          Short triggers fail both — sub-episodes hide inside longer events and the mean dilutes the peak — so we
+          verify, not claim.
+        </p>
+      </div>
     </div>
   );
 }

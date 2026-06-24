@@ -73,10 +73,13 @@ under-count. Net: likely still conservative, but **less certain** — so we don'
 | 4h | conservative, modest margin |
 | 8h / 12h / 24h | **robustly conservative** (strong structural over-count, low boundary mass) |
 
-This maps 1:1 to the cell read's **cushion LEVEL** (`runs close` at short T → `well-cushioned`
-at long T) — [`cell_read_fundamentals.md`](../../methodology/02_per_customer/cell_read_fundamentals.md).
-The cell read shows *where* the cushion is thick or thin per county; this analysis proves the
-*direction* and bounds the *sensitivity*.
+The cell read now **gates** on this: short triggers (2–4h) surface as **"not established · verify"**
+(no cushion claim — the priced mean is duration-blind there), and only **≥8h** shows `well-cushioned`
+— [`cell_read_fundamentals.md`](../../methodology/02_per_customer/cell_read_fundamentals.md). This
+analysis proves the long-T *direction* (conservative) and bounds the *sensitivity*; the
+[short-trigger frequency-recovery discussion](06_short_trigger_frequency_recovery.md) covers the
+competing short-T biases (the gate over-counts, but hidden episodes and the diluted mean push the
+other way → net uncertain) and the method to resolve them.
 
 ## Ceiling — what would make it a magnitude proof
 
