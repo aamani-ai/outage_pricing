@@ -83,11 +83,14 @@ def main() -> None:
         if int(r["T"]) == 8:
             yrs[r["fips"]] = [int(y) for y in np.asarray(r["years"])[mk]]
 
-    # per-customer λ cone (median ≪ mean ≪ max) per (fips5, T) — heterogeneity + the conservative cushion read
-    mult = {}
+    # per-customer λ cone (median ≪ mean ≪ max) per (fips5, T) — heterogeneity + the conservative cushion read.
+    # chain = the baseline build-up the dashboard renders (the county→customer step Chris asked about):
+    #   λ_customer(T) = λ_county(T) [county ≥T events/yr, public history] × share-out [mean fraction of the
+    #   county's customers out per qualifying event = mean_customers/MCC]. A data-granularity conversion.
+    mult, chain = {}, {}
     for fips_raw, pcc in pc.items():
         f5 = str(fips_raw).zfill(5)
-        m = {}
+        m, ch = {}, {}
         for T in ["2", "4", "8", "12", "24"]:
             e = pcc.get(T)
             if e and e.get("lambda_customer_mean") is not None:
@@ -96,8 +99,12 @@ def main() -> None:
                     round(e["lambda_customer_mean"], 6),
                     round(e.get("lambda_customer_max") or 0.0, 6),
                 ]
+                if e.get("lambda_county") is not None and e.get("multiplier_mean") is not None:
+                    ch[T] = {"lc": round(e["lambda_county"], 2), "sh": round(e["multiplier_mean"], 7)}
         if m:
             mult[f5] = m
+        if ch:
+            chain[f5] = ch
 
     # cell read (TRUST + POSTURE) per (fips5, T) — the per-customer "believe-it" + "lean-of-margin" tags.
     # Source: notebooks/02_per_customer/inner_event_shape_diagnostics.ipynb (see cell_read_fundamentals.md).
@@ -193,6 +200,7 @@ def main() -> None:
             "r_step": rnum(r["r_step"], 2),
             "years": yrs.get(f, []), "perT": ann.get(f, {}),
             "mult": mult.get(f, {}), "od": od.get(f, {}), "cell": cell.get(f, {}),
+            "chain": chain.get(f, {}),
         }
     json.dump({"catalog": CATALOG, "counties": studio}, open(OUT / "studio.json", "w"), separators=(",", ":"))
 

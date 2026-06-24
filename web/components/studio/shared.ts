@@ -51,6 +51,7 @@ export interface CountyStudio {
   mult: Record<string, [number, number, number]>; // per T: [median, mean, max] per-customer λ
   od: Record<string, number>; // per T: overdispersion (Var/Mean) of annual counts
   cell: Record<string, CellRead>; // per T: the TRUST + POSTURE cell read
+  chain: Record<string, { lc: number; sh: number }>; // per T: baseline build-up — λ_county (lc) × share-out (sh) = λ_customer
 }
 
 /**

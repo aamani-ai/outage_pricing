@@ -102,6 +102,36 @@ function WhyCushion() {
   );
 }
 
+/** One factor box in the baseline build-up chain (λ_county × share-out = λ_customer). */
+function ChainBox({
+  label,
+  val,
+  unit,
+  note,
+  highlight,
+}: {
+  label: string;
+  val: string;
+  unit?: string;
+  note: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className={cn("flex-1 rounded-lg border px-3 py-2.5", highlight ? "border-primary bg-primary/5" : "border-border")}>
+      <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">{label}</div>
+      <div className="mt-0.5 text-lg font-semibold tabular-nums">
+        {val}
+        {unit && <span className="text-muted-foreground text-xs font-normal"> {unit}</span>}
+      </div>
+      <div className="text-muted-foreground/60 mt-1 text-[10px] leading-tight">{note}</div>
+    </div>
+  );
+}
+
+function ChainOp({ op }: { op: string }) {
+  return <div className="text-muted-foreground flex items-center px-0.5 text-base font-medium">{op}</div>;
+}
+
 export function BaselineTab({ data, T }: { data: StudioData; T: number }) {
   const c = useChartColors();
   const s = data.studio;
@@ -112,6 +142,7 @@ export function BaselineTab({ data, T }: { data: StudioData; T: number }) {
   const years = s?.years ?? [];
   const odT = s?.od?.[String(T)];
   const cone = s?.mult?.[String(T)]; // [median, mean, max]
+  const ch = s?.chain?.[String(T)]; // baseline build-up: { lc: λ_county, sh: share-out }
 
   const historyOpt = useMemo<EChartsOption>(
     () => ({
@@ -156,6 +187,56 @@ export function BaselineTab({ data, T }: { data: StudioData; T: number }) {
 
   return (
     <div className="space-y-5">
+      {/* 0 — baseline build-up: county → customer (how the priced per-customer rate is derived) */}
+      {ch && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <CardTitle className="text-sm">Baseline build-up · county → customer</CardTitle>
+                <CardDescription>how the priced per-customer rate is derived from county history · {T}h</CardDescription>
+              </div>
+              <InfoHint title="County → customer">
+                <p>
+                  We start from the public <b>county</b> outage record and convert to a <b>per-customer</b> rate — a
+                  data-granularity conversion, not a new assumption.
+                </p>
+                <p>
+                  <b>λ county</b> = qualifying ≥{T}h outages somewhere in the county, per year (EAGLE-I history).{" "}
+                  <b>Share-out</b> = the average fraction of the county&rsquo;s customers actually out during those
+                  events. Their product is the priced per-customer rate.
+                </p>
+              </InfoHint>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-stretch gap-2">
+              <ChainBox
+                label="λ county"
+                val={ch.lc >= 10 ? Math.round(ch.lc).toLocaleString() : ch.lc.toFixed(1)}
+                unit="/yr"
+                note={`county ≥${T}h events · history`}
+              />
+              <ChainOp op="×" />
+              <ChainBox label="share-out" val={`${(ch.sh * 100).toFixed(3)}%`} note="avg customers out ÷ county" />
+              <ChainOp op="=" />
+              <ChainBox
+                label="λ customer"
+                val={rate(cone?.[1] ?? cells[String(T)]?.lam ?? 0)}
+                unit="/yr"
+                note="priced rate → cell read"
+                highlight
+              />
+            </div>
+            <p className="text-muted-foreground/70 mt-3 text-xs">
+              The <b className="text-foreground/80">county → customer</b> step. <b>λ county</b> is the public county
+              record; <b>share-out</b> is the mean fraction of the county&rsquo;s customers out during a qualifying event
+              {ch.sh > 0 && <> (≈ 1 in {Math.round(1 / ch.sh).toLocaleString()} customers here)</>}. The product is the
+              per-customer rate the cell read below assesses — it never moves the price.
+            </p>
+          </CardContent>
+        </Card>
+      )}
       {/* 1 — the cell read: TRUST + POSTURE, the two-axis read */}
       <Card>
         <CardHeader>
