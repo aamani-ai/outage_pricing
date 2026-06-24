@@ -171,7 +171,7 @@ resolution path). State it; don't imply we measured individual durations.
 
 ## 4. The diagnostic — *established* + *conservative* = well-cushioned
 
-The same decomposition, used **only to count** (not to re-price), proves the ≥8h cushion. Slice the
+The same decomposition, used **only to count** (not to re-price), is how we *test* the ≥8h cushion. Slice the
 recovered short-trigger episodes by the **parent event's duration band**:
 
 ```text
@@ -180,37 +180,47 @@ recovered short-trigger episodes by the **parent event's duration band**:
 
  parent ≥24h │▏           ≈0 extra 2h episodes — one coherent surge, nothing hidden
  parent ≥12h │▎
- parent  ≥8h │█▍          little hidden structure   →  long-trigger frequency is ESTABLISHED
+ parent  ≥8h │█▍          little hidden structure   →  long-trigger frequency expected to hold
  parent  ≥4h │█████▏
  parent  ≥2h │█████████   lots of hidden sub-episodes →  short-trigger frequency NOT established
 ```
 
-**Why the yield collapses at long T — the structural reason, not "fewer events."** To hide an *extra*
-T-episode, a parent event needs room for **two disjoint ≥T runs** → its duration must be **≥ 2T**. So
-the "hiding pool" for trigger T is exactly the events with duration ≥ 2T:
+**The hiding pool — a *necessary* condition, not the answer.** To hide an *extra* T-episode, a parent
+event needs room for **two disjoint ≥T runs** → duration **≥ 2T**. So the candidate pool for trigger T
+is `count(events ≥ 2T)` (eagle-i-45min, 13.19M events):
 
 ```text
- trigger T   hiding pool (events ≥ 2T)   catalog count       realized extra
- ─────────────────────────────────────────────────────────────────────────
- 24h         ≥ 48h                       ≈ none               ≈ 0
- 12h         ≥ 24h                       ~0.28M (rare)        ≈ 0
-  8h         ≥ 16h                       rare-ish             ≈ 0    ← the gate
- ─────────────────────────────────────────────────────────────────────────
-  4h         ≥  8h                       ~1.52M (abundant)    material
-  2h         ≥  4h                       ~3.48M (huge)        large
+ trigger T   candidate pool   exact count   share all   pool / base(>=T)   realized extra
+ ──────────────────────────────────────────────────────────────────────────────────────
+ 24h         events >= 48h       102,203       0.77%          36%           TBD (diagnostic)
+ 12h         events >= 24h       281,205       2.13%          33%           TBD
+  8h         events >= 16h       549,616       4.17%          36%           TBD  <- the gate
+ ──────────────────────────────────────────────────────────────────────────────────────
+  4h         events >=  8h     1,520,644      11.53%          43%           TBD (likely material)
+  2h         events >=  4h     3,496,329      26.51%          53%           TBD (likely large)
 ```
 
-The **8h line is exactly where the hiding pool flips from rare to abundant.** Note "few long events"
-alone is NOT the reason — 0.85M 12h events isn't "few" vs 1.52M 8h events, and a 12h event can't even
-hold two 8h runs (needs ≥16h). The reason is the **≥ 2T capacity** plus **coherence** (long events are
-single surges, so the realized extra ≈ 0). The revival-yield experiment **measures** that realized
-number — so we assert the structure and *verify* the magnitude, never assert it unproven.
+Two cautions the table forces — it measures *exposure to error*, not the error:
+- **Absolute pool shrinks (3.5M → 0.1M), but pool/base is ≈ flat at ~⅓.** Relative to the trigger's
+  *own* base — which is what actually moves λ(T) — the candidate pool is **not** smaller at long T. So
+  "fewer long events" / counts alone **cannot** declare 8h "established."
+- **`realized extra` is unmeasured.** The pool is only the *necessary* condition (parent long enough);
+  the realized number needs the 15-min path (coherent single surge → ≈0 extra; multi-surge → +1). That
+  is the diagnostic's job — assert the structure, **measure** the magnitude.
+
+**Why 8h is still well-cushioned — a worst-case *bound*, not "rare."** Even if *every* long event were
+maximally multi-surge, the extra is structurally capped: a ≥16h parent hides ≤1 extra 8h episode, a
+≥24h parent ≤2 → `extra ≤ pool(≥16h) + (≥24h) ≈ 0.55M + 0.28M = 0.83M`, i.e. 8h frequency under-counted
+by **≤ ~55%**. The priced mean already over-states true per-customer exposure **~2–3×** (A011), so
+`priced/true ≥ (1 / 1.55) × 2 ≈ 1.3 > 1` — conservative **even in the worst case**. So the diagnostic
+*refines* the 8h number; it cannot overturn the conclusion.
 
 Two **distinct** pillars — keep them separate or the claim gets hand-wavy:
 
 ```text
- ESTABLISHED   the long-trigger frequency is robustly counted — it is NOT hiding shorter episodes
-               (this diagnostic, + the low boundary mass at 8h+ from 04). A reliability claim.
+ ESTABLISHED   the hidden-episode correction to long-trigger frequency is structurally BOUNDED
+               (<= ~55% even worst-case at 8h) and absorbed by the cushion below; the diagnostic pins
+               the (expected small) realized number. A reliability claim.
  CONSERVATIVE  the priced mean OVER-states true per-customer exposure at long durations
                (A011 ~2–3×, the structural gate over-count from 04). A direction claim.
 
@@ -218,7 +228,7 @@ Two **distinct** pillars — keep them separate or the claim gets hand-wavy:
  short triggers fail BOTH (hidden sub-episodes; diluted mean) → "not established · verify"
 ```
 
-This is the proof the platform's trust-&-posture detail needs for *"why ≥8h vs <8h."* The
+This is the reasoning the platform's trust-&-posture detail needs for *"why ≥8h vs <8h."* The
 **qualitative** version ships now; the **quantitative** revival-yield numbers go up only once the
 notebook produces them (no unproven stat on the platform).
 
@@ -245,6 +255,17 @@ notebook produces them (no unproven stat on the platform).
                             Gated on business need for short triggers; price move is a separate,
                             governed decision even then.
 ```
+
+**The cushion/verify threshold is a *derived output*, not an assumption.** The diagnostic's first
+deliverable is the T at which the net (the conservative cushion vs the bounded frequency + intensity
+corrections) crosses from robustly-conservative to uncertain — *that* is the cushion/verify line.
+Hygiene so it's objective, not chosen post-hoc: (1) fix the "cushion established" criterion *before*
+running (e.g. net `priced/true ≥` a margin, held across counties); (2) test whether it's a clean
+national line or varies by county/region (if it varies, keep national 8h as a conservative floor);
+(3) report its **sharpness** — a cliff vs a gradual ramp (if gradual, the exact cut matters less and
+"lead long" is robust either way). `8h` is the current working line (from `04` + low boundary mass);
+**confirm-or-adjust** — either outcome strengthens it, and the gate is a one-line constant
+(`CUSHION_ESTABLISHED_MIN_T`).
 
 **Open decisions (these shape the notebook):**
 1. **Reference level `L`** (§3.1) — bare event-mean v1, or a deliberate level-crossing from the start?

@@ -85,8 +85,9 @@ function WhyCushion() {
       </div>
       <div className="grid gap-x-5 gap-y-2 text-xs sm:grid-cols-2">
         <div className="text-muted-foreground">
-          <b className="text-foreground">Established</b> — long outages are single coherent surges, so the event count
-          captures them; hiding an extra short episode would take an event ≥2× the trigger — rare at 8h+.
+          <b className="text-foreground">Established</b> — the long-event count is robust: a hidden sub-episode needs an
+          event ≥2× the trigger, so the correction is bounded and sits well inside the cushion (the revival diagnostic
+          pins the number).
         </div>
         <div className="text-muted-foreground">
           <b className="text-foreground">Conservative</b> — at long durations the priced mean over-states true
