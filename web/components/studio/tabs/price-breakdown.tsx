@@ -122,7 +122,7 @@ export function PriceBreakdownTab({
           <div className="flex items-start justify-between gap-2">
             <div>
               <CardTitle className="text-sm">Factor build-up</CardTitle>
-              <CardDescription>baseline → location → forward → pure premium</CardDescription>
+              <CardDescription>baseline → location → forward → pure → expense + margin → annual premium</CardDescription>
             </div>
             <InfoHint title="How the premium is built">
               <p>
@@ -157,11 +157,46 @@ export function PriceBreakdownTab({
               </div>
             </div>
           ))}
-          <div className="flex items-center justify-between py-2.5 text-sm">
-            <span className="text-foreground/80">
-              Pure premium = adjusted λ × {usd(X)}
+          {/* pure premium — the expected loss cost (emphasized) */}
+          <div className="border-border mt-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
+            <span className="text-sm font-medium">
+              Pure premium
+              <span className="text-muted-foreground/70 text-xs font-normal"> · adjusted λ × {usd(X)} · expected loss cost</span>
             </span>
-            <span className="tabular-nums">{usd(stack.pure)}</span>
+            <span className="text-base font-semibold tabular-nums">{usd(stack.pure)}</span>
+          </div>
+
+          {/* gross-up to retail — expenses + margin (platform-wide, set in Settings) */}
+          <div className="flex items-center justify-between py-2 pl-3 text-sm">
+            <span className="text-muted-foreground">
+              + Expense load <span className="text-muted-foreground/60 text-xs">· ER {pct(ER)}</span>
+            </span>
+            <span className="text-muted-foreground tabular-nums">+{usd(expR)}</span>
+          </div>
+          <div className="flex items-center justify-between py-2 pl-3 text-sm">
+            <span className="text-muted-foreground">
+              + Margin <span className="text-muted-foreground/60 text-xs">· TM {pct(TM)}</span>
+            </span>
+            <span className="text-muted-foreground tabular-nums">+{usd(mgnR)}</span>
+          </div>
+
+          {/* annual premium — what the customer actually pays (hero) */}
+          <div className="border-primary bg-primary/5 mt-1 flex items-center justify-between gap-3 rounded-lg border px-3 py-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold">
+                Annual premium
+                <span className="text-muted-foreground/70 text-xs font-normal"> · pure ÷ (1 − ER − TM) · what the customer pays</span>
+              </div>
+              {stack.bandDriver !== "none" && (
+                <div className="text-muted-foreground/70 mt-0.5 text-xs tabular-nums">
+                  likely {usd(stack.premium.low)}–{usd(stack.premium.high)} ·{" "}
+                  <button type="button" onClick={() => onNavigate("baseline")} className="text-primary hover:underline">
+                    why?
+                  </button>
+                </div>
+              )}
+            </div>
+            <span className="text-lg font-bold tabular-nums">{usd(retail)}</span>
           </div>
         </CardContent>
       </Card>
@@ -187,18 +222,6 @@ export function PriceBreakdownTab({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-3 flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1">
-            <span className="text-muted-foreground text-sm">Annual premium</span>
-            <span className="text-base font-semibold tabular-nums">{usd(retail)}</span>
-            {stack.bandDriver !== "none" && (
-              <span className="text-muted-foreground text-xs tabular-nums">
-                · likely {usd(stack.premium.low)}–{usd(stack.premium.high)} ·{" "}
-                <button type="button" onClick={() => onNavigate("baseline")} className="text-primary hover:underline">
-                  why?
-                </button>
-              </span>
-            )}
-          </div>
           <EChart option={waterfall} height={260} />
         </CardContent>
       </Card>
