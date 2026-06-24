@@ -245,8 +245,21 @@ def main() -> None:
             elif name == "county_lookup.json":
                 n_counties_lb = len(obj)
 
+    # --- forward/* (Step-05 statistical forward factor; promoted from the calibration notebook) ---
+    # The dashboard does MATH ONLY on this; calibration lives in notebooks/05_forward_regime/statistical_router/.
+    # Re-run that notebook → forward_factor.json refreshes → this block re-promotes → dashboard swaps numbers.
+    fwd_src = ROOT / "notebooks" / "outputs" / "forward_regime" / "statistical_router" / "forward_factor.json"
+    n_fwd = 0
+    if fwd_src.exists():
+        fwd_out = OUT / "forward"
+        fwd_out.mkdir(exist_ok=True)
+        obj = json.load(open(fwd_src))
+        json.dump(obj, open(fwd_out / "forward_factor.json", "w"), separators=(",", ":"))
+        n_fwd = len(obj)
+
     print(f"built: pricing {len(pricing)} counties · studio {len(studio)} · {len(cbs)} states "
-          f"({sum(len(v) for v in cbs.values())} counties) · location {n_tracts} tracts / {n_counties_lb} counties")
+          f"({sum(len(v) for v in cbs.values())} counties) · location {n_tracts} tracts / {n_counties_lb} counties "
+          f"· forward {n_fwd} counties")
 
 
 if __name__ == "__main__":

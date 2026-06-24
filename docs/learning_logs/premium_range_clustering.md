@@ -18,10 +18,28 @@ fix, and the discipline of shipping a *reasonably logic-oriented v1* rather than
   the lesson: for clustered events, count-based confidence (Poisson) is the wrong default.
 ```
 
+> **Update (2026-06-24) — v1 shipped the *confidence* band; an *experience* band (v2) is proposed (decision OPEN).** Everything
+> below describes v1: a **bootstrap of the mean annual rate**, which is the standard error of the average
+> (≈ spread ∕ √years). It ran **~2.9× too tight** — and it contradicted this log's own "STEP 2 — THE
+> RANGE" pitch (*"how much those yearly counts SWING year to year"*), which was the experience framing
+> all along. The experience proposal makes the math equal the pitch: the band would be the **empirical p10/p90 of the annual
+> counts themselves** — the bounce, not the bounce ∕ √years. The clustering finding below is still
+> exactly why that bounce is wide. There is one further irony worth stating plainly: v1's "bootstrap"
+> *was* a bootstrap, but of the **mean** — so it measured how well we know the average, not how much a
+> year swings. The proposal drops the bootstrap entirely (`np.percentile(counts, [10, 90])`).
+> **Decision is OPEN — three candidates (confidence / experience p10–p90 / experience p25–p75) are compared in**
+> [`08_band_pressure_test.md`](../dicsscssion/dashboard_redesign/08_band_pressure_test.md). See
+> [A017](../methodology/assumptions.md) (estimator under review) and the build plan
+> [`premium_experience_band_plan.md`](../plan/cross_cutting/premium_experience_band_plan.md).
+
 ## What the range actually represents — three different uncertainties
 
 The hardest part was realizing "the range" is **not one thing**. Three different uncertainties were
 being conflated:
+
+> *v2 note (read with the update above): under v2, **(a) is now the experience band** — realized
+> year-to-year volatility, which does **not** shrink with data. The "confidence / epistemic" labels in
+> the block below are the original v1 framing, kept for the reasoning trail.*
 
 ```text
   (a) CONFIDENCE     how sure are we of the county's average rate?          → THE BAND
@@ -78,6 +96,9 @@ The band-width comparison confirmed it directly (80% bands):
   OVERALL (T=8h):  the year-based band is a median 2.1x the Poisson band  (p25 1.4x, p75 3.0x)
   storm-clustered county (var/mean ~65):  Poisson said +/-7%,  reality +/-53%   (~8x too tight)
 ```
+
+*(That 2.1× is Poisson vs the v1 year-based **bootstrap**. The later v1→v2 step — bootstrap-of-the-mean
+→ the raw year-to-year spread — adds a **further ~2.9×**; see the update at the top.)*
 
 ## The v1 we shipped: a year-based bootstrap (overdispersion-aware)
 

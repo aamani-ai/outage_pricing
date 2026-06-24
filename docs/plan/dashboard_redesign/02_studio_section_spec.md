@@ -5,7 +5,7 @@
 
 ## 1. Framing & Information Architecture
 
-The Underwriting Studio is a **single workspace** that turns one address-level quote into a defensible, deep-divable underwriting object. The home tab (**Price Breakdown**) headlines exactly one annual premium as a point plus a quiet confidence band; the three deep-dive tabs unpack *why* that number is what it is, *how confident* we are, and *what moves a county off baseline*. A persistent context bar pins the deal (address · trigger · payout · premium + band) across every tab so the underwriter never loses the anchor. Each tab carries its own honesty question and shows data maturity honestly — `real` factors price; `partial` factors are shadow reads; `framed` factors are placeholders that say so. Global loadings (ER/TM) and the data source live in **Settings**, not the Studio.
+The Underwriting Studio is a **single workspace** that turns one address-level quote into a defensible, deep-divable underwriting object. The home tab (**Price Breakdown**) headlines exactly one annual premium as a point plus a quiet experience band; the three deep-dive tabs unpack *why* that number is what it is, *how confident* we are, and *what moves a county off baseline*. A persistent context bar pins the deal (address · trigger · payout · premium + band) across every tab so the underwriter never loses the anchor. Each tab carries its own honesty question and shows data maturity honestly — `real` factors price; `partial` factors are shadow reads; `framed` factors are placeholders that say so. Global loadings (ER/TM) and the data source live in **Settings**, not the Studio.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -62,14 +62,14 @@ maturity ladder (deepest → shallowest)
 
 ### 3.1 — Price Breakdown (Home) · `real`
 
-**Underwriter decision.** *What does this address cost per year, and how sure are we?* Deliver ONE annual premium as point + band, contextualize confidence (year-based historical variability), and route every deeper factor (location, regime, forward) into the Studio. The quick read is the deliverable; the detail lives downstream behind one clean link.
+**Underwriter decision.** *What does this address cost per year, and how sure are we?* Deliver ONE annual premium as point + band, contextualize the experience band (year-to-year historical variability), and route every deeper factor (location, regime, forward) into the Studio. The quick read is the deliverable; the detail lives downstream behind one clean link.
 
 **Plots / panels**
 
 | Panel | Type | Source | What it shows |
 |---|---|---|---|
-| Annual Premium Headline | single value + band | `composePremium.premium = {low, point, high}`; `rateBand` precomputed (A017, year-based bootstrap on masked ≥T counts) | The one number: annual cost to insure this address at T-hour trigger, $X payout. Band width = confidence: tight where history is rich/steady, wide where thin/volatile. |
-| Confidence Band (quiet qualifier) | range annotation | `composePremium.bandDriver` + `{low, high}`, labelled "likely $A–$B" | Year-to-year bounce in the observed rate (bootstrap 80% interval) carried linearly to premium. **Not** heterogeneity (customer median..max) — pure epistemic confidence in the county average. |
+| Annual Premium Headline | single value + band | `composePremium.premium = {low, point, high}`; `rateBand` precomputed (A017 v2, empirical p10/p90 of annual counts) | The one number: annual cost to insure this address at T-hour trigger, $X payout. Band width = experience (year-to-year bounce): tight where history is rich/steady, wide where thin/volatile. |
+| Experience Band (quiet qualifier) | range annotation | `composePremium.bandDriver` + `{low, high}`, labelled "likely $A–$B" | Year-to-year bounce in the observed rate (p10/p90 of the annual counts) carried linearly to premium. **Not** heterogeneity (customer median..max) — the realized year-to-year volatility of the county rate. |
 | Risk Read (one plain sentence) | text descriptor | derived from `composePremium.adjustedRate`: λ=1/years, annualized `(1−e^−λ)×100%` | "An 8h+ outage happens about once every 6 years here (~16% chance in any year)." Drives live with the trigger slider; no curve, no percentile. |
 | "How This Pays" | text block | static (`02_outward_pricing_view.md`) recomputed from policy T, X | Pays on **duration at this address**, regardless of cause; pays full $X at the T-hour trigger (not sliding); a just-missed trigger does not pay. Pre-empts basis-risk disputes by stating the rule. |
 | County + Provenance line | text descriptor | `county.name/state` + EAGLE-I year range from `annualization_meta.json` (A004) | "Priced from federal EAGLE-I power-outage records for {county}, {state}." Neutral, un-manipulable source; grounds why location/forward exist. |
@@ -79,14 +79,14 @@ maturity ladder (deepest → shallowest)
 **Reads (short).**
 - The annual premium is the hero — one dominant 4xl number, recomputed live as the buyer drags trigger/payout. No spinner, no modal.
 - The band is a *quiet qualifier* ("likely $A–$B"), with a one-time ⓘ in plain language — never a prominent uncertainty display.
-- The band is **confidence** (year-to-year bounce), **not heterogeneity** (where in the county this address sits). Heterogeneity is the Studio's position read.
+- The band is **experience** (year-to-year bounce of the actual annual counts), **not heterogeneity** (where in the county this address sits). Heterogeneity is the Studio's position read.
 - The risk read is one sentence ("once every N years, ~X%/yr"), not a survival curve.
 - "How this pays" is framed as certainty (duration, full payout at trigger, just-missed doesn't pay) to pre-empt basis-risk disputes.
 - A confirmable resolved-address chip ("Pricing for 123 Main St — not right? edit") precedes the final premium; a ZIP-centroid match visibly caveats placement.
 - No ER slider, no margin lever, no shadow price, no factor highlight outwardly. The seam stays a single link.
 - The **visual band tightening/widening as the trigger drags** is itself the main risk read (8h is data-rich and conservative per A014).
 
-**Honesty question.** Is the year-based confidence band honest, or does it over/understate by conflating sampling noise, clustering, and trend? If too tight → underwriters under-reserve; if too wide → they over-reserve and lose deals. Can the underwriter distinguish *confidence* (this band) from *heterogeneity* (the much wider Studio position spread)?
+**Honesty question.** Is the year-based experience band honest, or does it over/understate by conflating sampling noise, clustering, and trend? If too tight → underwriters under-reserve; if too wide → they over-reserve and lose deals. Can the underwriter distinguish *experience* (this band — year-to-year bounce) from *heterogeneity* (the much wider Studio position spread)?
 
 **Caveats.**
 - Band is **precomputed** in the pipeline (needs per-year counts). If counts aren't shipped, the engine falls back to `bandDriver='none'` and shows no range.
@@ -110,7 +110,7 @@ maturity ladder (deepest → shallowest)
 | Per-Customer Multiplier Distribution | bars (median/mean/max) | **add to studio.json:** `multiplier_{median,mean,max}` from `per_customer_view.json[T]` | The 30–100× heterogeneity cone: median (typical event) sits 5–7× below mean (e.g. Alachua T=4h median 0.000617 vs mean 0.002973). Shown as a *position* read, not the band. |
 | Overdispersion Index (Var/Mean) per T | bars | **add to studio.json:** `var/mean` of `perT[T]` counts; validate against source-coverage-masked series | Clustering. Index ≫1 ⇒ storms bundle outages, justifying a wider *year-based* band, not a tight Poisson interval (median index 5.0 at T=8h). |
 | Qualifying Event Counts per Trigger | bars (T=2,4,8,12,24h) | `n_events_qualifying` per T (`per_customer_view.json`) → add as `n_qual_by_T` | Sample-size drop-off. Thin samples (<100 at T=24h) trip the coverage gate and suppress the point quote. |
-| Year-Based Confidence Band (80% & 90%) | step | `pricing.json[T].lo/.hi` (already computed; 80% outward, 90% in Studio) | The credible range on point λ — widens where history is thin, noisy, or storm-clustered. The honest signal to act on. |
+| Experience Band (p10/p90) | step | `pricing.json[T].lo/.hi` (already computed; p10/p90 of annual counts) | The realized year-to-year range of the annual counts — widens where history is thin, noisy, or storm-clustered. The honest signal to act on. |
 | Regime Label & Trend Signal | strip | `studio.json regime, sub, tstat, labels_by_T, xT`; `regime_classification.csv` | Stable / trending / episodic / insufficient; cross-T flags mixed-T counties for per-T review vs one fixed price. (Detailed view lives in County Clustering.) |
 
 ```
@@ -128,7 +128,7 @@ events/county/yr (national)                              80% band, illustrative
 - Per-customer λ shipped as the May-2026 headline: `λ_county × E[mean_customers / MCC | duration ≥ T]`; shrinks the v0 county rate 30–100× because most events hit only a share of customers.
 - Annual counts cluster heavily (median overdispersion 5.0 at T=8h; 94% of counties overdispersed); a naive Poisson band is ~2× overconfident, so the shipped band uses **observed year-to-year variance**, not independence.
 - Sample size drops sharply past T=8h; at T=24h, 43 counties have zero events and 225 have <10, forcing point-quote suppression and routing to review. The gate (`available/caution/not_available`) is precomputed per (fips, T).
-- The multiplier is heavy-tailed: median typically 5–7× below mean (Alachua T=4h: 0.000617 vs 0.002973); this is **structural** (core vs periphery), shown as a position read ("this address in upper quartile"), not the confidence band.
+- The multiplier is heavy-tailed: median typically 5–7× below mean (Alachua T=4h: 0.000617 vs 0.002973); this is **structural** (core vs periphery), shown as a position read ("this address in upper quartile"), not the experience band.
 - **A011** is load-bearing: the multiplier uses `mean_customers` as a proxy for true per-customer overlap, likely overstating by 2–3× under staggered restoration — a documented (not modeled) conservative cushion.
 
 **Honesty question.** Is baseline λ(T) biased, in which direction, by how much? — A011: `mean_customers` over-counts true customers crossing T in staggered-restoration regimes → ~2–3× conservative cushion (direction confirmed, magnitude gated on PowerOutage.US per-outage data, not yet wired). A017: does the year-based band track real risk, not just observed noise? **Validated** — variance from actual history, no independence assumption; honest where clustering is highest.
@@ -138,7 +138,7 @@ events/county/yr (national)                              80% band, illustrative
 - A012: one global annualization window (~11.17 yr) for all counties dilutes rates where source coverage is thin (TX 2016: 135/254 counties zero all-duration). `C_source` flags it; the per-county-observed-years fix is pending a pricing decision and doesn't change the preview.
 - A016: the all-duration source-coverage mask is applied to T-specific series without T-specific validation. At T=8h it discards ~3,073 genuine ≥8h events (2015–17) from ~772 county-years. Permutation test shows the mask isn't the signal source (~−10% under shuffled targets), but T-specific validation is open.
 - S(T) is **empirical, not fitted**; thin counties have noisy long-T S(T) and route to `not_available` rather than show false precision (T=24h: 225 of ~3,090 counties <10 events).
-- The band is built from annual counts only, so it conflates sampling noise + clustering + any trend (worsening counties' variance includes the trend); it may slightly over-state pure epistemic uncertainty for trending counties (direction: wider, conservative). Step-5 will decompose trend separately.
+- The band is built from annual counts only, so it conflates sampling noise + clustering + any trend (worsening counties' variance includes the trend); it is **not** an epistemic confidence measure — it is the actual year-to-year experience, so it may slightly over-state risk for trending counties (direction: wider, conservative). Step-5 will decompose trend separately.
 
 ---
 

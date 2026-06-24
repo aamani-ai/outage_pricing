@@ -28,6 +28,9 @@ trigger-source strategy, enriched datasets, and forward-looking modeling.
   a viable primary trigger.
 - [Enriched Event Dataset Plan](05_forward_regime/enriched_event_dataset_plan.md)
 - [Forward-Looking Modeling Plan](05_forward_regime/forward_looking_modeling_plan.md)
+- [Statistical Router Plan](05_forward_regime/statistical_router/README.md) — first Step-05
+  trial: choose simple statistical forecast experts by county behavior bucket before treating
+  heavier weather / climate / grid ML as the forward model.
 - [Outage Baseline Adjustment Framework](cross_cutting/outage_baseline_adjustment_framework.md)
   (includes the [Customer Impact Modifier](cross_cutting/outage_baseline_adjustment_framework.md#customer-impact-modifier)
   proposal for handling event-population severity bias)
@@ -53,6 +56,11 @@ trigger-source strategy, enriched datasets, and forward-looking modeling.
   thin-tail artifact?" routing. Deferred (national verdict + high-T target suffice); build when
   we expand below 8h or underwriting wants per-county write/no-write.
 - [Portfolio Risk Engine Plan](05_forward_regime/portfolio_risk_engine_plan.md)
+- [Premium Range → Experience Band Plan](cross_cutting/premium_experience_band_plan.md) — proposal to
+  change the displayed `{low, point, high}` band from a bootstrap of the mean (confidence) to the
+  empirical percentiles of the annual counts (experience). **Decision OPEN** — three candidates compared
+  in the [pressure test](../dicsscssion/dashboard_redesign/08_band_pressure_test.md);
+  [A017](../methodology/assumptions.md) estimator under review, point premium unchanged either way.
 
 ## Related Architecture Discussions
 

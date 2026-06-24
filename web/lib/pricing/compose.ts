@@ -109,7 +109,7 @@ export function composePremium(layers: PricingLayers, params: PricingParams): Pr
   const steps: PremiumStep[] = [
     { key: 'baseline', label: 'baseline λ_customer', factor: null, runningRate: baseline.lambdaCustomer, status: baseline.status },
     { key: 'location', label: 'location (within-county)', factor: location.relativity, runningRate: baseline.lambdaCustomer * location.relativity, status: location.status },
-    { key: 'forward', label: 'forward (climate + grid)', factor: forward.factor, runningRate: adjustedRate, status: forward.status },
+    { key: 'forward', label: 'forward (stat + climate + grid)', factor: forward.factor, runningRate: adjustedRate, status: forward.status },
     { key: 'loadings', label: '÷ (1 − ER − TM)', factor: 1 / denom, status: 'active' },
   ];
 

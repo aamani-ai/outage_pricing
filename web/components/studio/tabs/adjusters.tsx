@@ -6,10 +6,11 @@ import { StatusBadge, type Status } from "@/components/ui/status-badge";
 import { InfoHint } from "@/components/ui/info-hint";
 import { AdjustmentsPanel } from "@/components/studio/adjustments-panel";
 import { LocationDetail } from "@/components/studio/location-detail";
+import { ForwardDetail } from "@/components/studio/forward-detail";
 import type { Stack, StudioData } from "@/components/studio/shared";
 
-/** the ONE canonical maturity string — identical everywhere (FactorRow · detail · waterfall · methodology). */
-const SHADOW_NOTE = "shadow — validated CT/MA/RI only, not in the quoted premium";
+/** the ONE canonical location-maturity string — identical everywhere (FactorRow · detail · methodology). */
+const LOC_NOTE = "within-county density · pilot-calibrated (CT/MA/RI), nationally extrapolated";
 const TERC_TAG: Record<string, string> = { rural: "rural", mid: "mid", urban: "urban — dense core" };
 
 function FactorRow({ label, value, status, note }: { label: string; value: string; status: Status; note: string }) {
@@ -58,9 +59,46 @@ function LocationFactor({ data, stack, T }: { data: StudioData; stack: NonNullab
           <StatusBadge status={stack.location.status} />
         </span>
       </summary>
-      <p className="text-muted-foreground/60 mt-0.5 text-xs">{SHADOW_NOTE}</p>
+      <p className="text-muted-foreground/60 mt-0.5 text-xs">{LOC_NOTE}</p>
       <div className="mt-3">
         <LocationDetail loc={loc} T={T} county={`${data.county.name} County`} />
+      </div>
+    </details>
+  );
+}
+
+/** Forward is a FACTOR: the one-line read up top, click to open the detail (stat now; climate/grid later). */
+function ForwardFactor({ data, stack, T }: { data: StudioData; stack: NonNullable<Stack>; T: number }) {
+  const fwd = data.forward;
+  const value = `×${stack.forward.factor.toFixed(2)}`;
+  if (!fwd) {
+    return (
+      <FactorRow
+        label="Forward (stat + climate + grid)"
+        value={value}
+        status={stack.forward.status}
+        note="no forward model for this county — held at county average"
+      />
+    );
+  }
+  const f = stack.forward.factor;
+  const tag = f > 1.005 ? `${fwd.regime} · +${Math.round((f - 1) * 100)}%` : `${fwd.regime} · holds`;
+  return (
+    <details className="group border-border/60 border-b pb-3 last:border-0 last:pb-0">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm [&::-webkit-details-marker]:hidden">
+        <span className="text-foreground/80 hover:text-foreground flex min-w-0 items-center gap-1 transition-colors">
+          Forward (stat + climate + grid)
+          <span className="text-muted-foreground/60 text-xs"> · {tag}</span>
+          <ChevronDown className="text-muted-foreground/50 size-3.5 shrink-0 transition-transform group-open:rotate-180" />
+        </span>
+        <span className="flex shrink-0 items-center gap-3">
+          <span className="text-muted-foreground tabular-nums">{value}</span>
+          <StatusBadge status={stack.forward.status} />
+        </span>
+      </summary>
+      <p className="text-muted-foreground/60 mt-0.5 text-xs">statistical (county&rsquo;s own outage history) · climate + grid not yet wired</p>
+      <div className="mt-3">
+        <ForwardDetail fwd={fwd} studio={data.studio} T={T} county={`${data.county.name} County`} />
       </div>
     </details>
   );
@@ -79,26 +117,19 @@ export function AdjustersTab({ data, stack, T }: { data: StudioData; stack: NonN
             </div>
             <InfoHint title="Why these aren’t sliders">
               <p>
-                The <b>location</b> (within-county) and <b>forward</b> (climate + grid) factors are produced by
+                The <b>location</b> (within-county) and <b>forward</b> (stat + climate + grid) factors are produced by
                 statistical models, so they read here as <b>outputs</b>, not levers.
               </p>
               <p>
-                Click <b>Location</b> to open where this address sits in its county, the on-demand commercial-core
-                guardrail, and the evidence. Forward is a framed placeholder until a signal is wired.
+                Click either to open its evidence. <b>Forward</b> is the statistical factor — the county&rsquo;s own
+                outage history forecasting next year; climate + grid layer on later.
               </p>
             </InfoHint>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <LocationFactor data={data} stack={stack} T={T} />
-          <FactorRow
-            label="Forward (climate + grid)"
-            value={`×${stack.forward.factor.toFixed(2)}`}
-            status={stack.forward.status}
-            note={
-              stack.forward.status === "placeholder" ? "placeholder — no signal wired yet (shown at 1.00×)" : "modeled"
-            }
-          />
+          <ForwardFactor data={data} stack={stack} T={T} />
         </CardContent>
       </Card>
 

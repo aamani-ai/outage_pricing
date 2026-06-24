@@ -6,11 +6,36 @@ three *different* uncertainties, they answer different questions, and blending t
 would hide the very distinction an underwriter needs. Validated on real data
 (`scratchpad/range_explore_dev.py` → `notebooks/premium_range/outward_range_exploration.ipynb`).
 
+## Update — an EXPERIENCE band is proposed (v2, 2026-06-24 · decision OPEN)
+
+This note originally framed the band as **(a) confidence** ("epistemic · shrinks with data") and shipped
+it as a **bootstrap of the mean annual rate**. That ran too tight — and it quietly contradicted the very
+pitch below ("how much the rate has bounced year to year"). The proposed change (2026-06-24, now under pressure-test):
+
+```text
+  was (v1):  band = bootstrap of the MEAN rate     = spread ∕ √(years)  → shrinks toward 0 with data  (TOO TIGHT)
+  now (v2):  band = empirical p10..p90 of the ANNUAL COUNTS themselves  → the real year-to-year bounce  (decision-relevant)
+```
+
+An annual policy pays on **one year's** realized outcome, so the spread of *years* — not the precision of
+their *average* — is what the band must show. Measured on `eagle-i-45min`: v2 is a **median ~2.9× wider**
+than v1 (≈ √11, the structural √years factor), **98.3%** of cells widen, and it stays honest by county
+shape (steady-rich Wake NC ±5%; volatile Alachua FL +48/−42%; thin Clayton IA +50/−33%).
+
+The (b) heterogeneity / (c) placement framework below **still stands** — but those widen the band only
+in a *later proper process* (alongside the location basis), **not now**. The proposal is **(a) experience alone.**
+**Decision is OPEN** — three candidates (confidence / experience p10–p90 / experience p25–p75) are compared in
+[`08_band_pressure_test.md`](08_band_pressure_test.md). Tracked in [A017](../../methodology/assumptions.md)
+(estimator under review); the how, if adopted, in
+[`pricing_methodology.md`](../../methodology/cross_cutting/pricing_methodology.md#the-premium-band-the-experience-band-a017);
+build plan [`premium_experience_band_plan.md`](../../plan/cross_cutting/premium_experience_band_plan.md).
+**The rest of this note is the original v1 reasoning trail — read it through the correction above.**
+
 ## Three uncertainties, not three rival answers
 
 ```text
-  (a) CONFIDENCE     how sure are we of the county's average rate?         epistemic · shrinks with data
-                     → a Poisson band on K (events counted over ~11 yrs)
+  (a) EXPERIENCE     how much does an actual YEAR swing around the average?  realized volatility · converges to real spread
+                     → empirical p10..p90 of the ~11 annual counts          [v2; was "(a) confidence", see update above]
   (b) HETEROGENEITY  how much does frequency vary by location IN the county? structural · real spread
                      → the customer-impact multiplier median..mean..max     (the OLD dashboard's range)
   (c) PLACEMENT      where in (b) does THIS address sit, and how sure?       → location relativity + geocode
@@ -25,29 +50,29 @@ you are, a customer here sees this much" was the honest statement.
 
 The new dashboard **resolves the address** (the location adjustment, (c)). So (b) stops being the band
 and becomes a **position read** — "this address sits at the upper third of its county." What's left as
-the band around the resolved point is **(a) confidence.**
+the band around the resolved point is **(a) experience** (the year-to-year bounce; see the v2 update above).
 
 ## The decision — and how the three compose
 
-> **band = (a) confidence, widened by the unresolved part of (b) in proportion to (c)'s weakness.**
+> **band = (a) experience.**  *(the v2 proposal would be this alone; widening by the unresolved part of (b) in proportion to (c)'s weakness is deferred to a later proper process.)*
 
 ```text
-  well-placed address     good geocode + validated relativity → (c) resolves (b) → band ≈ (a) confidence
+  well-placed address     good geocode + validated relativity → (c) resolves (b) → band ≈ (a) experience
   weakly-placed address   ZIP-centroid / unvalidated region   → (b) leaks back in  → band widens
 ```
 
 So none of (a)/(b)/(c) is discarded:
-- **(a)** is the band — a **year-based** confidence interval (bootstrap of the observed annual rate).
-  Tight where rich/steady, wide where thin/volatile. *(An earlier Poisson-on-count version was
-  rejected — too tight, because outages cluster; see "what's behind it" below + learning log.)*
+- **(a)** is the band — the year-to-year **experience** band (empirical p10/p90 of the observed annual
+  counts; v2, see update above). Tight where rich/steady, wide where thin/volatile. *(Two earlier
+  versions were rejected — Poisson-on-count and a bootstrap of the mean — both too tight; see learning log.)*
 - **(b)** is kept as the Studio's **position-in-county** read (honouring the old work) and as the
   fallback that widens the band when we can't place the address.
 - **(c)** (location basis) is the gate that decides how much (b) matters.
 
 **Per `communicate_to_share` (rule 4 — split orthogonal questions, never one blended score):** the
-band shows **confidence**; position shows **heterogeneity**. They are never merged into one opaque
-range, because a wide band from "we're unsure" demands a *different* underwriter action than a wide
-band from "this county is very heterogeneous." Two reads, not one number.
+band shows **experience**; position shows **heterogeneity**. They are never merged into one opaque
+range, because a wide band from "the rate bounces hard year to year" demands a *different* underwriter
+action than a wide band from "this county is very heterogeneous." Two reads, not one number.
 
 ## What this band means, and what's behind it — for underwriter trust
 
@@ -60,11 +85,11 @@ spread of who-pays-what across the county."
 **What's behind it, plainly:**
 ```text
   1. take this county's OBSERVED annual count of outages >= T hours (the ~11-year series).
-  2. bootstrap the average annual rate over those years (resample years, 80% interval).
+  2. take the p10 and p90 of those annual counts THEMSELVES (the 10th- and 90th-percentile year).
   3. carry that band straight through the price (premium scales linearly in the rate).
-  4. why year-based, not a naive event count: outages CLUSTER (a storm = many at once), so the real
-     year-to-year bounce is far wider than counting events suggests (median ~2x wider; up to ~8x for
-     storm-prone counties). We use the bounce. No fitted distribution, no fudge factor.
+  4. why the spread of YEARS, not a naive event count: outages CLUSTER (a storm = many at once), so the
+     real year-to-year bounce is far wider than counting events suggests. We use the bounce directly —
+     NOT a bootstrap of the mean (that divides the bounce by √years). No fitted distribution, no fudge factor.
 ```
 
 **Why it's trustworthy:**

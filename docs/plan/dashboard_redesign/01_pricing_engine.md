@@ -9,13 +9,14 @@ A pure module `web/lib/pricing/` with no React, no DOM, no fetch — inputs in, 
 
 ```ts
 composePremium(layers, { T, X, ER, TM }) → {
-  baseline:  { lambdaCustomerT, rateBand: {low, high}, status: 'active' },  // rateBand precomputed upstream (year-based bootstrap, A017)
+  baseline:  { lambdaCustomerT, rateBand: {low, high}, status: 'active' },  // rateBand precomputed upstream (experience band: p10/p90 of annual counts, A017 v2)
   location:  { relativity, status: 'modeled' | 'active' },    // mean-1 within county
   forward:   { factor, status: 'placeholder' | 'modeled' },   // climate × county-grid, combined; 1.00× until live
   finalPure, denom,                                           // denom = 1 − ER − TM
-  premium:   { low, point, high },                            // RETAIL band — Poisson-on-K confidence (disc 07),
-                                                              //   widened by residual (b) when placement is weak
-  bandDriver: 'confidence' | 'placement-widened',             // never blend the two (communicate_to_share)
+  premium:   { low, point, high },                            // RETAIL band — experience: p10/p90 of annual counts (A017 v2, disc 07);
+                                                              //   placement/forward widening deferred to a later process
+  bandDriver: 'confidence' | 'placement-widened',             // 'confidence' = legacy value for the experience-band driver (A017 v2);
+                                                              //   rename → 'experience' deferred to P2. Never blend the two (communicate_to_share)
   steps: [ ...the ordered waterfall rows ],                   // baseline → location → forward → expense/margin
 }
 ```

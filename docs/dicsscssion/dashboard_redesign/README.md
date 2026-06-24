@@ -40,7 +40,8 @@ biggest break from the previous dashboard.
 | `04_pricing_model_in_ui.md` | Two-layer chain + grid firewall + status grammar | drafted |
 | `05_visual_system_and_stack.md` | Aesthetic, tokens, components, stack, references | drafted |
 | `06_open_questions.md` | Threads to resolve before the plan | drafted |
-| `07_outward_range.md` | What the premium range means (confidence band vs heterogeneity) + backend, for trust | drafted |
+| `07_outward_range.md` | What the premium range means (three-uncertainty framing) + backend, for trust; carries the 2026-06-24 experience-band update | drafted |
+| `08_band_pressure_test.md` | **Band method DECISION (open):** confidence vs experience p10/p90 vs p25/p75 — width tables + dollar comparison, for team feedback | drafted |
 
 ## Method (how we're designing this)
 

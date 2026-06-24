@@ -90,11 +90,23 @@ export interface LocationRead {
   relativityByT: Record<string, number>; // v0_shadow capped relativity per trigger T (post-guardrail)
 }
 
+/** Statistical forward factor (Step 05): the "stat" in FORWARD = stat + climate + grid — the county's
+ *  own-history forecast of next-year frequency vs its long-run mean. One-directional (uplift or hold),
+ *  credibility-shrunk, capped. The forward baseline that climate/grid challengers must beat. */
+export interface ForwardRead {
+  regime: string; // the Step-3 behaviour regime (routing group)
+  expert: string; // chosen forecast method for that regime
+  conf: string; // regime confidence tier
+  factorByT: Record<string, number>; // the stat factor per trigger T (≥1.0)
+  detailByT: Record<string, { lamFull: number; forecast: number; cred: number; raw: number }>;
+}
+
 export type StudioData = {
   fips: string;
   county: CountyPricing;
   studio: CountyStudio | null;
   location: LocationRead | null;
+  forward: ForwardRead | null;
 };
 
 export type { StudioTab } from "@/lib/quote-store";

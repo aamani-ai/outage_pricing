@@ -18,6 +18,7 @@ history and local outage probability.
 | `01_problem_framing.md` | First discussion note: what spatial grain we have, what a location-based policy needs, and why this can affect pricing. |
 | `02_research_backlog.md` | Questions and research tasks before we redesign pricing or trigger logic. |
 | `03_location_basis_risk_design.md` | Design note for the county-to-location basis-risk modifier, including utility identity, first-use guardrails, validation, and open questions. |
+| `04_location_read_granularity.md` | Future update (from a live Studio observation): gate the within-county location read on geocode granularity (address vs region) + a non-residential ≈0-resident tract guard. The "Manhattan → Central Park → rural" case. |
 
 ## Current Working View
 

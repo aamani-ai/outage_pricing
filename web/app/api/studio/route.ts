@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCounty } from "@/lib/data/pricing";
 import { getStudio } from "@/lib/data/studio";
 import { getTract, getCounty as getLocCounty, getRelativity, GUARDRAIL, type Tercile } from "@/lib/data/location";
+import { getForward } from "@/lib/data/forward";
 
 export const dynamic = "force-dynamic";
 
@@ -50,9 +51,10 @@ async function zonalImpervious(lat: number, lon: number): Promise<number | null>
 
 /**
  * Full county picture for the Underwriting Studio.
- *   GET /api/studio?lat=&lon=  →  { fips, county, studio, location }
- * `location` carries the within-county density read + the on-demand commercial-core guardrail
- * (Step 04). It is SHADOW (validated:false; pilot-calibrated, nationally extrapolated).
+ *   GET /api/studio?lat=&lon=  →  { fips, county, studio, location, forward }
+ * `location` (Step 04) carries the within-county density read + on-demand commercial-core guardrail;
+ * `forward` (Step 05) carries the statistical forward factor (the "stat" in stat + climate + grid) —
+ * the county's own-history forecast vs its long-run mean, one-directional, credibility-shrunk, capped.
  */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -126,5 +128,5 @@ export async function GET(req: Request) {
     };
   }
 
-  return NextResponse.json({ fips, county, studio: getStudio(fips), location });
+  return NextResponse.json({ fips, county, studio: getStudio(fips), location, forward: getForward(fips) });
 }

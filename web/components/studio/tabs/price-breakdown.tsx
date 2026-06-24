@@ -105,10 +105,10 @@ export function PriceBreakdownTab({
       cta: "Adjusters",
     },
     {
-      label: "× Forward (climate + grid)",
+      label: "× Forward (stat + climate + grid)",
       val: `×${stack.forward.factor.toFixed(2)}`,
       status: stack.forward.status,
-      note: stack.forward.factor === 1 ? "not yet plugged in" : "adjusted",
+      note: stack.forward.factor > 1.005 ? "statistical — county’s own history" : "holds at county average",
       tab: "adjusters" as StudioTab,
       cta: "Adjusters",
     },
@@ -127,8 +127,8 @@ export function PriceBreakdownTab({
             <InfoHint title="How the premium is built">
               <p>
                 We start from the county&rsquo;s per-customer outage frequency (the <b>baseline</b> λ), apply the
-                within-county <b>location</b> factor and the <b>forward</b> (climate + grid) factor, multiply by the
-                payout, then divide by (1 − expenses − margin).
+                within-county <b>location</b> factor and the <b>forward</b> (stat + climate + grid) factor, multiply by
+                the payout, then divide by (1 − expenses − margin).
               </p>
               <p>
                 Each pill shows how solid that input is — <b>active</b> (in the price today), <b>modeled</b> (an

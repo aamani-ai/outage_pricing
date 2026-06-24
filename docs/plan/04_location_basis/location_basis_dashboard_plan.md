@@ -152,6 +152,10 @@ Each is a `space-y-5` Card (CardHeader `flex justify-between` {title + descripti
 - The CONUS relativity **map** layer (needs the raster precompute to reflect the guardrail).
 - The **raster precompute** that retires the live per-address WMS call.
 - **Calibration refresh** (out-of-region + storm-season) — stays in the notebook; clears the activation gate.
+- **Search-granularity + non-residential guards** — gate the location read on geocode granularity
+  (address/POI → show; region/locality/ZIP → suppress) + neutralize ≈0-resident tracts (parks/water).
+  From a live observation ("Manhattan" → Central Park → "rural"). Spec:
+  [`../../dicsscssion/location_aware_outage_pricing/04_location_read_granularity.md`](../../dicsscssion/location_aware_outage_pricing/04_location_read_granularity.md).
 
 ---
 

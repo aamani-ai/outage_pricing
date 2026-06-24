@@ -1,8 +1,8 @@
 # Pricing — Methodology
 
-- **Status:** skeleton
+- **Status:** skeleton (band section filled 2026-06-24)
 - **First written:** 2026-05-30
-- **Last reviewed:** 2026-05-30
+- **Last reviewed:** 2026-06-24
 
 ## Scope
 
@@ -37,6 +37,73 @@ Retail premium   = (Pure + UncLoad) / (1 - ER - TM)
   defaults per [A006](../assumptions.md#a006--default-loads-er--020-tm--015-uncload--0).
 - The (T, X) grid is `{2, 4, 8, 12, 24} h × {500, 1000, 2500, 5000, 10000}`,
   giving 25 cells per county.
+
+## The premium band: the experience band (A017)
+
+> **STATUS (2026-06-24): method under review — NOT yet adopted.** What ships today is **v1** (a year-based
+> bootstrap of the mean — the *confidence* band). The **experience** method described below is the leading
+> proposal; a [pressure test](../../dicsscssion/dashboard_redesign/08_band_pressure_test.md) compares three
+> candidates (median widths: confidence ±19% · experience p10/p90 ±53% · experience p25/p75 ±27%) before the
+> team decides. The section below describes the proposed experience method.
+
+The quote is a band `{low, point, high}`, not a single-value estimate. The band is the **year-to-year
+experience** of the county's qualifying-event frequency — *how much an actual policy year swings
+around the average* — per [A017](../assumptions.md). For the underwriter: **wide band = noisy or thin
+history (apply judgment); tight band = steady, rich history (trust the headline).**
+
+```text
+  point  = mean of the observed annual qualifying-event counts     → the headline lambda(T)
+  band   = empirical p10 .. p90 of those SAME annual counts        → the year-to-year bounce
+           carried linearly:  {low, high} = (p10/mean , p90/mean) * lambda * X / (1 - ER - TM)
+```
+
+One source — the actual yearly counts. Their **average** is the price; their **year-to-year spread**
+is the band. Nothing is fitted or modeled — which is exactly why the band widens for thin/volatile
+counties and stays tight for rich/steady ones (evidence-driven, not backstopped).
+
+**Why "experience", not "confidence in the mean."** A band can answer two different questions, and
+only one is decision-relevant for an annual policy:
+
+```text
+  confidence-in-mean   "how well do we know the long-run AVERAGE rate?"  width -> 0 as years -> inf   (REJECTED: v1)
+  experience (adopted) "how much does an actual YEAR swing?"             width -> the real spread      (a year still varies)
+```
+
+A policy pays on a **single year's** realized outcome, so we price the spread of years, not the
+precision of their average. The v1 implementation (a bootstrap of the mean) was the *standard error
+of the average* ≈ spread ∕ √(years) — structurally ~√11 ≈ 3× too tight for an ~11-year history, and
+it contradicted the "year-to-year bounce" story the dashboard already told (see learning log).
+
+**Why the spread is wide (and Poisson is wrong).** Outages cluster — a storm causes many correlated
+outages — so annual-count variance ≫ Poisson mean (median `var/mean` = 5.0 at T=8h; 94% of counties
+overdispersed). The experience band captures that clustering automatically because it reads the real
+annual swings; a Poisson-on-count band assumes independence and is far too tight.
+
+**Measured effect** (`eagle-i-45min`, 15,135 county×T cells; premise check `scratchpad/band_compare.py`):
+
+```text
+   T     median relative spread (hi/mean - lo/mean)    widen vs v1
+   2h        0.24  ->  0.65                                2.9x
+   8h        0.38  ->  1.07   <- primary trigger            2.9x
+  24h        0.56  ->  1.57                                2.8x
+   -> 98.3% of cells widen.  Stays honest by county shape:
+        Wake NC    (steady, ~295/yr) +/-5%      Pasco FL   +7/-11%
+        Alachua FL (volatile)        +48/-42%   Clayton IA (thin, 6/yr)  +50/-33%
+```
+
+**Scope (v2).** Experience band **only**. Placement (within-county location basis) and forward
+(climate/regime) uncertainty are deferred to a later proper process — never blended into this band
+(`communicate_to_share` rule 4: split orthogonal questions, never one opaque score).
+
+**Caveats.** Uses the full observed annual variance, so it conflates trend (direction: wider =
+conservative; trend is a Step-5 forward concern); unreliable for <5 observed years or near-zero events
+at long T → route to `insufficient` and **suppress the point quote** rather than show a meaningless range.
+
+**Where it lives.** Precomputed in [`web/scripts/build_data.py`](../../../web/scripts/build_data.py)
+`rel_band`; the engine reads `{low, point, high}` + a `band_driver` tag and the UI renders it. Full
+narrative: learning log [`premium_range_clustering.md`](../../learning_logs/premium_range_clustering.md);
+design note [`07_outward_range.md`](../../dicsscssion/dashboard_redesign/07_outward_range.md); build
+plan [`premium_experience_band_plan.md`](../../plan/cross_cutting/premium_experience_band_plan.md).
 
 ## v0 prices per policy, not per portfolio
 

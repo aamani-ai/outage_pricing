@@ -63,26 +63,28 @@ export function StudioView() {
 
   const adj = adjustmentsFor(data?.fips);
   const cell = data?.county.T[String(T)];
-  // the model's within-county relativity for this address at the selected trigger (shadow, post-guardrail)
+  // model factors for this county at the selected trigger: within-county relativity (post-guardrail)
+  // and the statistical forward factor (the "stat" in stat + climate + grid)
   const modelLocRel = data?.location?.relativityByT?.[String(T)] ?? 1;
+  const modelFwd = data?.forward?.factorByT?.[String(T)] ?? 1;
   const stack = useMemo(() => {
     if (!cell || cell.lam == null) return null;
     const rateBand = cell.lo != null && cell.hi != null ? { low: cell.lo, high: cell.hi } : undefined;
     const ef = effectiveFactors(adj);
-    // location = the MODELED within-county relativity × any manual location load (multiplicative,
-    // so the model factor and the manual lever never double-count). The Studio HEADLINES this composed
-    // shadow relativity (with the maturity banner); the outward /api/price path never applies it, so
-    // the buyer's premium stays unmoved while location basis is shadow (D3).
+    // model factors × any manual load (multiplicative, so the model and the lever never double-count).
+    // Both compose into the ONE premium: location = within-county relativity; forward = the statistical
+    // forward factor (the county's own-history forecast vs its long-run mean — the "stat" in stat+climate+grid).
     const locRel = modelLocRel * ef.location;
+    const fwdF = modelFwd * ef.forward;
     return composePremium(
       {
         baseline: { lambdaCustomer: cell.lam, ...(rateBand ? { rateBand } : {}), status: "active" },
         location: { relativity: locRel, status: locRel !== 1 ? "modeled" : "placeholder" },
-        forward: { factor: ef.forward, status: ef.forward !== 1 ? "modeled" : "placeholder" },
+        forward: { factor: fwdF, status: data?.forward || fwdF !== 1 ? "modeled" : "placeholder" },
       },
       { T, X, expenseRatio: ER, targetMargin: TM },
     );
-  }, [cell, T, X, ER, TM, adj, modelLocRel]);
+  }, [cell, T, X, ER, TM, adj, modelLocRel, modelFwd, data?.forward]);
 
   return (
     <div className="mx-auto max-w-5xl">

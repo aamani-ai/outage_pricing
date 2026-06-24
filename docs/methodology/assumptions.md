@@ -705,44 +705,69 @@ coverage signal before this ships to the actuarial consultant.
 
 **Cited from.** [`regime_routing_backtest_plan.md`](../plan/03_risk_clustering/regime_routing_backtest_plan.md); [`regime_classification.ipynb`](../../notebooks/03_risk_clustering/regime_classification.ipynb); builds on the mask in [`05_source_coverage_mask.md`](../dicsscssion/eventization_frequency_contract/05_source_coverage_mask.md); related to [A014](#a014--regime-derived-at-t8h-and-asserted-t-invariant-one-per-county).
 
-### A017 — The premium range is a year-based (overdispersion-aware) confidence band, not Poisson-on-K
+### A017 — The premium band is year-based & overdispersion-aware (estimator under review: confidence vs experience)
 
 - **Category:** modeling
-- **Status:** active — v1 for the dashboard premium range (iterable; see learning log)
+- **Status:** **under review (2026-06-24)** — **v1 (year-based bootstrap of the mean) currently ships**; a change to the **experience band** (empirical p10/p90 or p25/p75 of the annual counts) is proposed and under pressure-test. Decision pending team feedback.
 - **First written:** 2026-06-23
-- **Last reviewed:** 2026-06-23
+- **Last reviewed:** 2026-06-24
 - **Owner:** modeling
 
-**Statement.** The premium is shown as a band `{low, point, high}`. The band is the **confidence in
-the per-customer frequency λ(T)**, computed by **bootstrapping the observed annual qualifying-event
-counts** (resample the observed years; 80% interval on the mean rate outward, 90% in the Studio) and
-carrying it linearly through `premium = λ·X/(1−ER−TM)`. The earlier candidate — an exact **Poisson
-interval on the total count K** — is **rejected for the band**: it assumes independent events and is
-overconfident. Heterogeneity (the per-customer multiplier `median..max`) is **not** the band; it is a
-separate *position-in-county* read. The three are distinct: (a) confidence = the band; (b)
-heterogeneity = position; (c) location/geocode = the gate that resolves (b) and can widen the band
-when placement is weak.
+**Statement.** The premium shows as a band `{low, point, high}`. **How `low`/`high` are computed is an
+open decision** — three candidates, differing greatly in width; all carry linearly through
+`premium = λ·X/(1−ER−TM)` and leave the **point premium unchanged**. Full evidence + trade-offs:
+[`08_band_pressure_test.md`](../dicsscssion/dashboard_redesign/08_band_pressure_test.md).
+
+```text
+  v1  confidence — bootstrap of the MEAN rate (std error ≈ spread∕√years).  median ±19%.  SHIPS TODAY.
+                   Collapses to indefensible precision for high-volume steady counties (e.g. ±2%).
+  v2  experience — empirical p10/p90 of the annual counts (the year swing; 80% of years). median ±53%.
+                   Honest about storm years; but 60% of counties exceed ±45%.
+  v2b experience — empirical p25/p75 (the middle HALF of years). median ±27%. Commercially clean, but
+                   TRIMS the storm-year tail — for some counties even narrower than v1 (under-reserves).
+```
+
+A **Poisson interval on the count K** is rejected under all candidates: it assumes independent events
+and is far too tight because outages cluster. Heterogeneity (the per-customer multiplier `median..max`)
+is **not** the band; it is a separate *position-in-county* read — never blended in. Placement (location
+basis) and forward/climate widening are likewise **out of scope** for this band, deferred to a later
+proper process.
+
+**History.** v1 shipped 2026-06-23 (bootstrap of the mean, labelled "confidence"). On 2026-06-24 a
+pressure test showed v1 contradicts the year-to-year-bounce framing the dashboard already tells (the
+tooltip, `07_outward_range.md`'s pitch, the learning log's "STEP 2"), and is **~2.9× too tight at the
+median** — prompting the experience-band proposal and this open review. The shipped code (`rel_band`)
+still implements v1 until the decision lands.
 
 **Justification.** Outages **cluster** (a storm causes many correlated outages), so the annual-count
-variance far exceeds the Poisson mean. Measured directly on the masked annual series: median
-dispersion index `var/mean = 5.0` at T=8h (12.6 at T=2h), with **94% of counties overdispersed**
-(D>1) at T=8h. The year-based bootstrap band comes out a **median ~2.1× wider** than Poisson (up to
-8–10× for storm-clustered counties). The bootstrap uses the *real* observed year-to-year variation,
-needs **no fitted distribution** (consistent with the v0 empirical method), and still widens at
-longer T and thinner counties.
+variance far exceeds the Poisson mean: median dispersion `var/mean = 5.0` at T=8h (12.6 at T=2h),
+**94% of counties overdispersed** at T=8h. That is why a count-based Poisson band is wrong — and why
+the experience band is wide exactly where it should be. The v1→v2 widening is **structural, not a
+tuning choice**: a bootstrap of the mean is the standard error of the average ≈ (year-to-year spread)
+∕ √(years); with ~11 observed years √11 ≈ 3.3, so using the spread itself is ≈3× wider. Measured
+directly on `eagle-i-45min` (15,135 county×T cells): the experience band is a **median ~2.9× wider**
+than the v1 bootstrap-of-mean band, consistently across triggers (at T=8h the median relative spread
+`hi/mean − lo/mean` goes 0.38 → 1.07), wider for **98.3%** of cells. It still behaves honestly —
+steady, data-rich counties stay tight (Wake NC T=8h ±5%), volatile (Alachua FL +48/−42%) and thin
+(Clayton IA, ~6 events/yr, +50/−33%) counties widen. Evidence-only, no fitted distribution —
+consistent with the v0 empirical method.
 
-**Impact if wrong / direction.** The year-based band conflates sampling noise, clustering, **and** any
-trend (worsening counties carry trend-driven annual variance) — so it may slightly **over-state**
-uncertainty for strongly-trending counties (direction: wider, conservative). Trend handling is a
-Step-5 forward concern. For counties with **<5 observed years** or near-zero events at long T (43
-zero / 76 tiny at T=8h; 89 / 225 at T=24h) the band is unreliable → route to `insufficient` /
-**suppress the point quote** rather than show a meaningless range.
+**Impact if wrong / direction.** The experience band uses the *full* observed annual variance, so it
+conflates sampling noise, clustering, **and** trend (a worsening county's year-to-year variance
+includes its trend) — direction: **wider = conservative**; trend handling is a Step-5 forward concern.
+It is **not** an epistemic confidence measure — it is realized experience. For **thin** counties this
+bites hardest: with **<5 observed years** or near-zero events at long T (43 zero / 76 tiny at T=8h;
+89 / 225 at T=24h) we cannot separate a worsening trend from real year-to-year jitter, so the band is
+unreliable → route to `insufficient` / **suppress the point quote** rather than show a meaningless
+range. (Unchanged from v1.)
 
-**Detection / mitigation.** Overdispersion measured from the masked annual series; band method
-validated in [`premium_range`](../../notebooks/premium_range/outward_range_exploration.ipynb). **v1 by
-design — iterable** once the dashboard ships (negative-binomial, Bühlmann credibility, Bayesian
-Gamma-Poisson are documented alternatives). Engine returns `{low, point, high}` + a `band_driver` tag;
-never blends confidence with heterogeneity (`communicate_to_share`). Recommend **precomputing** the
-band in the pipeline (the bootstrap needs the per-year counts) and shipping it in the catalog.
+**Detection / mitigation.** Overdispersion and the v1/v2 widening measured on the masked annual series
+(premise check `scratchpad/band_compare.py`; to be formalized in
+[`premium_range`](../../notebooks/premium_range/outward_range_exploration.ipynb)). **v2 by design —
+iterable**: negative-binomial / overdispersed-Poisson predictive, Bühlmann credibility, Bayesian
+Gamma-Poisson remain documented alternatives if we later want a *named* parametric tail (e.g. to
+justify p5/p95). The engine returns `{low, point, high}` + a `band_driver` tag and never blends
+experience with heterogeneity (`communicate_to_share`). The band is **precomputed** in the pipeline
+([`web/scripts/build_data.py`](../../web/scripts/build_data.py) `rel_band`).
 
-**Cited from.** [`07_outward_range.md`](../dicsscssion/dashboard_redesign/07_outward_range.md); learning log [`premium_range_clustering.md`](../learning_logs/premium_range_clustering.md); builds on the masked annual series from [A012](#a012--per-customer-exposure-uses-one-global-window-dilutes-partial-coverage-counties) / [A016](#a016--the-all-duration-coverage-mask-is-applied-as-a-proxy-for-t-specific-observability).
+**Cited from.** Pressure test / open decision: [`08_band_pressure_test.md`](../dicsscssion/dashboard_redesign/08_band_pressure_test.md); design note [`07_outward_range.md`](../dicsscssion/dashboard_redesign/07_outward_range.md); learning log [`premium_range_clustering.md`](../learning_logs/premium_range_clustering.md); methodology [`pricing_methodology.md`](cross_cutting/pricing_methodology.md#the-premium-band-the-experience-band-a017); plan [`premium_experience_band_plan.md`](../plan/cross_cutting/premium_experience_band_plan.md); builds on the masked annual series from [A012](#a012--per-customer-exposure-uses-one-global-window-dilutes-partial-coverage-counties) / [A016](#a016--the-all-duration-coverage-mask-is-applied-as-a-proxy-for-t-specific-observability).
