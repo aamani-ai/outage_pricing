@@ -550,9 +550,11 @@ look strong but would overweight large counties and blur the design.
 - The runtime national feature is Census tract population density, which can
   mis-rank dense commercial cores with low residential population.
 - Tree canopy was tested and did not add lift beyond density in the NE pilot.
-- Point-sampled impervious surface fixed some commercial-core intuition but was
-  too noisy at a single pixel; the planned fix is tract-level zonal mean
-  impervious / developed land-cover.
+- Point-sampled impervious was too noisy at a single pixel; the now-active fix
+  (Step-04 notebook) is a **tract zonal-mean impervious guardrail** — symmetric
+  (de-uplift commercial cores; conservatively penalize the reverse) and deliberately
+  conservative for insurance. Spike (2026-06-23) flipped Midtown / the Financial
+  District rural→urban 2/2. Status: planned / in development.
 - The factors remain shadow until out-of-region validation and governance review.
 
 ## 10. File Map for Reviewers

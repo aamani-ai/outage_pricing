@@ -75,7 +75,26 @@ export function regimeLabel(regime: string | null, sub: string | null): string {
   const k = regimeKey(regime, sub);
   return REGIME_DISPLAY[k] ?? (regime ?? "—");
 }
-export type StudioData = { fips: string; county: CountyPricing; studio: CountyStudio | null };
+/** Location basis (Step 04): the address's within-county density read + on-demand guardrail. Shadow. */
+export interface LocationRead {
+  tract: string; // 11-digit tract GEOID
+  tercile: "rural" | "mid" | "urban"; // post-guardrail tercile (drives the relativity)
+  baseTercile: "rural" | "mid" | "urban"; // density-only tercile, before the guardrail
+  pct: number; // within-county density percentile (0–1); 0 = sparsest, 1 = densest
+  density: number; // people / km²
+  dispersion: number | null; // std(log10 tract density) in this county — how much location matters here
+  nSub: number | null; // tracts in the county
+  validated: boolean; // PoUS-outcome-validated? false everywhere today (CT/MA/RI pilot is town-grain)
+  guardrail: { triggered: boolean; type?: "A" | "B"; impervious?: number };
+  relativityByT: Record<string, number>; // v0_shadow capped relativity per trigger T (post-guardrail)
+}
+
+export type StudioData = {
+  fips: string;
+  county: CountyPricing;
+  studio: CountyStudio | null;
+  location: LocationRead | null;
+};
 
 export type { StudioTab } from "@/lib/quote-store";
 

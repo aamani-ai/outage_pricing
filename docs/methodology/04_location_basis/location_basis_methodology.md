@@ -2,7 +2,7 @@
 
 - **Status:** v1 shipped as a **shadow** read (map mode + matrix view + address lookup); not active pricing.
 - **First written:** 2026-06-18
-- **Last reviewed:** 2026-06-18
+- **Last reviewed:** 2026-06-23 (zonal-impervious guardrail plan — see §8)
 - **Read alongside:** [Per-Customer Pricing](../02_per_customer/per_customer_pricing_fundamentals.md), [Pricing Methodology](../cross_cutting/pricing_methodology.md), [Location Relativity Factor Derivation](location_relativity_factor_derivation.md), [Assumptions Registry](../assumptions.md), and the workstream [`docs/extra/location_features/`](../../extra/location_features/) (build scripts + findings).
 
 ## Why this file exists
@@ -255,35 +255,56 @@ CT/MA/RI, Jan–Mar 2019** (the only region with sub-county outage *outcomes*).
 
 ---
 
-## 8. Known limitation + the work still ahead (we will do this)
+## 8. Known limitation + the fix now in development (updated 2026-06-23)
 
 **The flaw, stated plainly:** the national extrapolation uses **population**
 density, which **under-ranks dense commercial / low-residential cores** — they can
 read as "rural" and wrongly get an uplift. It bites only the *unvalidated, shadow*
 national layer in big-city downtowns; it does **not** touch the validated pilot.
-But it is wrong, and we will fix it.
+But it is wrong, and it is now the **active Step-04 workstream** (see the
+[notebook plan](../../plan/04_location_basis/location_basis_notebook_plan.md)).
 
-**The fix — and it is real work:** replace point/population density with a
-**zonal mean of NLCD impervious surface (or developed land-cover) per tract.**
-Impervious is the right signal — at a true point, Midtown reads **94 %** and rural
-Litchfield **3 %** — but it must be a **tract zonal mean**, not a point sample
-(point impervious failed in §7 precisely because a single pixel is noisy).
+**The fix — a symmetric, conservative zonal-impervious GUARDRAIL (not a replacement).**
+Compute a **zonal mean of NLCD impervious % per tract** (the *tract mean*, never a
+single point — point impervious failed in §7 precisely because one pixel is noisy),
+and use it to override the density rank **only where the two contradict**:
 
-```text
-proposed:  built_intensity(tract) = mean( NLCD impervious % over the tract's pixels )
-           → replaces / blends with population density in the within-county rank
-```
+| contradiction | density says | impervious says | → reclassify | premium |
+|---|---|---|---|---|
+| **Type A** (commercial core) | rural (sparse residents) | built-up (high impervious) | rural → **urban** | ↓ discount |
+| **Type B** (the reverse) | urban (dense residents) | not built-up (low impervious) | urban → **higher** | ↑ uplift |
 
-This needs **raster zonal-statistics over the CONUS NLCD impervious raster**
-(GB-scale download + `rasterio`/zonal-stats over ~81k tracts) — heavier than any
-point sample, which is why it is **scheduled, not skipped**. It is the right time
-to do it when location basis graduates **shadow → active** and earns national
-outcome validation. Tracking: [`docs/extra/location_features/`](../../extra/location_features/),
+Density stays the validated base; impervious is a **veto on the obviously-wrong
+calls**, kept because no single proxy *is* the grid (each has its own blind spot).
+
+**Why symmetric, and why conservative — this is an insurance design.** A one-way
+correction biases the book. Type A produces a *discount*, so it fires only on the
+**strong, unambiguous** high-impervious signal. Type B produces an *uplift*; per the
+pre-op rule *"discounts require stronger evidence than uplifts,"* the penalty is the
+**safe direction**, so we accept a **conservative bias** there — for outage insurance
+we would rather over-charge an ambiguous location than under-charge it. We **document**
+the cost of that choice: low impervious is ambiguous (urban green space reads low), so
+Type B may over-penalize some leafy, well-served tracts — an accepted, flagged bias,
+with an optional greenspace guard to reduce it later.
+
+**Early evidence (spike, 2026-06-23):** zonal impervious flipped Midtown
+(p13 density → **91 %** impervious) and the Financial District (p15 → **89 %**)
+rural→urban, **2/2**, while genuinely-residential Manhattan tracts were untouched; it
+also confirmed the **zonal mean is stable where a single point is noisy.** The national
+build needs **raster zonal-statistics over the CONUS NLCD impervious raster**
+(`rasterio`, GB-scale), run **offline in the notebook**, never in the dashboard.
+Tracking: [`docs/extra/location_features/`](../../extra/location_features/),
 experiment `impervious_experiment.py`.
 
-> A cheap partial guard exists for the **address** feature specifically (where we
-> have a real point, not a centroid): clamp the rural uplift when the queried
-> address sits on high-impervious land. Optional, address-only.
+**Status (2026-06-23):** the calibration **notebook is built and executed**
+([`notebooks/04_location_basis/location_basis_calibration.ipynb`](../../../notebooks/04_location_basis/location_basis_calibration.ipynb))
+— it reproduces the locked relativity numbers exactly, adds the symmetric/conservative
+zonal-impervious guardrail (validated on Midtown/FiDi), builds the national tract surface +
+**on-demand** per-address guardrail, and emits the dashboard's numbers artifact. Still **shadow**
+(not in the quoted premium). The two remaining pieces are **append-only**, not rebuilds: (1) a
+**calibration refresh** when more PoUS data lands (re-run → swap the numbers; also clears the
+activation gate); (2) the **static-map raster precompute** (append a per-tract impervious field; the
+on-demand guardrail already works). The skeleton + contract are complete → ready to wire into the dashboard.
 
 ---
 

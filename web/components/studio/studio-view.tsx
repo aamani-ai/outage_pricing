@@ -63,19 +63,26 @@ export function StudioView() {
 
   const adj = adjustmentsFor(data?.fips);
   const cell = data?.county.T[String(T)];
+  // the model's within-county relativity for this address at the selected trigger (shadow, post-guardrail)
+  const modelLocRel = data?.location?.relativityByT?.[String(T)] ?? 1;
   const stack = useMemo(() => {
     if (!cell || cell.lam == null) return null;
     const rateBand = cell.lo != null && cell.hi != null ? { low: cell.lo, high: cell.hi } : undefined;
     const ef = effectiveFactors(adj);
+    // location = the MODELED within-county relativity × any manual location load (multiplicative,
+    // so the model factor and the manual lever never double-count). The Studio HEADLINES this composed
+    // shadow relativity (with the maturity banner); the outward /api/price path never applies it, so
+    // the buyer's premium stays unmoved while location basis is shadow (D3).
+    const locRel = modelLocRel * ef.location;
     return composePremium(
       {
         baseline: { lambdaCustomer: cell.lam, ...(rateBand ? { rateBand } : {}), status: "active" },
-        location: { relativity: ef.location, status: ef.location !== 1 ? "modeled" : "placeholder" },
+        location: { relativity: locRel, status: locRel !== 1 ? "modeled" : "placeholder" },
         forward: { factor: ef.forward, status: ef.forward !== 1 ? "modeled" : "placeholder" },
       },
       { T, X, expenseRatio: ER, targetMargin: TM },
     );
-  }, [cell, T, X, ER, TM, adj]);
+  }, [cell, T, X, ER, TM, adj, modelLocRel]);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -144,7 +151,7 @@ export function StudioView() {
             )}
             {studioTab === "baseline" && <BaselineTab data={data} T={T} />}
             {studioTab === "clustering" && <CountyClusteringTab data={data} />}
-            {studioTab === "adjusters" && <AdjustersTab data={data} stack={stack} />}
+            {studioTab === "adjusters" && <AdjustersTab data={data} stack={stack} T={T} />}
           </div>
         </div>
       )}

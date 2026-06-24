@@ -218,8 +218,27 @@ def main() -> None:
     cbs = {st: sorted(names) for st, names in sorted(by.items())}
     json.dump(cbs, open(OUT / "counties-by-state.json", "w"), separators=(",", ":"))
 
+    # --- location/* (Step-04 within-county density relativity; promoted from the calibration notebook) ---
+    # The dashboard does MATH ONLY on these; calibration lives in notebooks/04_location_basis/.
+    # Re-run that notebook → its artifact refreshes → this block re-promotes → dashboard swaps numbers.
+    lb_src = ROOT / "notebooks" / "outputs" / "location_basis"
+    n_tracts = n_counties_lb = 0
+    if lb_src.exists():
+        lb_out = OUT / "location"
+        lb_out.mkdir(exist_ok=True)
+        for name in ("relativity_table.json", "county_lookup.json", "guardrail_spec.json", "tract_rurality.json"):
+            src = lb_src / name
+            if not src.exists():
+                continue
+            obj = json.load(open(src))
+            json.dump(obj, open(lb_out / name, "w"), separators=(",", ":"))
+            if name == "tract_rurality.json":
+                n_tracts = len(obj)
+            elif name == "county_lookup.json":
+                n_counties_lb = len(obj)
+
     print(f"built: pricing {len(pricing)} counties · studio {len(studio)} · {len(cbs)} states "
-          f"({sum(len(v) for v in cbs.values())} counties)")
+          f"({sum(len(v) for v in cbs.values())} counties) · location {n_tracts} tracts / {n_counties_lb} counties")
 
 
 if __name__ == "__main__":

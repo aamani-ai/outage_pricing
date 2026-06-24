@@ -1,6 +1,6 @@
 # Location Basis — Fundamentals
 
-*Audience: senior team. Last reviewed: 2026-06-18. Reads naturally after [`per_customer_pricing_fundamentals.md`](../02_per_customer/per_customer_pricing_fundamentals.md). See the deeper reference at [`../location_basis_methodology.md`](location_basis_methodology.md).*
+*Audience: senior team. Last reviewed: 2026-06-23 (zonal-impervious guardrail plan). Reads naturally after [`per_customer_pricing_fundamentals.md`](../02_per_customer/per_customer_pricing_fundamentals.md). See the deeper reference at [`../location_basis_methodology.md`](location_basis_methodology.md).*
 
 ## What location basis is, in one paragraph
 
@@ -73,12 +73,17 @@ basis only owns the *within-county redistribution*.
 |---|---|---|
 | Town **size** (customers) | crude rurality proxy, works | superseded by density |
 | **NLCD tree canopy** | partial ρ ≈ 0 beyond density (NE canopy saturates) | adds nothing |
-| **NLCD impervious (point)** | within-county ρ = −0.20 vs density −0.35 (centroid 0%-heavy, single pixel noisy) | worse — not adopted |
+| **NLCD impervious (point)** | within-county ρ = −0.20 vs density −0.35 (centroid 0%-heavy, single pixel noisy) | point worse; the **zonal mean** is now the planned guardrail (below) |
 | **Population density** ✅ | within-county ρ = **−0.35**, validated, simple, monotone | **kept (v1)** |
 
-## The known limitation + the work ahead
+## The known limitation — and the fix now in development (2026-06-23)
 
-Population density **mis-ranks dense commercial / low-residential cores**: Midtown Manhattan reads "rural" (few residents) and would wrongly get an uplift. The flaw is **localized** (big-city downtowns) and **shadow-only** (it does not touch the validated pilot). The proper fix is a **zonal mean of NLCD impervious surface (or developed land-cover) per tract** — impervious correctly reads Midtown ≈ 94 %, rural ≈ 0–3 % — but it needs **raster zonal-statistics** over the CONUS NLCD raster (GB-scale), heavier than any point sample. **Scheduled, not skipped:** it is the right build when location basis graduates shadow → active and earns national outcome validation.
+Population density **mis-ranks dense commercial / low-residential cores**: Midtown Manhattan reads "rural" (few residents) and would wrongly get an uplift. The flaw is **localized** (big-city downtowns) and today **shadow-only** (it does not touch the validated pilot). The fix — now the **active Step-04 workstream** (see the [notebook plan](../../plan/04_location_basis/location_basis_notebook_plan.md)) — is a **zonal mean of NLCD impervious % per tract** used as a **symmetric, conservative guardrail** on the density rank, *not* a replacement:
+
+- **Type A — de-uplift cores:** density says "rural" but impervious says built-up (Midtown ≈ 91% zonal) → reclassify **rural → urban**. Fires on the strong, unambiguous high-impervious signal.
+- **Type B — penalize the reverse:** density says "urban" but impervious says not-built-up → pull **toward higher premium**. Deliberately **conservative** (for outage insurance, over-charging an ambiguous location beats under-charging) and documented: low impervious is ambiguous (urban green space reads low), so Type B may over-penalize some leafy, well-served tracts — an accepted, flagged bias (optional greenspace guard later).
+
+**Spike (2026-06-23):** zonal impervious flipped Midtown (p13 density → 91%) and the Financial District (p15 → 89%) rural→urban (**2/2**), left genuinely-residential tracts untouched, and confirmed the **zonal mean is stable where a single point is noisy** (why point-impervious failed). National build = raster zonal-stats over the CONUS NLCD raster (`rasterio`, GB-scale), run **offline in the notebook**, never in the dashboard. **Status: planned / in development — not yet shipped into pricing.**
 
 ## Caveats — what to know before relying on location basis
 
@@ -105,7 +110,7 @@ The principle holds: **fix the data-input layer (basis/alignment) before adding 
 - **`per-customer price × a mean-1 within-county density relativity (rural > 1, urban < 1)`. That's it.**
 - **Density is the validated, simple proxy; canopy and point-impervious were tried and don't beat it.**
 - **Validated on the CT/MA/RI pilot; national is descriptive + extrapolated (shadow).**
-- **Known flaw — population density mis-ranks commercial cores; the zonal-impervious fix is scheduled, not skipped.**
+- **Known flaw — population density mis-ranks commercial cores; the fix (a symmetric, conservative zonal-impervious guardrail) is now in development — spike flips Midtown & the Financial District 2/2.**
 - **It redistributes within a county; it does not change the county total ([LB-1](location_basis_methodology.md#assumptions-introduced-here)).**
 
 ## References
