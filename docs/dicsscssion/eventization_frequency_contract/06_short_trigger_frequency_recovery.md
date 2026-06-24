@@ -171,19 +171,28 @@ resolution path). State it; don't imply we measured individual durations.
 
 ## 4. The diagnostic — *established* + *conservative* = well-cushioned
 
-The same decomposition, used **only to count** (not to re-price), is how we *test* the ≥8h cushion. Slice the
-recovered short-trigger episodes by the **parent event's duration band**:
+The same decomposition, used **only to count** (not to re-price), is how we *test* the ≥8h cushion —
+by asking whether a long event hides a **second** long surge.
+
+**Measured** ([`short_trigger_revival_diagnostic.ipynb`](../../../notebooks/01_eventization/short_trigger_revival_diagnostic.ipynb)
+— 6 representative counties × 3 yrs): the share of ≥8h events that hide a *second* ≥8h surge is **~0%**,
+and it is **robust to the cutoff** (the open "where do we draw the line" knob):
 
 ```text
- revival yield  =  extra short-trigger episodes recovered, by parent-event duration band
- (illustrative shape — the real numbers are the notebook's job)
-
- parent ≥24h │▏           ≈0 extra 2h episodes — one coherent surge, nothing hidden
- parent ≥12h │▎
- parent  ≥8h │█▍          little hidden structure   →  long-trigger frequency expected to hold
- parent  ≥4h │█████▏
- parent  ≥2h │█████████   lots of hidden sub-episodes →  short-trigger frequency NOT established
+ cutoff for "a distinct surge"      multi-surge % at 8h  (≥2 surges ≥8h in one event)
+ ────────────────────────────────────────────────────────────────────────────────────
+ event mean                                 0%
+ 10% / 20% / 33% of event peak              0%
 ```
+
+The method is **not blind**: on the same counties it reads Erie's longest event as **1** coherent surge
+and Suffolk's as **2** genuine humps (at ~10–20% of peak). So the ~0% is *real rarity* — long events
+don't hide a second long outage → the 8h frequency is **not** under-counted by hidden episodes.
+
+> *Recovery-build note (deferred):* a pure level-cutoff **fragments** the choppy 15-min curve, so
+> *counting / re-pricing* short-trigger episodes needs a second knob — a **dip tolerance** (how long the
+> curve must stay below the line to count as a real break; the surge analogue of the 45-min event gap
+> tolerance). It does not affect the 8h conclusion.
 
 **The hiding pool — a *necessary* condition, not the answer.** To hide an *extra* T-episode, a parent
 event needs room for **two disjoint ≥T runs** → duration **≥ 2T**. So the candidate pool for trigger T
@@ -192,21 +201,21 @@ is `count(events ≥ 2T)` (eagle-i-45min, 13.19M events):
 ```text
  trigger T   candidate pool   exact count   share all   pool / base(>=T)   realized extra
  ──────────────────────────────────────────────────────────────────────────────────────
- 24h         events >= 48h       102,203       0.77%          36%           TBD (diagnostic)
- 12h         events >= 24h       281,205       2.13%          33%           TBD
-  8h         events >= 16h       549,616       4.17%          36%           TBD  <- the gate
+ 24h         events >= 48h       102,203       0.77%          36%           ~0 (expected)
+ 12h         events >= 24h       281,205       2.13%          33%           ~0 (expected)
+  8h         events >= 16h       549,616       4.17%          36%           ~0 MEASURED  <- the gate
  ──────────────────────────────────────────────────────────────────────────────────────
-  4h         events >=  8h     1,520,644      11.53%          43%           TBD (likely material)
-  2h         events >=  4h     3,496,329      26.51%          53%           TBD (likely large)
+  4h         events >=  8h     1,520,644      11.53%          43%           TBD (recovery build)
+  2h         events >=  4h     3,496,329      26.51%          53%           TBD (recovery build)
 ```
 
 Two cautions the table forces — it measures *exposure to error*, not the error:
 - **Absolute pool shrinks (3.5M → 0.1M), but pool/base is ≈ flat at ~⅓.** Relative to the trigger's
   *own* base — which is what actually moves λ(T) — the candidate pool is **not** smaller at long T. So
   "fewer long events" / counts alone **cannot** declare 8h "established."
-- **`realized extra` is unmeasured.** The pool is only the *necessary* condition (parent long enough);
-  the realized number needs the 15-min path (coherent single surge → ≈0 extra; multi-surge → +1). That
-  is the diagnostic's job — assert the structure, **measure** the magnitude.
+- **`realized extra` needs the 15-min path** (the pool is only the *necessary* condition — parent long
+  enough). We have now **measured** it at 8h (above): ~0, robust to cutoff. Short triggers stay TBD
+  until the recovery build (the dip-tolerance refinement + scale beyond these counties).
 
 **Why 8h is still well-cushioned — a worst-case *bound*, not "rare."** Even if *every* long event were
 maximally multi-surge, the extra is structurally capped: a ≥16h parent hides ≤1 extra 8h episode, a
@@ -218,9 +227,9 @@ by **≤ ~55%**. The priced mean already over-states true per-customer exposure 
 Two **distinct** pillars — keep them separate or the claim gets hand-wavy:
 
 ```text
- ESTABLISHED   the hidden-episode correction to long-trigger frequency is structurally BOUNDED
-               (<= ~55% even worst-case at 8h) and absorbed by the cushion below; the diagnostic pins
-               the (expected small) realized number. A reliability claim.
+ ESTABLISHED   MEASURED: ≥8h events hide a second ≥8h surge ~0% of the time (robust to cutoff), so the
+               8h frequency isn't under-counted by hidden episodes; and even the worst-case bound
+               (<= ~55%) is absorbed by the cushion. A reliability claim — now with evidence.
  CONSERVATIVE  the priced mean OVER-states true per-customer exposure at long durations
                (A011 ~2–3×, the structural gate over-count from 04). A direction claim.
 
@@ -229,8 +238,9 @@ Two **distinct** pillars — keep them separate or the claim gets hand-wavy:
 ```
 
 This is the reasoning the platform's trust-&-posture detail needs for *"why ≥8h vs <8h."* The
-**qualitative** version ships now; the **quantitative** revival-yield numbers go up only once the
-notebook produces them (no unproven stat on the platform).
+qualitative version is on the platform; the ≥8h claim is now backed by the measured ~0% above
+(the [diagnostic notebook](../../../notebooks/01_eventization/short_trigger_revival_diagnostic.ipynb)),
+validated on representative counties — full-catalog confirmation is the scale-up.
 
 ---
 
