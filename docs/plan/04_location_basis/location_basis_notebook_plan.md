@@ -227,6 +227,19 @@ Location basis stays `status=modeled, validated=false` (not wired into the quote
 premium) until the deferred activation gate is met. The notebook documents that gate
 rather than pretending to clear it.
 
+> **Addendum (2026-06-28) — Conservation holds in calibration but NOT in the shipped tercile factors.**
+> The "per-county mean ≈ 1.0" invariant above is satisfied by the *continuous* relativity, but the
+> 3-tercile + capped artifact the dashboard actually applies is **not** mean-1. Applying
+> `relativity(tract, T)` by tercile gives a per-county *tract-weighted* mean of **~1.10 (capped) /
+> ~1.24 (empirical)** at T8 (tracts ≈ equal-pop, so ≈ pop-weighted). The asymmetric cap `[0.8, 1.4]`
+> helps (pulls 1.24 → 1.10) but does not restore it. **Effect:** the Studio (which applies location)
+> prices ~9–10% above the Analytics/QC view (location held at 1.0) *and* above the county-average
+> baseline — a level shift, not just the intended rural↔urban redistribution. Surfaced via the
+> Studio-vs-QC reconciliation. **Fix at the next calibration:** re-center the applied tercile factors to
+> pop-weighted mean-1 within county (after the cap) and re-assert Conservation on the *applied* factors —
+> gated on the PoUS validation that decides whether any residual level is real signal vs. artifact. No
+> dashboard change now (the layer is shadow / `validated=false`; the engine is one engine and correct).
+
 ---
 
 ## 8. Documentation updates (part of "build properly")

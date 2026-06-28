@@ -39,3 +39,8 @@ export const PRICING_META = { catalog: PRICING.catalog, estimator: PRICING.estim
 export function getCounty(fips: string): CountyPricing | null {
   return PRICING.counties[fips] ?? null;
 }
+
+/** All [fips, county] entries — for the national batch (Analytics Studio). Server-only. */
+export function allCountyEntries(): [string, CountyPricing][] {
+  return Object.entries(PRICING.counties);
+}

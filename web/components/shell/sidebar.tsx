@@ -23,6 +23,7 @@ export function Sidebar() {
   const router = useRouter();
   const { studioTab, setStudioTab } = useQuoteStore();
   const onStudio = pathname.startsWith("/studio");
+  const navHrefs = NAV.flatMap((g) => g.items.map((i) => i.href)).filter(Boolean) as string[];
 
   // the sub-nav is always visible (the bar is short); clicking a sub-tab from another page
   // (e.g. Rules Engine) jumps into the Studio rather than silently doing nothing.
@@ -108,8 +109,12 @@ export function Sidebar() {
             <ul className="space-y-0.5">
               {group.items.map((item) => {
                 const Icon = item.icon;
+                // longest-prefix wins, so "/analytics" isn't highlighted while on "/analytics/explorer".
+                const matches = (h: string) => (h === "/" ? pathname === "/" : pathname === h || pathname.startsWith(h + "/"));
                 const isActive =
-                  !!item.href && (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href));
+                  !!item.href &&
+                  matches(item.href) &&
+                  !navHrefs.some((o) => o !== item.href && o.length > item.href!.length && matches(o));
                 const base = "flex items-center gap-2.5 rounded-md px-2 py-2 text-sm transition-colors";
 
                 if (item.soon || !item.href) {

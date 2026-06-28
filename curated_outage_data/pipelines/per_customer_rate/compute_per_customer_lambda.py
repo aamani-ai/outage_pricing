@@ -34,13 +34,22 @@ MIN_TOTAL_CAUTION = 500
 SOURCE_VERSION = '2026-05-30'
 
 
-def load_mcc() -> dict[int, float]:
-    """Load MCC.csv as {fips: customers}, skipping the 'Grand Total' trailing row."""
-    p = REPO / 'price_engine' / 'data' / 'raw' / 'MCC.csv'
-    mcc = pd.read_csv(p, dtype={'County_FIPS': str})
-    mcc = mcc[mcc['County_FIPS'].str.fullmatch(r'\d+')].copy()
-    mcc['fips'] = mcc['County_FIPS'].astype(int)
-    return dict(zip(mcc['fips'].astype(int), mcc['Customers'].astype(float)))
+def load_customer_base() -> dict[int, dict]:
+    """Validated customer-base denominator → {fips: {'base': float|None, 'excluded': bool}}.
+
+    Source: price_engine/data/customer_base.csv (build_customer_base.py) — keeps MCC where it agrees with
+    Census households, REPAIRS broken MCC (MCC/households < 0.5) via households×1.324, and EXCLUDES counties
+    whose customers_out itself is implausible (observed peak > the repaired base). This replaces the raw MCC,
+    whose garbage values (Henderson NC = 24) drove multi-$M premiums. See
+    docs/dicsscssion/premium_implausibility_investigation/.
+    """
+    p = REPO / 'price_engine' / 'data' / 'customer_base.csv'
+    cb = pd.read_csv(p)
+    out: dict[int, dict] = {}
+    for _, r in cb.iterrows():
+        base = float(r['base']) if pd.notna(r['base']) else None
+        out[int(r['fips'])] = {'base': base, 'excluded': bool(r['excluded'])}
+    return out
 
 
 def load_catalog(catalog_id: str) -> tuple[pd.DataFrame, float]:
@@ -55,13 +64,14 @@ def load_catalog(catalog_id: str) -> tuple[pd.DataFrame, float]:
 
 def compute_fips_rows(
     events_fips: pd.DataFrame,
-    mcc: float | None,
+    base: float | None,
+    excluded: bool,
     obs_years: float,
     T_grid=T_GRID,
 ) -> list[dict]:
     n_total = int(len(events_fips))
     rows = []
-    mcc_valid = mcc is not None and float(mcc) > 0
+    base_valid = (not excluded) and base is not None and float(base) > 0
 
     durations = events_fips['duration_hours'].to_numpy() if n_total > 0 else np.array([])
 
@@ -70,11 +80,11 @@ def compute_fips_rows(
             'T': int(T),
             'n_events_total': n_total,
             'observation_years': float(obs_years),
-            'mcc': float(mcc) if mcc_valid else None,
+            'mcc': float(base) if base_valid else None,
         }
 
-        # MCC gate: cannot compute multiplier without a denominator
-        if not mcc_valid:
+        # Denominator gate: no usable customer base (missing, or excluded as data-invalid) → cannot price.
+        if not base_valid:
             row.update({
                 'n_events_qualifying': None,
                 'S_T': None,
@@ -90,7 +100,7 @@ def compute_fips_rows(
                 'pct_mcc_p90': None,
                 'pct_mcc_p99': None,
                 'coverage_gate_status': 'not_available',
-                'coverage_gate_reason': 'mcc_missing',
+                'coverage_gate_reason': 'mcc_invalid' if excluded else 'mcc_missing',
             })
             rows.append(row)
             continue
@@ -127,8 +137,9 @@ def compute_fips_rows(
             continue
 
         qual = events_fips.loc[qual_mask]
-        pct_mcc_mean = (qual['mean_customers'] / mcc)
-        pct_mcc_max = (qual['max_customers'] / mcc)
+        # cap each event's customer fraction at 1.0 — a single event cannot exceed 100% of the base (guardrail).
+        pct_mcc_mean = (qual['mean_customers'] / base).clip(upper=1.0)
+        pct_mcc_max = (qual['max_customers'] / base).clip(upper=1.0)
 
         mult_mean = float(pct_mcc_mean.mean())
         mult_median = float(pct_mcc_mean.median())
@@ -165,19 +176,20 @@ def compute_fips_rows(
 def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
     print(f'[{catalog_id}] loading events + meta...')
     events, obs_years = load_catalog(catalog_id)
-    mcc_lookup = load_mcc()
+    cbase = load_customer_base()
 
     n_fips = events['fips'].nunique()
+    n_excl = sum(1 for v in cbase.values() if v['excluded'])
     print(f'[{catalog_id}] {len(events):,} events, {n_fips:,} FIPS, observation_years={obs_years:.4f}')
-    print(f'[{catalog_id}] MCC available for {len(mcc_lookup):,} counties')
+    print(f'[{catalog_id}] customer base: {len(cbase):,} counties ({n_excl} excluded as data-invalid)')
 
     generated_at = datetime.now(timezone.utc).isoformat()
 
     all_rows: list[dict] = []
     for fips, sub in events.groupby('fips', sort=False):
         fips_int = int(fips)
-        mcc = mcc_lookup.get(fips_int)
-        county_rows = compute_fips_rows(sub, mcc, obs_years)
+        cb = cbase.get(fips_int, {'base': None, 'excluded': True})
+        county_rows = compute_fips_rows(sub, cb['base'], cb['excluded'], obs_years)
         for r in county_rows:
             r['fips'] = fips_int
             r['catalog_id'] = catalog_id

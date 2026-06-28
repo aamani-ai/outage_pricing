@@ -771,3 +771,18 @@ experience with heterogeneity (`communicate_to_share`). The band is **precompute
 ([`web/scripts/build_data.py`](../../web/scripts/build_data.py) `rel_band`).
 
 **Cited from.** Pressure test / open decision: [`08_band_pressure_test.md`](../dicsscssion/dashboard_redesign/08_band_pressure_test.md); design note [`07_outward_range.md`](../dicsscssion/dashboard_redesign/07_outward_range.md); learning log [`premium_range_clustering.md`](../learning_logs/premium_range_clustering.md); methodology [`pricing_methodology.md`](cross_cutting/pricing_methodology.md#the-premium-band-the-experience-band-a017); plan [`premium_experience_band_plan.md`](../plan/cross_cutting/premium_experience_band_plan.md); builds on the masked annual series from [A012](#a012--per-customer-exposure-uses-one-global-window-dilutes-partial-coverage-counties) / [A016](#a016--the-all-duration-coverage-mask-is-applied-as-a-proxy-for-t-specific-observability).
+
+### A018 — The per-customer denominator is validated against Census housing units (not raw MCC)
+
+The customer-base denominator in the share-out (`mean_customers / base`, [A011](#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation)) is **not** raw MCC. MCC (EAGLE-I's modelled customer count) is wrong for a long tail of counties — both garbage extremes (Henderson NC = 24) and a systematic ~30% under-count in **seasonal-home counties**. The denominator is validated against Census **housing units** (ACS B25001), because an electric customer is a *meter* and every home — **including seasonal/vacation homes** — has one; Census *households* (B11001, occupied only) under-counts vacation counties (housing units up to 4.6× households in the Adirondacks/Sierra). MCC ≈ 1.10 × housing units (log-log r = 0.976).
+
+```text
+  base    = max( MCC , housing_units , observed_peak_out )    ← ≥ homes, ≥ utility count, ≥ worst outage
+  EXCLUDE if  observed_peak_out > 1.5 × max(MCC, housing_units)   ← numerator corrupt → would UNDER-price
+  per-event customer fraction is capped at 1.0 (guardrail)
+  CONUS: 1,856 keep MCC · 935 housing-floor · 335 peak-floor · 131 excluded
+```
+
+**Direction of bias.** Conservative for the insurer: `base` is the larger of the candidates, which if anything *under-states* the true count → slightly *over-prices* (the cheap-error direction, [`model_to_the_consequence`](../principles/model_to_the_consequence.md)); the per-event cap can only lower the share-out. The denominator fix is distinct from the **level** question ([A011](#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation): is the mean-over-qualifying-events estimator itself too high — the PoUS validation track).
+
+**Cited from.** Code: [`build_customer_base.py`](../../price_engine/data/build_customer_base.py) → `customer_base.csv`; [`compute_per_customer_lambda.py`](../../curated_outage_data/pipelines/per_customer_rate/compute_per_customer_lambda.py). Investigation + explainer: [`premium_implausibility_investigation/00`](../dicsscssion/premium_implausibility_investigation/00_findings_and_plan.md) · [`01`](../dicsscssion/premium_implausibility_investigation/01_denominator_fix.md) · [`02_understanding_the_denominator.md`](../dicsscssion/premium_implausibility_investigation/02_understanding_the_denominator.md). Learning log: [`analytics_studio_surfaced_the_mcc_bug.md`](../learning_logs/analytics_studio_surfaced_the_mcc_bug.md). Refines the multiplier denominator in [A011](#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation).

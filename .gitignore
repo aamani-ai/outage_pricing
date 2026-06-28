@@ -14,6 +14,17 @@ notebooks/outputs/
 docs/extra/outage_modeling_us/
 docs/extra/hazard_modeling/
 
+# Symlinks to sibling projects (machine-local refs — GCP patterns, examples, etc.)
+refs/
+
+# Per-county event JSONs — derived from events.parquet, hosted in GCS (app/county_events/)
+price_engine/data/county_events/
+
+# Stray local files (agent memory belongs in ~/.claude; scratch scripts are throwaway)
+memory/
+scratchpad_profile.py
+scratchpad_*.py
+
 # Dashboard-rebuild reference symlinks (renewablesinfo web/principles, old dashboard).
 # Reference, NOT constraint — local-only pointers; never committed (repo is public).
 docs/extra/references/

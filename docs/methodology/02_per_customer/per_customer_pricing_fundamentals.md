@@ -23,6 +23,12 @@ Where:
 - **`mean_customers_out(e) / MCC(f)`** — share of county customers affected, *averaged over the event*. Ranges from near 0 (small localized outage) to near 1 (county-wide outage).
 - **`multiplier(f, T)`** — the average of that share across all qualifying events. Always ≤ 1, almost always ≪ 1.
 
+> **Note (2026-06-28): the denominator is now a composite base, not raw MCC.** This doc writes `MCC(f)` throughout
+> (its 2026-06-03 vintage). Production now divides by `base = max(MCC, housing_units, observed_peak)`, with an
+> exclusion where the peak is implausibly large — see the dedicated
+> [`customer_base_denominator_fundamentals.md`](customer_base_denominator_fundamentals.md) (**A018**). Read `MCC(f)`
+> below as *"the customer base"*: the mechanics are unchanged; only how the denominator is built changed.
+
 ## Two distributions, not one
 
 There are two different distributions in the calculation. Keeping them

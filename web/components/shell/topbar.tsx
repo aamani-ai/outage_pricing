@@ -11,6 +11,7 @@ const iconBtn =
 function titleFor(pathname: string): string {
   if (pathname === "/") return "Pricing";
   if (pathname.startsWith("/studio")) return "Underwriting Studio";
+  if (pathname.startsWith("/analytics")) return "Analytics Studio";
   if (pathname.startsWith("/rules-engine")) return "Rules Engine";
   return "InfraSure";
 }

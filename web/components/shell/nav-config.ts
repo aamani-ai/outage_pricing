@@ -1,4 +1,4 @@
-import { Bookmark, Layers, type LucideIcon, MapPin, ScrollText } from "lucide-react";
+import { BarChart3, Bookmark, Layers, ListTree, type LucideIcon, MapPin, ScrollText } from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -30,6 +30,13 @@ export const NAV: NavGroup[] = [
   {
     label: "Underwriting Studio",
     items: [{ label: "Risk explorer", href: "/studio", icon: Layers }],
+  },
+  {
+    label: "Analytics Studio",
+    items: [
+      { label: "Quality control", href: "/analytics", icon: BarChart3 },
+      { label: "County explorer", href: "/analytics/explorer", icon: ListTree },
+    ],
   },
   {
     label: "Rules Engine",

@@ -226,6 +226,26 @@ def main() -> None:
     cbs = {st: sorted(names) for st, names in sorted(by.items())}
     json.dump(cbs, open(OUT / "counties-by-state.json", "w"), separators=(",", ":"))
 
+    # --- customer_base.json (denominator provenance — the County-explorer flag) ---
+    # Per county: which base the per-customer rate used and why (MCC kept / housing-units floor /
+    # peak floor / excluded-as-data-invalid). See assumptions A018. Names from county_drilldown (dd).
+    cb_path = ROOT / "price_engine" / "data" / "customer_base.csv"
+    if cb_path.exists():
+        cb_src = pd.read_csv(cb_path)
+        names = {str(f).zfill(5): (c.get("county"), c.get("state")) for f, c in dd.items()}
+        cbj = {}
+        for _, r in cb_src.iterrows():
+            f5 = str(int(r["fips"])).zfill(5)
+            nm = names.get(f5, (None, None))
+            cbj[f5] = {
+                "name": nm[0], "state": nm[1], "status": r["status"],
+                "base": int(r["base"]) if pd.notna(r["base"]) else None,
+                "mcc": int(r["mcc_raw"]) if pd.notna(r["mcc_raw"]) else None,
+                "hu": int(r["housing_units"]) if pd.notna(r["housing_units"]) else None,
+                "excluded": bool(r["excluded"]),
+            }
+        json.dump(cbj, open(OUT / "customer_base.json", "w"), separators=(",", ":"))
+
     # --- location/* (Step-04 within-county density relativity; promoted from the calibration notebook) ---
     # The dashboard does MATH ONLY on these; calibration lives in notebooks/04_location_basis/.
     # Re-run that notebook → its artifact refreshes → this block re-promotes → dashboard swaps numbers.

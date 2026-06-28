@@ -8,9 +8,17 @@ export interface CountyStudio {
   labels_by_T: string | null;
   xT: string | null;
   tstat: number | null;
+  /** regime confidence tier ("high" | "low" | "—"); QC signal. */
+  conf: string | null;
+  /** observed years of history; QC signal (thin if < 5). */
+  n_obs: number | null;
+  /** total ≥8h qualifying events; QC signal (thin if < 15). */
+  total: number | null;
   years: number[];
   /** observed annual qualifying-event counts, keyed by trigger hours. */
   perT: Record<string, number[]>;
+  /** per-customer build-up per trigger T: lc = λ_county (events/yr), sh = share-out (avg fraction out). */
+  chain: Record<string, { lc: number; sh: number }>;
 }
 
 interface StudioFile {
