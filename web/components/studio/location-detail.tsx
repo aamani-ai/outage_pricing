@@ -4,6 +4,7 @@ import type { EChartsOption } from "echarts";
 import relTable from "@/lib/data/location/relativity_table.json";
 import { EChart, useChartColors, tooltipStyle } from "@/components/charts/echart";
 import { ExpandBox } from "@/components/ui/expand-box";
+import { ReadRow, SubLabel } from "@/components/studio/read-row";
 import type { LocationRead } from "@/components/studio/shared";
 
 const REL = relTable as unknown as { relativity: Record<string, { empirical: number[]; v0_shadow: number[] }> };
@@ -18,7 +19,7 @@ const TERC_DESC: Record<string, { lead: string; sig?: string }> = {
 const relKey = (T: number) => `T${Math.min(T, 8)}`;
 
 /**
- * The within-county location-basis detail — opened from the Location factor row in Adjusters.
+ * The within-county location-basis detail — opened from the Location factor row in the Location tab.
  * Decision-read first (position · guardrail · one bar · trust); deep evidence in a nested ExpandBox.
  * Shadow: pilot-calibrated, nationally extrapolated; never moves the outward premium.
  */
@@ -28,10 +29,7 @@ export function LocationDetail({ loc, T, county }: { loc: LocationRead; T: numbe
   const row = REL.relativity[relKey(T)] ?? REL.relativity.T8;
   const capped = row?.v0_shadow ?? [1, 1, 1];
   const idx = TERCILES.indexOf(loc.tercile);
-  const rel = loc.relativityByT[String(T)] ?? 1;
   const pctile = Math.round(loc.pct * 100);
-  const dir = rel > 1 ? "above" : rel < 1 ? "below" : "at";
-  const move = Math.round(Math.abs(rel - 1) * 100);
   const desc = TERC_DESC[loc.tercile] ?? { lead: loc.tercile };
 
   const barOption: EChartsOption = {
@@ -63,28 +61,25 @@ export function LocationDetail({ loc, T, county }: { loc: LocationRead; T: numbe
   };
 
   return (
-    <div className="space-y-4 text-sm">
-      {/* position — the decision read */}
+    <div className="space-y-5 text-sm">
+      {/* position — scannable read (the factor + $ effect lead in the headline above) */}
       <div>
-        <div className="text-foreground/80 font-medium">Position in {county}</div>
-        <p className="text-muted-foreground mt-1">
-          <span className="text-foreground capitalize">{loc.tercile}</span> · {desc.lead}
-          {desc.sig && (
-            <>
-              {" "}
-              <span className={SIG}>{desc.sig}</span>
-            </>
-          )}{" "}
-          · denser than <span className="text-foreground tabular-nums">{pctile}%</span> of the county ·{" "}
-          <span className="tabular-nums">{Math.round(loc.density).toLocaleString("en-US")}</span> /km²
-        </p>
-        <p className="text-muted-foreground mt-1">
-          → this address prices{" "}
-          <span className="text-foreground">
-            {move === 0 ? "at" : `${move}% ${dir}`} its county average
-          </span>{" "}
-          (<span className="tabular-nums">×{rel.toFixed(2)}</span> at T≥{Tc}h)
-        </p>
+        <SubLabel>Position in {county}</SubLabel>
+        <div className="space-y-1.5">
+          <ReadRow label="Tercile">
+            <span className="text-foreground capitalize">{loc.tercile}</span> · {desc.lead}
+            {desc.sig && (
+              <>
+                {" "}
+                <span className={SIG}>{desc.sig}</span>
+              </>
+            )}
+          </ReadRow>
+          <ReadRow label="Density">
+            <span className="tabular-nums">{Math.round(loc.density).toLocaleString("en-US")}</span> /km² · denser than{" "}
+            <span className="tabular-nums">{pctile}%</span> of the county
+          </ReadRow>
+        </div>
       </div>
 
       {/* guardrail — only when it fired (no emoji, no colour literal: the box + label carry it) */}
@@ -111,8 +106,8 @@ export function LocationDetail({ loc, T, county }: { loc: LocationRead; T: numbe
 
       {/* the within-county gradient at the selected trigger */}
       <div>
-        <div className="text-muted-foreground/80 mb-1 text-xs">within-county relativity by density tercile (T≥{Tc}h, mean-1)</div>
-        <EChart option={barOption} height={140} />
+        <SubLabel>Within-county gradient · density tercile · T≥{Tc}h (mean-1)</SubLabel>
+        <EChart option={barOption} height={150} />
       </div>
 
       {/* trust — honest maturity, split from the factor */}

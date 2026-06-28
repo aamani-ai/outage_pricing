@@ -10,8 +10,10 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 export type AdjKind = "forward" | "location" | "manual";
 
-/** which Underwriting Studio section is active — driven from the sidebar sub-nav. */
-export type StudioTab = "breakdown" | "baseline" | "clustering" | "adjusters";
+/** which Underwriting Studio section is active — driven from the sidebar sub-nav.
+ *  The old single "adjusters" tab is split into the two model FACTORS (location · forecast)
+ *  and the underwriter LEVERS (adjustments) — see plan/dashboard_redesign/03. */
+export type StudioTab = "breakdown" | "baseline" | "clustering" | "location" | "forecast" | "adjustments";
 
 export interface Adjustment {
   id: string;

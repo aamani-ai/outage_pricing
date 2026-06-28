@@ -7,6 +7,9 @@ test-results/
 lab/
 notebooks/outputs/
 
+# TypeScript incremental build cache (machine-local)
+*.tsbuildinfo
+
 # Local external reference clone. Keep the project source of truth separate.
 docs/extra/outage_modeling_us/
 docs/extra/hazard_modeling/

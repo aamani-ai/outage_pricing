@@ -45,6 +45,14 @@ the "provenance is universal, not special-cased" idea from `ui_design.md`. See `
 Pricing (outward, simple, shareable) · Underwriting Studio (internal, deep) · Settings/Data
 (catalog/source selection — the old "3 database options" live here). Section = the persona's job.
 
+> **Amended 2026-06-28** (plan `dashboard_redesign/03`, primer `rules_engine_governance/00`): the third
+> section **"Settings/Data" → "Rules Engine"** — the carrier's rules table (binding/delegated authority
+> bounds), locked. Section = the **actor** (carrier · underwriter · policyholder), not just the persona's
+> job. The global ER/TM loadings move **out** of this section into Studio → **Adjustments** (bounds-vs-values:
+> the carrier sets the cap/floor here; the underwriter picks the working value there). Data-source/catalog
+> stays here under a "Platform data" group, flagged as InfraSure config, not a carrier rule. D8 (no auth)
+> still holds and is what lets us defer real upload/access-control.
+
 ### D5 — Two adjustment layers
 `baseline λ_customer(T) × location(within-county, mean-1) × forward(climate + county-grid) × X ÷ (1−ER−TM)`.
 Forward climate + grid conditioning **combine into one forward factor** at the surface, stay

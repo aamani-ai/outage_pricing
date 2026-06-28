@@ -101,16 +101,16 @@ export function PriceBreakdownTab({
       val: `×${stack.location.relativity.toFixed(2)}`,
       status: stack.location.status,
       note: stack.location.relativity === 1 ? "not yet applied" : "adjusted",
-      tab: "adjusters" as StudioTab,
-      cta: "Adjusters",
+      tab: "location" as StudioTab,
+      cta: "Location",
     },
     {
-      label: "× Forward (stat + climate + grid)",
+      label: "× Forecast (stat + climate + grid)",
       val: `×${stack.forward.factor.toFixed(2)}`,
       status: stack.forward.status,
       note: stack.forward.factor > 1.005 ? "statistical — county’s own history" : "holds at county average",
-      tab: "adjusters" as StudioTab,
-      cta: "Adjusters",
+      tab: "forecast" as StudioTab,
+      cta: "Forecast",
     },
   ];
 
@@ -166,7 +166,7 @@ export function PriceBreakdownTab({
             <span className="text-base font-semibold tabular-nums">{usd(stack.pure)}</span>
           </div>
 
-          {/* gross-up to retail — expenses + margin (platform-wide, set in Settings) */}
+          {/* gross-up to retail — expenses + margin (platform-wide, set in Studio → Adjustments) */}
           <div className="flex items-center justify-between py-2 pl-3 text-sm">
             <span className="text-muted-foreground">
               + Expense load <span className="text-muted-foreground/60 text-xs">· ER {pct(ER)}</span>
@@ -215,7 +215,7 @@ export function PriceBreakdownTab({
                 <b>target margin</b> to the retail premium.
               </p>
               <p>
-                Expense ratio and margin are platform-wide — set them in <b>Settings</b>. (Currently {pct(ER)} /{" "}
+                Expense ratio and margin are platform-wide — set them in the <b>Adjustments</b> tab. (Currently {pct(ER)} /{" "}
                 {pct(TM)}.)
               </p>
             </InfoHint>

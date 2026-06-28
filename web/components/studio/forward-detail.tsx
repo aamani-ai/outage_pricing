@@ -2,6 +2,7 @@
 
 import type { EChartsOption } from "echarts";
 import { EChart, useChartColors, tooltipStyle } from "@/components/charts/echart";
+import { ReadRow, SubLabel } from "@/components/studio/read-row";
 import type { ForwardRead, CountyStudio } from "@/components/studio/shared";
 
 /** plain-language name for each forecast method (the underwriter shouldn't need the code name). */
@@ -15,7 +16,7 @@ const METHOD: Record<string, string> = {
 };
 
 /**
- * The statistical forward-factor detail — opened from the Forward row in Adjusters.
+ * The statistical forward-factor detail — opened from the Forecast factor row in the Forecast tab.
  * Decision-read first (regime → method → factor), then the annual series with the long-run mean vs the
  * next-year forecast, then climate/grid (the challengers) and honest maturity. No "shadow": this is the
  * forward component of the one composed premium.
@@ -32,11 +33,8 @@ export function ForwardDetail({
   county: string;
 }) {
   const c = useChartColors();
-  const factor = fwd.factorByT[String(T)] ?? 1;
   const d = fwd.detailByT[String(T)];
   const method = METHOD[fwd.expert] ?? fwd.expert;
-  const move = Math.round((factor - 1) * 100);
-  const acting = factor > 1.005;
 
   const years = studio?.years ?? [];
   const counts = studio?.perT?.[String(T)] ?? [];
@@ -69,38 +67,31 @@ export function ForwardDetail({
       : null;
 
   return (
-    <div className="space-y-4 text-sm">
-      {/* the decision read */}
+    <div className="space-y-5 text-sm">
+      {/* the decision read — scannable (the factor + $ effect lead in the headline above) */}
       <div>
-        <div className="text-foreground/80 font-medium">Forward view for {county}</div>
-        <p className="text-muted-foreground mt-1">
-          This county reads <span className="text-foreground capitalize">{fwd.regime}</span> ({fwd.conf} confidence). Its own
-          outage history forecasts next year by the <span className="text-foreground">{method}</span>
+        <SubLabel>Forward view for {county}</SubLabel>
+        <div className="space-y-1.5">
+          <ReadRow label="Regime">
+            <span className="text-foreground capitalize">{fwd.regime}</span> · {fwd.conf} confidence
+          </ReadRow>
+          <ReadRow label="Method">
+            <span className="text-foreground">{method}</span>
+          </ReadRow>
           {d && (
-            <>
-              {" "}— about <span className="text-foreground tabular-nums">{Math.round(d.forecast)}</span> events/yr vs a long-run mean of{" "}
+            <ReadRow label="Forecast">
+              ~<span className="text-foreground tabular-nums">{Math.round(d.forecast)}</span> events/yr · vs long-run mean{" "}
               <span className="tabular-nums">{Math.round(d.lamFull)}</span>
-            </>
+            </ReadRow>
           )}
-          .
-        </p>
-        <p className="text-muted-foreground mt-1">
-          → forward factor <span className="text-foreground tabular-nums">×{factor.toFixed(2)}</span>{" "}
-          {acting ? (
-            <>
-              (<span className="text-foreground tabular-nums">{move}%</span> above the county&rsquo;s long-run mean)
-            </>
-          ) : (
-            <>(holds at the mean — recent years aren&rsquo;t above it, or the evidence is thin)</>
-          )}
-        </p>
+        </div>
       </div>
 
       {/* the annual series: mean vs next-year forecast */}
       {series && (
         <div>
-          <div className="text-muted-foreground/80 mb-1 text-xs">annual qualifying events (≥{T}h) · long-run mean vs next-year forecast</div>
-          <EChart option={series} height={150} />
+          <SubLabel>Annual qualifying events ≥{T}h · mean vs next-year forecast</SubLabel>
+          <EChart option={series} height={160} />
         </div>
       )}
 

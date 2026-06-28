@@ -8,19 +8,32 @@ import { ContextBar } from "@/components/studio/context-bar";
 import { PriceBreakdownTab } from "@/components/studio/tabs/price-breakdown";
 import { BaselineTab } from "@/components/studio/tabs/baseline";
 import { CountyClusteringTab } from "@/components/studio/tabs/county-clustering";
-import { AdjustersTab } from "@/components/studio/tabs/adjusters";
+import { LocationTab } from "@/components/studio/tabs/location";
+import { ForecastTab } from "@/components/studio/tabs/forecast";
+import { AdjustmentsTab } from "@/components/studio/tabs/adjustments";
 import { effectiveFactors, useQuoteStore } from "@/lib/quote-store";
 import { cn } from "@/components/ui/utils";
-import { regimeLabel, type StudioData } from "@/components/studio/shared";
+import { regimeLabel, type StudioData, type StudioTab } from "@/components/studio/shared";
 import { api } from "@/lib/base-path";
 
 const SECTION_LABEL: Record<string, string> = {
   breakdown: "Price Breakdown",
   baseline: "Baseline",
   clustering: "County Clustering",
-  adjusters: "Adjusters",
+  location: "Location",
+  forecast: "Forecast",
+  adjustments: "Adjustments",
 };
-const TAB_ORDER = ["breakdown", "baseline", "clustering", "adjusters"] as const;
+// Two-level nav. Primary bar = four top-level items; "Factors" is a container that lands on the
+// first factor and reveals a secondary sub-row. Keeps the summary / factors / regime / lever
+// distinct instead of six flat parallel tabs.
+const FACTOR_TABS: StudioTab[] = ["baseline", "location", "forecast"];
+const TOP_TABS: { key: StudioTab; label: string; isFactors?: boolean }[] = [
+  { key: "breakdown", label: "Price Breakdown" },
+  { key: "baseline", label: "Factors", isFactors: true },
+  { key: "clustering", label: "County Clustering" },
+  { key: "adjustments", label: "Adjustments" },
+];
 
 export function StudioView() {
   const { current, setLocation, setT, setX, studioTab, setStudioTab, loadings, adjustmentsFor } = useQuoteStore();
@@ -91,7 +104,7 @@ export function StudioView() {
       <div className="mb-4">
         <h1 className="text-xl font-semibold tracking-tight">Underwriting Studio</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          The same quote, opened up — the price breakdown, the baseline, the county regime, and the adjusters.
+          The same quote, opened up — the price breakdown, the baseline, the county regime, the model factors, and your adjustments.
         </p>
       </div>
 
@@ -128,24 +141,49 @@ export function StudioView() {
             band={stack.bandDriver !== "none" ? { low: stack.premium.low, high: stack.premium.high } : null}
           />
 
-          {/* top tabs — a second, always-visible way to navigate; mirrors the sidebar sub-nav */}
-          <div className="border-border mb-5 flex gap-1 border-b">
-            {TAB_ORDER.map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setStudioTab(t)}
-                className={cn(
-                  "-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-                  studioTab === t
-                    ? "border-primary text-foreground"
-                    : "text-muted-foreground hover:text-foreground border-transparent",
-                )}
-              >
-                {SECTION_LABEL[t]}
-              </button>
-            ))}
+          {/* primary tab bar — four top-level items; "Factors" is a container (mirrors the sidebar) */}
+          <div className="border-border flex items-center gap-1 border-b">
+            {TOP_TABS.map((t) => {
+              const isActive = t.isFactors ? FACTOR_TABS.includes(studioTab) : studioTab === t.key;
+              return (
+                <button
+                  key={t.label}
+                  type="button"
+                  onClick={() => setStudioTab(t.key)}
+                  className={cn(
+                    "-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+                    isActive
+                      ? "border-primary text-foreground"
+                      : "text-muted-foreground hover:text-foreground border-transparent",
+                  )}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
           </div>
+
+          {/* secondary sub-row — only while a Factor is active */}
+          {FACTOR_TABS.includes(studioTab) ? (
+            <div className="mb-5 mt-2 flex items-center gap-1">
+              <span className="text-muted-foreground/50 pr-1 text-[10px] font-medium uppercase tracking-wider">Factors</span>
+              {FACTOR_TABS.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setStudioTab(t)}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-[13px] font-medium transition-colors",
+                    studioTab === t ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  {SECTION_LABEL[t]}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="mb-5" />
+          )}
 
           <div>
             {studioTab === "breakdown" && (
@@ -153,7 +191,9 @@ export function StudioView() {
             )}
             {studioTab === "baseline" && <BaselineTab data={data} T={T} />}
             {studioTab === "clustering" && <CountyClusteringTab data={data} />}
-            {studioTab === "adjusters" && <AdjustersTab data={data} stack={stack} T={T} />}
+            {studioTab === "location" && <LocationTab data={data} stack={stack} T={T} X={X} />}
+            {studioTab === "forecast" && <ForecastTab data={data} stack={stack} T={T} X={X} />}
+            {studioTab === "adjustments" && <AdjustmentsTab fips={data.fips} />}
           </div>
         </div>
       )}

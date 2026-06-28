@@ -1,25 +1,62 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Building2, Check, ChevronsUpDown, CornerDownRight, Map as MapIcon } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Building2, Check, ChevronRight, ChevronsUpDown, CornerDownRight, Map as MapIcon } from "lucide-react";
 import { NAV } from "@/components/shell/nav-config";
 import { AccountMenu } from "@/components/shell/account-menu";
 import { useQuoteStore, type StudioTab } from "@/lib/quote-store";
 import { asset } from "@/lib/base-path";
 import { cn } from "@/components/ui/utils";
 
-const STUDIO_TABS: { key: StudioTab; label: string }[] = [
-  { key: "breakdown", label: "Price Breakdown" },
+// The read-only FACTORS (the multiplicative price chain) — a collapsible group, collapsed by default.
+const FACTORS: { key: StudioTab; label: string }[] = [
   { key: "baseline", label: "Baseline" },
-  { key: "clustering", label: "County Clustering" },
-  { key: "adjusters", label: "Adjusters" },
+  { key: "location", label: "Location" },
+  { key: "forecast", label: "Forecast" },
 ];
+const FACTOR_KEYS: StudioTab[] = FACTORS.map((f) => f.key);
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { studioTab, setStudioTab } = useQuoteStore();
   const onStudio = pathname.startsWith("/studio");
+
+  // the sub-nav is always visible (the bar is short); clicking a sub-tab from another page
+  // (e.g. Rules Engine) jumps into the Studio rather than silently doing nothing.
+  const go = (key: StudioTab) => {
+    setStudioTab(key);
+    if (!onStudio) router.push("/studio");
+  };
+  const activeIsFactor = onStudio && FACTOR_KEYS.includes(studioTab);
+  const [factorsOpen, setFactorsOpen] = useState(false);
+  const showFactors = factorsOpen || activeIsFactor; // auto-open when a factor tab is active
+
+  // one studio sub-item (a leaf nav row). `child` = nested under Factors (deeper indent, dot marker).
+  const leaf = (key: StudioTab, label: string, child = false) => {
+    const active = onStudio && studioTab === key;
+    return (
+      <li key={key}>
+        <button
+          type="button"
+          onClick={() => go(key)}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors",
+            active ? "bg-primary/10 text-foreground font-medium" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
+        >
+          {child ? (
+            <span className="ml-1 size-1 shrink-0 rounded-full bg-current opacity-40" />
+          ) : (
+            <CornerDownRight className="size-3.5 shrink-0 opacity-40" />
+          )}
+          {label}
+        </button>
+      </li>
+    );
+  };
 
   return (
     <aside className="bg-sidebar text-sidebar-foreground flex h-full w-[264px] shrink-0 flex-col border-r">
@@ -102,29 +139,33 @@ export function Sidebar() {
                       {item.label}
                     </Link>
 
-                    {/* Studio sub-sections — nested, shown while in the Studio */}
-                    {isStudio && onStudio && (
+                    {/* Studio sub-nav — always visible (not gated on being in the Studio), so it
+                        doesn't vanish on other pages. Factors is a collapsible folder (collapsed by
+                        default) so the nav reads as four clean items: summary · Factors ▸ · regime · lever. */}
+                    {isStudio && (
                       <ul className="mt-0.5 space-y-0.5 pl-3.5">
-                        {STUDIO_TABS.map((t) => {
-                          const active = studioTab === t.key;
-                          return (
-                            <li key={t.key}>
-                              <button
-                                type="button"
-                                onClick={() => setStudioTab(t.key)}
-                                className={cn(
-                                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors",
-                                  active
-                                    ? "bg-primary/10 text-foreground font-medium"
-                                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                                )}
-                              >
-                                <CornerDownRight className="size-3.5 shrink-0 opacity-40" />
-                                {t.label}
-                              </button>
-                            </li>
-                          );
-                        })}
+                        {leaf("breakdown", "Price Breakdown")}
+
+                        <li>
+                          <button
+                            type="button"
+                            onClick={() => setFactorsOpen((o) => !o)}
+                            aria-expanded={showFactors}
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors",
+                              activeIsFactor && !showFactors
+                                ? "text-foreground font-medium"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                            )}
+                          >
+                            <ChevronRight className={cn("size-3.5 shrink-0 transition-transform", showFactors && "rotate-90")} />
+                            Factors
+                          </button>
+                          {showFactors && <ul className="mt-0.5 space-y-0.5 pl-4">{FACTORS.map((f) => leaf(f.key, f.label, true))}</ul>}
+                        </li>
+
+                        {leaf("clustering", "County Clustering")}
+                        {leaf("adjustments", "Adjustments")}
                       </ul>
                     )}
                   </li>
