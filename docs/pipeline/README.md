@@ -64,6 +64,8 @@ Verified: the two produce **byte-identical** `web/lib/data/*.json`.
   build_data                    catalogs/pricing + curated + notebooks →   bundle → web/lib/data/*.json (committed)
                                 web/lib/data/*.json
   build_county_events           events.parquet → app/county_events/<fips>  per-county event series (GCS)
+  build_county_traces           raw EAGLE-I → app/county_traces/<fips>/<yr> per-county-per-year 15-min RAW trace (GCS);
+                                                                           powers the event drill-down on the deployed app
 ```
 Orchestrator: `price_engine/catalogs/build_catalogs.py` runs 02–05 for each gap-tolerance catalog, then the
 curated/shadow pipelines.

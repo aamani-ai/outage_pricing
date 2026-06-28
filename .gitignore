@@ -19,6 +19,8 @@ refs/
 
 # Per-county event JSONs — derived from events.parquet, hosted in GCS (app/county_events/)
 price_engine/data/county_events/
+# Per-county-per-year raw 15-min traces — derived from raw EAGLE-I, hosted in GCS (app/county_traces/)
+price_engine/data/county_traces/
 
 # Stray local files (agent memory belongs in ~/.claude; scratch scripts are throwaway)
 memory/

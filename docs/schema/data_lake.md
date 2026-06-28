@@ -183,11 +183,23 @@ actual v0 pricing**; the rest are non-pricing reads.
 
 ---
 
-# 5 · APP (to be built) — `app/county_events/<fips>.json`
+# 5 · APP — served-on-demand artifacts
+
+## `app/county_events/<fips>.json`
 
 The per-county event series for the dashboard event-timeseries view (the numerator-investigation tool). Compact
-rows `[daysSinceEpoch, durationHours, meanCustomers, maxCustomers]` for events ≥2h, sliced per county from
-`events.parquet`. Served privately via `/api/county-events`. *(Pipeline + schema finalized when built.)*
+rows `[mins, durationHours, meanCustomers, maxCustomers]` (`mins` = whole minutes since 2014-01-01 UTC) for events
+≥2h, sliced per county from `events.parquet` by `web/scripts/build_county_events.py`. Served privately via
+`/api/county-events`.
+
+## `app/county_traces/<fips>/<year>.json`
+
+The per-county-per-year **raw 15-minute** outage trace — the granularity behind one event's drill-down (ramp ·
+plateau · restoration). Compact rows `[mins, customersOut]` (`mins` since 2014-01-01 UTC; empty raw values → 0),
+sorted ascending. Sliced directly from the raw EAGLE-I snapshots by `web/scripts/build_county_traces.py` (the 15-min
+detail does not survive eventization, so this reads `sources/eagle_i/` not `events.parquet`). Split by year so the
+serving route fetches only the 1–2 year-files an event window touches (~0.1–0.4 MB each). Served via
+`/api/event-trace?fips=&startMin=&durH=`, which filters the year-file(s) to `[startMin, startMin+durH·60+15]`.
 
 ---
 
