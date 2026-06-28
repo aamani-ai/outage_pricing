@@ -65,7 +65,7 @@ flagged as a v0.5 review item.
 |---|---|
 | Algorithm | `price_engine/filtration/04_filter.py` |
 | Tier spec | `price_engine/plan/03_filtration_framework.md` |
-| Tier tooltips | `price_engine/dashboard/app.js` (dimension info blocks) |
+| Tier tooltips | `web/components/analytics/qc-panel.tsx` (tier flags + InfoHints) |
 
 ## Cross-references
 

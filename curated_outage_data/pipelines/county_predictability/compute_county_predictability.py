@@ -15,7 +15,7 @@ Schema: curated_outage_data/schemas/county_predictability.md
 from __future__ import annotations
 
 import argparse
-import json
+import sys
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,8 +24,11 @@ import numpy as np
 import pandas as pd
 
 REPO = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO / "price_engine"))
+from core import gcs_io, data_paths  # noqa: E402
+
 DEFAULT_CATALOGS = ["eagle-i-30min", "eagle-i-45min", "eagle-i-60min"]
-DEFAULT_OUT_DIR = REPO / "curated_outage_data" / "outputs" / "county_predictability"
+DEFAULT_OUT_REL = "curated_outage_data/outputs/county_predictability"
 
 BANDS = {
     "p10p90": 1.2815515655446004,
@@ -585,12 +588,12 @@ def compact_cell(row: dict) -> dict:
     return {k: row.get(k) for k in keep}
 
 
-def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
-    trend_path = REPO / "price_engine" / "catalogs" / catalog_id / "pricing" / "county_yearly_trend.json"
-    if not trend_path.exists():
-        raise FileNotFoundError(f"{trend_path} missing; run county_trend pipeline first")
+def run_catalog(catalog_id: str, out_rel: str) -> pd.DataFrame:
+    trend_rel = f"price_engine/catalogs/{catalog_id}/pricing/county_yearly_trend.json"
+    if not gcs_io.exists(data_paths.resolve(trend_rel)):
+        raise FileNotFoundError(f"{trend_rel} missing; run county_trend pipeline first")
 
-    trend_payload = json.loads(trend_path.read_text())
+    trend_payload = gcs_io.read_json(data_paths.resolve(trend_rel))
     generated_at = datetime.now(timezone.utc).isoformat()
     all_rows: list[dict] = []
     for fips, per_t in trend_payload.get("view", {}).items():
@@ -598,10 +601,9 @@ def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
             all_rows.append(build_row(fips, T, trend_row, catalog_id, generated_at))
 
     df = pd.DataFrame(all_rows)
-    out_dir.mkdir(parents=True, exist_ok=True)
 
-    parquet_path = out_dir / f"county_predictability__{catalog_id}.parquet"
-    df.to_parquet(parquet_path, index=False)
+    parquet_rel = f"{out_rel}/county_predictability__{catalog_id}.parquet"
+    parquet_path = gcs_io.write_parquet(df, data_paths.resolve(parquet_rel), index=False)
     print(f"[{catalog_id}] wrote {parquet_path} ({len(df):,} rows)")
 
     view: dict[str, dict[str, dict]] = {}
@@ -654,15 +656,19 @@ def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
         "view": view,
     }
 
-    json_text = json.dumps(clean_json_value(payload), separators=(",", ":"), allow_nan=False)
-    json_path = out_dir / f"county_predictability__{catalog_id}.json"
-    json_path.write_text(json_text)
+    clean_payload = clean_json_value(payload)
+    json_rel = f"{out_rel}/county_predictability__{catalog_id}.json"
+    json_path = gcs_io.write_json(clean_payload, data_paths.resolve(json_rel), separators=(",", ":"), allow_nan=False)
     print(f"[{catalog_id}] wrote {json_path} ({len(view):,} fips)")
 
-    catalog_pricing = REPO / "price_engine" / "catalogs" / catalog_id / "pricing"
-    if catalog_pricing.exists():
-        mirror_path = catalog_pricing / "county_predictability.json"
-        mirror_path.write_text(json_text)
+    catalog_pricing_rel = f"price_engine/catalogs/{catalog_id}/pricing"
+    if gcs_io.exists(data_paths.resolve(catalog_pricing_rel)):
+        mirror_path = gcs_io.write_json(
+            clean_payload,
+            data_paths.resolve(f"{catalog_pricing_rel}/county_predictability.json"),
+            separators=(",", ":"),
+            allow_nan=False,
+        )
         print(f"[{catalog_id}] mirrored to {mirror_path}")
 
     dist = df.groupby(["T", "pattern_label"], dropna=False).size().unstack(fill_value=0)
@@ -674,12 +680,13 @@ def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
 def main() -> None:
     parser = argparse.ArgumentParser(description="County outage predictability-pattern pipeline.")
     parser.add_argument("--catalogs", nargs="+", default=DEFAULT_CATALOGS)
-    parser.add_argument("--out-dir", default=str(DEFAULT_OUT_DIR))
+    parser.add_argument("--out-dir", default=DEFAULT_OUT_REL)
     args = parser.parse_args()
 
-    out_dir = Path(args.out_dir)
+    # out-dir is a repo-relative posix path resolved (local or GCS) via data_paths.
+    out_rel = str(args.out_dir).replace("\\", "/").strip("/")
     for catalog_id in args.catalogs:
-        run_catalog(catalog_id, out_dir)
+        run_catalog(catalog_id, out_rel)
 
 
 if __name__ == "__main__":

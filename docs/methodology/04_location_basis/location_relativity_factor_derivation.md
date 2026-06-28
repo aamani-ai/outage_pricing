@@ -359,7 +359,7 @@ sample. The exact construction lives in:
 - Target construction: [`within_county_relative_rate.py`](../../extra/poweroutage_us/analysis/within_county_relative_rate.py)
 - Density-vs-size feature test: [`town_density_vs_size.py`](../../extra/location_features/analysis/town_density_vs_size.py)
 - Factor derivation: [`build_density_relativity.py`](../../extra/location_features/analysis/build_density_relativity.py)
-- Final dashboard artifact: [`density_relativity.json`](../../../price_engine/dashboard/data/density_relativity.json)
+- Final dashboard artifact: [`relativity_table.json`](../../../web/lib/data/location/relativity_table.json)
 
 ## 5. Step-by-Step Derivation
 
@@ -478,7 +478,7 @@ Generated artifact: [`density_relativity_table.csv`](../../extra/location_featur
 | 8h | urban | 0.640x | 0.784x |
 
 The dashboard reads the copied JSON artifact:
-[`price_engine/dashboard/data/density_relativity.json`](../../../price_engine/dashboard/data/density_relativity.json).
+[`web/lib/data/location/relativity_table.json`](../../../web/lib/data/location/relativity_table.json).
 
 ## 7. Validation Checks
 
@@ -567,7 +567,7 @@ look strong but would overweight large counties and blur the design.
 | Where is the target noise summary? | [`within_county_target_summary.csv`](../../extra/poweroutage_us/analysis/outputs/within_county_target_summary.csv) |
 | Where is density tested against size? | [`town_density_vs_size.py`](../../extra/location_features/analysis/town_density_vs_size.py) |
 | Where are the factor values computed? | [`build_density_relativity.py`](../../extra/location_features/analysis/build_density_relativity.py) |
-| Where is the final dashboard factor artifact? | [`density_relativity.json`](../../../price_engine/dashboard/data/density_relativity.json) |
+| Where is the final dashboard factor artifact? | [`relativity_table.json`](../../../web/lib/data/location/relativity_table.json) |
 | Where is the rho significance audit? | [`density_significance_check.py`](../../extra/location_features/analysis/density_significance_check.py) |
 | What alternatives were tested? | [`01_findings.md`](../../extra/location_features/docs/01_findings.md) |
 | What is the data lineage? | [`02_end_to_end_and_data_lineage.md`](../../extra/location_features/docs/02_end_to_end_and_data_lineage.md) |

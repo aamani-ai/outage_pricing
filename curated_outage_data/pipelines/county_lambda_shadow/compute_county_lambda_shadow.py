@@ -13,7 +13,7 @@ Schema: curated_outage_data/schemas/county_lambda_shadow.md
 from __future__ import annotations
 
 import argparse
-import json
+import sys
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,8 +22,11 @@ import numpy as np
 import pandas as pd
 
 REPO = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO / "price_engine"))
+from core import data_paths, gcs_io  # noqa: E402 — inputs/outputs resolve local↔GCS via OUTAGE_PRICING_DATA_ROOT
+
 DEFAULT_CATALOGS = ["eagle-i-30min", "eagle-i-45min", "eagle-i-60min"]
-DEFAULT_OUT_DIR = REPO / "curated_outage_data" / "outputs" / "county_lambda_shadow"
+DEFAULT_OUT_REL = "curated_outage_data/outputs/county_lambda_shadow"
 SOURCE_VERSION = "2026-06-16"
 PAYOUT_REFERENCE = 2500
 
@@ -352,18 +355,18 @@ def summarize_fips(rows: list[dict]) -> dict:
     }
 
 
-def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
-    pricing_dir = REPO / "price_engine" / "catalogs" / catalog_id / "pricing"
-    drill_path = pricing_dir / "county_drilldown.json"
-    trend_path = pricing_dir / "county_yearly_trend.json"
-    predictability_path = pricing_dir / "county_predictability.json"
-    for path in (drill_path, trend_path, predictability_path):
-        if not path.exists():
-            raise FileNotFoundError(f"{path} missing; build pricing/trend/predictability first")
+def run_catalog(catalog_id: str, out_rel: str) -> pd.DataFrame:
+    pricing_rel = f"price_engine/catalogs/{catalog_id}/pricing"
+    drill_rel = f"{pricing_rel}/county_drilldown.json"
+    trend_rel = f"{pricing_rel}/county_yearly_trend.json"
+    predictability_rel = f"{pricing_rel}/county_predictability.json"
+    for rel in (drill_rel, trend_rel, predictability_rel):
+        if not gcs_io.exists(data_paths.resolve(rel)):
+            raise FileNotFoundError(f"{rel} missing; build pricing/trend/predictability first")
 
-    drilldown = json.loads(drill_path.read_text())
-    trend = json.loads(trend_path.read_text())
-    predictability = json.loads(predictability_path.read_text())
+    drilldown = gcs_io.read_json(data_paths.resolve(drill_rel))
+    trend = gcs_io.read_json(data_paths.resolve(trend_rel))
+    predictability = gcs_io.read_json(data_paths.resolve(predictability_rel))
     generated_at = datetime.now(timezone.utc).isoformat()
 
     rows: list[dict] = []
@@ -376,10 +379,9 @@ def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
             rows.append(build_row(str(fips), str(T), drill_row, trend_row, pattern_row, catalog_id, generated_at))
 
     df = pd.DataFrame(rows)
-    out_dir.mkdir(parents=True, exist_ok=True)
 
-    parquet_path = out_dir / f"county_lambda_shadow__{catalog_id}.parquet"
-    df.to_parquet(parquet_path, index=False)
+    parquet_path = data_paths.resolve(f"{out_rel}/county_lambda_shadow__{catalog_id}.parquet")
+    gcs_io.write_parquet(df, parquet_path, index=False)
     print(f"[{catalog_id}] wrote {parquet_path} ({len(df):,} rows)")
 
     view: dict[str, dict[str, dict]] = {}
@@ -414,13 +416,13 @@ def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
         "view": view,
     }
 
-    json_text = json.dumps(clean_json_value(payload), separators=(",", ":"), allow_nan=False)
-    json_path = out_dir / f"county_lambda_shadow__{catalog_id}.json"
-    json_path.write_text(json_text)
+    clean_payload = clean_json_value(payload)
+    json_path = data_paths.resolve(f"{out_rel}/county_lambda_shadow__{catalog_id}.json")
+    gcs_io.write_json(clean_payload, json_path, separators=(",", ":"), allow_nan=False)
     print(f"[{catalog_id}] wrote {json_path} ({len(view):,} fips)")
 
-    mirror_path = pricing_dir / "county_lambda_shadow.json"
-    mirror_path.write_text(json_text)
+    mirror_path = data_paths.resolve(f"{pricing_rel}/county_lambda_shadow.json")
+    gcs_io.write_json(clean_payload, mirror_path, separators=(",", ":"), allow_nan=False)
     print(f"[{catalog_id}] mirrored to {mirror_path}")
 
     dist = df.groupby(["T", "pricing_action"], dropna=False).size().unstack(fill_value=0)
@@ -432,12 +434,12 @@ def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
 def main() -> None:
     parser = argparse.ArgumentParser(description="County lambda shadow-pricing pipeline.")
     parser.add_argument("--catalogs", nargs="+", default=DEFAULT_CATALOGS)
-    parser.add_argument("--out-dir", default=str(DEFAULT_OUT_DIR))
+    parser.add_argument("--out-dir", default=DEFAULT_OUT_REL)
     args = parser.parse_args()
 
-    out_dir = Path(args.out_dir)
+    out_rel = args.out_dir
     for catalog_id in args.catalogs:
-        run_catalog(catalog_id, out_dir)
+        run_catalog(catalog_id, out_rel)
 
 
 if __name__ == "__main__":

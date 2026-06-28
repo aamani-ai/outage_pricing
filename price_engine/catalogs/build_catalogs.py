@@ -13,7 +13,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -24,7 +23,9 @@ import pandas as pd
 
 
 ENGINE_ROOT = Path(__file__).resolve().parents[1]
-CATALOG_ROOT = ENGINE_ROOT / "catalogs"
+sys.path.insert(0, str(ENGINE_ROOT))
+from core import gcs_io, data_paths  # noqa: E402 — catalog I/O resolves local↔GCS via OUTAGE_PRICING_DATA_ROOT
+
 DEFAULT_CATALOG = "eagle-i-45min"
 
 
@@ -66,23 +67,25 @@ CATALOGS = [
 ]
 
 
-def catalog_paths(catalog_id: str) -> dict[str, Path]:
-    root = CATALOG_ROOT / catalog_id
+def catalog_paths(catalog_id: str) -> dict[str, str]:
+    """Resolved catalog I/O paths — local under the repo, or gs:// under the lake (one env var)."""
+    base = f"price_engine/catalogs/{catalog_id}"
+    R = data_paths.resolve
     return {
-        "root": root,
-        "events": root / "data" / "events.parquet",
-        "events_meta": root / "data" / "events_meta.json",
-        "summary": root / "data" / "county_summary.parquet",
-        "durations": root / "data" / "county_durations.parquet",
-        "annualization_meta": root / "data" / "annualization_meta.json",
-        "tiers": root / "filtration" / "county_tiers.csv",
-        "premiums": root / "pricing" / "county_premiums.csv",
-        "drilldown": root / "pricing" / "county_drilldown.json",
-        "event_evidence": root / "pricing" / "event_evidence",
-        "yearly_trend": root / "pricing" / "county_yearly_trend.json",
-        "predictability": root / "pricing" / "county_predictability.json",
-        "lambda_shadow": root / "pricing" / "county_lambda_shadow.json",
-        "catalog": root / "catalog.json",
+        "root": R(base),
+        "events": R(f"{base}/data/events.parquet"),
+        "events_meta": R(f"{base}/data/events_meta.json"),
+        "summary": R(f"{base}/data/county_summary.parquet"),
+        "durations": R(f"{base}/data/county_durations.parquet"),
+        "annualization_meta": R(f"{base}/data/annualization_meta.json"),
+        "tiers": R(f"{base}/filtration/county_tiers.csv"),
+        "premiums": R(f"{base}/pricing/county_premiums.csv"),
+        "drilldown": R(f"{base}/pricing/county_drilldown.json"),
+        "event_evidence": R(f"{base}/pricing/event_evidence"),
+        "yearly_trend": R(f"{base}/pricing/county_yearly_trend.json"),
+        "predictability": R(f"{base}/pricing/county_predictability.json"),
+        "lambda_shadow": R(f"{base}/pricing/county_lambda_shadow.json"),
+        "catalog": R(f"{base}/catalog.json"),
     }
 
 
@@ -92,9 +95,7 @@ def run(cmd: list[str]) -> None:
 
 
 def build_catalog(spec: CatalogSpec, downstream_only: bool = False) -> dict:
-    paths = catalog_paths(spec.id)
-    for key in ("events", "summary", "durations", "tiers", "premiums", "drilldown", "event_evidence"):
-        paths[key].parent.mkdir(parents=True, exist_ok=True)
+    paths = catalog_paths(spec.id)  # resolved strings (local or gs://); the writers create local parents
 
     py = sys.executable
     if not downstream_only:
@@ -106,7 +107,7 @@ def build_catalog(spec: CatalogSpec, downstream_only: bool = False) -> dict:
             "--out",
             str(paths["events"]),
         ])
-    elif not paths["events"].exists():
+    elif not gcs_io.exists(paths["events"]):
         raise FileNotFoundError(f"{paths['events']} missing; cannot use --downstream-only")
     run([
         py,
@@ -168,17 +169,12 @@ def build_catalog(spec: CatalogSpec, downstream_only: bool = False) -> dict:
 
 def write_catalog_json(spec: CatalogSpec) -> dict:
     paths = catalog_paths(spec.id)
-    paths["catalog"].parent.mkdir(parents=True, exist_ok=True)
-    meta = {}
-    if paths["events_meta"].exists():
-        meta = json.loads(paths["events_meta"].read_text())
-    annualization = {}
-    if paths["annualization_meta"].exists():
-        annualization = json.loads(paths["annualization_meta"].read_text())
+    meta = gcs_io.read_json(paths["events_meta"]) if gcs_io.exists(paths["events_meta"]) else {}
+    annualization = gcs_io.read_json(paths["annualization_meta"]) if gcs_io.exists(paths["annualization_meta"]) else {}
 
     tier_counts: dict[str, int] = {}
-    if paths["tiers"].exists():
-        tiers = pd.read_csv(paths["tiers"])
+    if gcs_io.exists(paths["tiers"]):
+        tiers = gcs_io.read_csv(paths["tiers"])
         tier_counts = {str(k): int(v) for k, v in tiers["tier"].value_counts().sort_index().items()}
 
     record = {
@@ -211,7 +207,7 @@ def write_catalog_json(spec: CatalogSpec) -> dict:
             "catalog": f"../catalogs/{spec.id}/catalog.json",
         },
     }
-    paths["catalog"].write_text(json.dumps(record, indent=2))
+    gcs_io.write_json(record, paths["catalog"], indent=2, separators=(",", ": "))
     print(f"[save] {paths['catalog']}", flush=True)
     return record
 
@@ -220,8 +216,8 @@ def write_manifest() -> None:
     records = []
     for spec in CATALOGS:
         paths = catalog_paths(spec.id)
-        if paths["catalog"].exists():
-            record = json.loads(paths["catalog"].read_text())
+        if gcs_io.exists(paths["catalog"]):
+            record = gcs_io.read_json(paths["catalog"])
         else:
             record = write_catalog_json(spec)
         records.append(record)
@@ -238,8 +234,8 @@ def write_manifest() -> None:
         ],
         "updated_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
-    out = CATALOG_ROOT / "manifest.json"
-    out.write_text(json.dumps(manifest, indent=2))
+    out = data_paths.resolve("price_engine/catalogs/manifest.json")
+    gcs_io.write_json(manifest, out, indent=2, separators=(",", ": "))
     print(f"[save] {out}", flush=True)
 
 

@@ -37,15 +37,20 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-HERE = Path(__file__).resolve().parent
-RAW_DIR = HERE / "raw"
-EVENTS = HERE / "events.parquet"
-COVERAGE = RAW_DIR / "coverage_history.csv"
-MCC = RAW_DIR / "MCC.csv"
-DQI = RAW_DIR / "DQI.csv"
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "price_engine"))
+from core import gcs_io, data_paths  # noqa: E402
 
-OUT_SUMMARY = HERE / "county_summary.parquet"
-OUT_DURATIONS = HERE / "county_durations.parquet"
+# Repo-relative prefix for the raw source files; each file under it maps to its
+# own lake location (eagle_i / mcc / reference), so resolve per-file, not the dir.
+RAW_DIR = "price_engine/data/raw"
+EVENTS = data_paths.resolve("price_engine/data/events.parquet")
+COVERAGE = data_paths.resolve("price_engine/data/raw/coverage_history.csv")
+MCC = data_paths.resolve("price_engine/data/raw/MCC.csv")
+DQI = data_paths.resolve("price_engine/data/raw/DQI.csv")
+
+OUT_SUMMARY = data_paths.resolve("price_engine/data/county_summary.parquet")
+OUT_DURATIONS = data_paths.resolve("price_engine/data/county_durations.parquet")
 
 SNAPSHOT_INTERVAL = timedelta(minutes=15)
 YEAR_SECONDS = 365.25 * 86400
@@ -79,11 +84,12 @@ FEMA_REGION_STATES = {
 }
 
 
-def _safe_read_csv(path: Path) -> pd.DataFrame:
-    if not path.exists():
-        print(f"[warn] {path.name} missing; downstream columns will be NaN", flush=True)
+def _safe_read_csv(path: str | Path) -> pd.DataFrame:
+    if not gcs_io.exists(path):
+        name = str(path).rsplit("/", 1)[-1]
+        print(f"[warn] {name} missing; downstream columns will be NaN", flush=True)
         return pd.DataFrame()
-    return pd.read_csv(path)
+    return gcs_io.read_csv(path)
 
 
 def compute_state_coverage_history_years(coverage: pd.DataFrame) -> dict[str, float]:
@@ -98,29 +104,30 @@ def compute_state_coverage_history_years(coverage: pd.DataFrame) -> dict[str, fl
     return grp["coverage_history_years"].to_dict()
 
 
-def raw_timestamp_bounds(path: Path) -> tuple[pd.Timestamp, pd.Timestamp]:
+def raw_timestamp_bounds(path: str | Path) -> tuple[pd.Timestamp, pd.Timestamp]:
     """Read only timestamps to find the observed bounds inside one raw yearly file."""
+    name = str(path).rsplit("/", 1)[-1]
     mins = []
     maxs = []
-    for chunk in pd.read_csv(path, usecols=["run_start_time"], chunksize=1_000_000, low_memory=False):
+    for chunk in gcs_io.read_csv(path, usecols=["run_start_time"], chunksize=1_000_000, low_memory=False):
         ts = pd.to_datetime(chunk["run_start_time"], errors="coerce")
         ts = ts.dropna()
         if not ts.empty:
             mins.append(ts.min())
             maxs.append(ts.max())
     if not mins:
-        raise RuntimeError(f"{path.name}: no parseable run_start_time values")
+        raise RuntimeError(f"{name}: no parseable run_start_time values")
     return min(mins), max(maxs)
 
 
-def source_exposure_interval_for_year(raw_dir: Path, year: int) -> tuple[pd.Timestamp, pd.Timestamp]:
+def source_exposure_interval_for_year(raw_dir: str, year: int) -> tuple[pd.Timestamp, pd.Timestamp]:
     """Return the source exposure interval represented by one yearly CSV.
 
     For complete yearly files, count the full calendar year even if the final
     positive outage row is earlier than Dec 31 23:45. For a genuinely partial
     first or final source file, trim to the raw observed boundary.
     """
-    path = raw_dir / f"eaglei_outages_{year}.csv"
+    path = data_paths.resolve(f"{raw_dir}/eaglei_outages_{year}.csv")
     raw_min, raw_max = raw_timestamp_bounds(path)
     nominal_start = pd.Timestamp(year=year, month=1, day=1)
     nominal_end = pd.Timestamp(year=year + 1, month=1, day=1)
@@ -134,7 +141,8 @@ def source_exposure_interval_for_year(raw_dir: Path, year: int) -> tuple[pd.Time
         end = final_snapshot_end
 
     if end <= start:
-        raise RuntimeError(f"{path.name}: invalid source exposure interval {start} -> {end}")
+        name = str(path).rsplit("/", 1)[-1]
+        raise RuntimeError(f"{name}: invalid source exposure interval {start} -> {end}")
     return start, end
 
 
@@ -142,14 +150,14 @@ def nominal_year_interval(year: int) -> tuple[pd.Timestamp, pd.Timestamp]:
     return pd.Timestamp(year=year, month=1, day=1), pd.Timestamp(year=year + 1, month=1, day=1)
 
 
-def compute_source_exposure(raw_dir: Path, years: list[int]) -> dict:
+def compute_source_exposure(raw_dir: str, years: list[int]) -> dict:
     years = sorted(set(int(y) for y in years))
     first_year = years[0]
     last_year = years[-1]
     intervals = []
     for year in years:
-        path = raw_dir / f"eaglei_outages_{year}.csv"
-        if not path.exists():
+        path = data_paths.resolve(f"{raw_dir}/eaglei_outages_{year}.csv")
+        if not gcs_io.exists(path):
             continue
         if year in (first_year, last_year):
             start, end = source_exposure_interval_for_year(raw_dir, year)
@@ -169,18 +177,24 @@ def compute_source_exposure(raw_dir: Path, years: list[int]) -> dict:
     }
 
 
-def events_meta_path(events_path: Path) -> Path:
-    if events_path.name == "events.parquet":
-        return events_path.with_name("events_meta.json")
-    return events_path.with_name(f"{events_path.stem}_meta.json")
+def events_meta_path(events_path: str | Path) -> str:
+    """Sibling *_meta.json for the events file. String-based so it works for
+    both local paths and gs:// URIs (same trailing-segment rewrite either way)."""
+    p = str(events_path)
+    head, _, name = p.rpartition("/")
+    prefix = f"{head}/" if head else ""
+    if name == "events.parquet":
+        return f"{prefix}events_meta.json"
+    stem = name.rsplit(".", 1)[0]
+    return f"{prefix}{stem}_meta.json"
 
 
-def processed_years_for_annualization(events_path: Path, events: pd.DataFrame) -> tuple[list[int], str]:
+def processed_years_for_annualization(events_path: str | Path, events: pd.DataFrame) -> tuple[list[int], str]:
     """Prefer construction metadata so zero-event processed years stay in exposure."""
     meta_path = events_meta_path(events_path)
-    if meta_path.exists():
+    if gcs_io.exists(meta_path):
         try:
-            meta = json.loads(meta_path.read_text())
+            meta = gcs_io.read_json(meta_path)
             years = [int(y) for y in meta.get("years_processed", [])]
             if years:
                 return sorted(set(years)), str(meta_path)
@@ -208,22 +222,22 @@ def state_to_dqi(dqi: pd.DataFrame) -> dict[str, float]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--events", type=Path, default=EVENTS)
-    parser.add_argument("--raw-dir", type=Path, default=RAW_DIR)
-    parser.add_argument("--out-summary", type=Path, default=OUT_SUMMARY)
-    parser.add_argument("--out-durations", type=Path, default=OUT_DURATIONS)
+    parser.add_argument("--events", type=str, default=EVENTS)
+    parser.add_argument("--raw-dir", type=str, default=RAW_DIR)
+    parser.add_argument("--out-summary", type=str, default=OUT_SUMMARY)
+    parser.add_argument("--out-durations", type=str, default=OUT_DURATIONS)
     args = parser.parse_args()
 
-    coverage_path = args.raw_dir / "coverage_history.csv"
-    mcc_path = args.raw_dir / "MCC.csv"
-    dqi_path = args.raw_dir / "DQI.csv"
+    coverage_path = data_paths.resolve(f"{args.raw_dir}/coverage_history.csv")
+    mcc_path = data_paths.resolve(f"{args.raw_dir}/MCC.csv")
+    dqi_path = data_paths.resolve(f"{args.raw_dir}/DQI.csv")
 
-    if not args.events.exists():
+    if not gcs_io.exists(args.events):
         print(f"[fail] {args.events} not found; run 02_construct_events.py first", flush=True)
         return 1
 
     print(f"[load] {args.events}", flush=True)
-    events = pd.read_parquet(args.events)
+    events = gcs_io.read_parquet(args.events)
     events["fips"] = events["fips"].astype("int64")
     print(f"[load] {len(events):,} events across {events['fips'].nunique():,} FIPS", flush=True)
 
@@ -303,14 +317,12 @@ def main() -> int:
         "duration_p50", "duration_p90", "duration_p95", "duration_p99", "duration_max",
         "mean_customers_overall",
     ]]
-    args.out_summary.parent.mkdir(parents=True, exist_ok=True)
-    base.to_parquet(args.out_summary, index=False)
+    gcs_io.write_parquet(base, args.out_summary, index=False)
     print(f"[save] {args.out_summary} ({len(base):,} FIPS)", flush=True)
 
     # Long-form durations
     durations = events[["fips", "duration_hours", "year"]].copy()
-    args.out_durations.parent.mkdir(parents=True, exist_ok=True)
-    durations.to_parquet(args.out_durations, index=False)
+    gcs_io.write_parquet(durations, args.out_durations, index=False)
     print(f"[save] {args.out_durations} ({len(durations):,} rows)", flush=True)
 
     # Quick stats
@@ -336,8 +348,10 @@ def main() -> int:
             "It deliberately does not use first_event/last_event per county."
         ),
     }
-    meta_path = args.out_summary.with_name("annualization_meta.json")
-    meta_path.write_text(json.dumps(exposure_meta, indent=2))
+    out_head, _, _ = str(args.out_summary).rpartition("/")
+    out_prefix = f"{out_head}/" if out_head else ""
+    meta_path = f"{out_prefix}annualization_meta.json"
+    gcs_io.write_json(exposure_meta, meta_path, indent=2, separators=(",", ": "))
     print(f"[save] {meta_path}", flush=True)
 
     return 0

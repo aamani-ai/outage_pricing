@@ -105,7 +105,7 @@ For clarity: the following exists in the repo from a prior project. None of it i
 | `data/processed/county_index.json` etc. | Aggregates for storm dashboard | **Ignore.** |
 | `data_eia861/reliability_panel.csv` | Utility-reported SAIDI/SAIFI | **Ignore for v0 pricing.** May surface as sanity-check overlay later. |
 | `scripts/00-03_*.py` | Existing pipeline for storm timeline | **Ignore.** |
-| `dashboard/` | Existing storm-timeline UI | **Ignore.** v0's dashboard lives in `price_engine/dashboard/`. |
+| `dashboard/` | Old v0 dashboard (removed) | **Removed.** Superseded by the Next.js app in `web/`. |
 
 These artifacts are not deleted — they support an unrelated dashboard that continues to live in the repo. v0 simply does not touch them.
 

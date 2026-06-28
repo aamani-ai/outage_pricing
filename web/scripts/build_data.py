@@ -2,8 +2,8 @@
 """Build the web app's bundled data from the pricing catalogs — reproducible.
 
 Consolidates what were three scratchpad generators into one committed script, so
-`web/lib/data/*.json` can always be rebuilt from source (principles/scaling.md:
-no orphaned data; a reproducible pipeline).
+`web/lib/data/*.json` can always be rebuilt from source — locally or from the GCS lake via
+OUTAGE_PRICING_DATA_ROOT (docs/principles/reproducible_from_lake.md; docs/pipeline/README.md).
 
 Outputs (catalog: eagle-i-45min, the default):
   web/lib/data/pricing.json           per county × T: λ_customer + year-based band (A017) + count
@@ -16,12 +16,16 @@ Run from the repo root:
 import json
 import math
 import pathlib
+import sys
 from collections import defaultdict
 
 import numpy as np
 import pandas as pd
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "price_engine"))
+from core import data_paths, gcs_io  # noqa: E402 — inputs resolve local↔GCS via OUTAGE_PRICING_DATA_ROOT
+
 CATALOG = "eagle-i-45min"
 OUT = ROOT / "web" / "lib" / "data"
 np.random.seed(7)  # deterministic year-based band (A017) — re-runs reproduce identical numbers
@@ -60,12 +64,12 @@ def rnum(v, nd):
 
 
 def main() -> None:
-    pricing_dir = ROOT / "price_engine" / "catalogs" / CATALOG / "pricing"
-    pc = json.load(open(pricing_dir / "per_customer_view.json"))["view"]
-    dd = json.load(open(pricing_dir / "county_drilldown.json"))
-    yt = pd.read_parquet(ROOT / "curated_outage_data" / "outputs" / "county_trend" / f"county_yearly_trend__{CATALOG}.parquet")
+    pdir = f"price_engine/catalogs/{CATALOG}/pricing"
+    pc = gcs_io.read_json(data_paths.resolve(f"{pdir}/per_customer_view.json"))["view"]
+    dd = gcs_io.read_json(data_paths.resolve(f"{pdir}/county_drilldown.json"))
+    yt = gcs_io.read_parquet(data_paths.resolve(f"curated_outage_data/outputs/county_trend/county_yearly_trend__{CATALOG}.parquet"))
     yt["fips"] = yt["fips"].astype(str).str.zfill(5)
-    reg = pd.read_csv(ROOT / "notebooks" / "outputs" / "regime_classification" / "county_regime_T8.csv", dtype={"fips": str})
+    reg = gcs_io.read_csv(data_paths.resolve("notebooks/outputs/regime_classification/county_regime_T8.csv"), dtype={"fips": str})
     reg["fips"] = reg["fips"].str.zfill(5)
 
     # per (fips5, T): relative band + observed annual counts + overdispersion; years from T=8
@@ -108,8 +112,8 @@ def main() -> None:
 
     # cell read (TRUST + POSTURE) per (fips5, T) — the per-customer "believe-it" + "lean-of-margin" tags.
     # Source: notebooks/02_per_customer/inner_event_shape_diagnostics.ipynb (see cell_read_fundamentals.md).
-    cr = pd.read_csv(
-        ROOT / "notebooks" / "outputs" / "inner_event_shape_diagnostics" / "county_cell_read_by_threshold.csv",
+    cr = gcs_io.read_csv(
+        data_paths.resolve("notebooks/outputs/inner_event_shape_diagnostics/county_cell_read_by_threshold.csv"),
         dtype={"fips": str},
     )
     cr["fips"] = cr["fips"].str.zfill(5)
@@ -229,9 +233,9 @@ def main() -> None:
     # --- customer_base.json (denominator provenance — the County-explorer flag) ---
     # Per county: which base the per-customer rate used and why (MCC kept / housing-units floor /
     # peak floor / excluded-as-data-invalid). See assumptions A018. Names from county_drilldown (dd).
-    cb_path = ROOT / "price_engine" / "data" / "customer_base.csv"
-    if cb_path.exists():
-        cb_src = pd.read_csv(cb_path)
+    cb_path = data_paths.resolve("price_engine/data/customer_base.csv")
+    if gcs_io.exists(cb_path):
+        cb_src = gcs_io.read_csv(cb_path)
         names = {str(f).zfill(5): (c.get("county"), c.get("state")) for f, c in dd.items()}
         cbj = {}
         for _, r in cb_src.iterrows():
@@ -249,31 +253,29 @@ def main() -> None:
     # --- location/* (Step-04 within-county density relativity; promoted from the calibration notebook) ---
     # The dashboard does MATH ONLY on these; calibration lives in notebooks/04_location_basis/.
     # Re-run that notebook → its artifact refreshes → this block re-promotes → dashboard swaps numbers.
-    lb_src = ROOT / "notebooks" / "outputs" / "location_basis"
     n_tracts = n_counties_lb = 0
-    if lb_src.exists():
-        lb_out = OUT / "location"
-        lb_out.mkdir(exist_ok=True)
-        for name in ("relativity_table.json", "county_lookup.json", "guardrail_spec.json", "tract_rurality.json"):
-            src = lb_src / name
-            if not src.exists():
-                continue
-            obj = json.load(open(src))
-            json.dump(obj, open(lb_out / name, "w"), separators=(",", ":"))
-            if name == "tract_rurality.json":
-                n_tracts = len(obj)
-            elif name == "county_lookup.json":
-                n_counties_lb = len(obj)
+    lb_out = OUT / "location"
+    lb_out.mkdir(exist_ok=True)
+    for name in ("relativity_table.json", "county_lookup.json", "guardrail_spec.json", "tract_rurality.json"):
+        src = data_paths.resolve(f"notebooks/outputs/location_basis/{name}")
+        if not gcs_io.exists(src):
+            continue
+        obj = gcs_io.read_json(src)
+        json.dump(obj, open(lb_out / name, "w"), separators=(",", ":"))
+        if name == "tract_rurality.json":
+            n_tracts = len(obj)
+        elif name == "county_lookup.json":
+            n_counties_lb = len(obj)
 
     # --- forward/* (Step-05 statistical forward factor; promoted from the calibration notebook) ---
     # The dashboard does MATH ONLY on this; calibration lives in notebooks/05_forward_regime/statistical_router/.
     # Re-run that notebook → forward_factor.json refreshes → this block re-promotes → dashboard swaps numbers.
-    fwd_src = ROOT / "notebooks" / "outputs" / "forward_regime" / "statistical_router" / "forward_factor.json"
+    fwd_src = data_paths.resolve("notebooks/outputs/forward_regime/statistical_router/forward_factor.json")
     n_fwd = 0
-    if fwd_src.exists():
+    if gcs_io.exists(fwd_src):
         fwd_out = OUT / "forward"
         fwd_out.mkdir(exist_ok=True)
-        obj = json.load(open(fwd_src))
+        obj = gcs_io.read_json(fwd_src)
         json.dump(obj, open(fwd_out / "forward_factor.json", "w"), separators=(",", ":"))
         n_fwd = len(obj)
 

@@ -75,7 +75,7 @@ Single app, no login/role-gating. With the shadow price gone (D3), there is noth
 gate; the outward/internal split is navigational, and we build the core well.
 
 ### D9 — Principles ported + adapted
-Bring `ui_design.md`, `scaling.md`, and the usability doc (`open_source_tool.md`) into this repo's
+Bring `ui_design.md`, `structural_verification.md`, and the usability doc (`open_source_tool.md`) into this repo's
 `docs/principles/`, rewritten for carriers/underwriters/advisors, under the existing
 `communicate_to_share.md` spine. Also codify "reference, not constraint" here.
 

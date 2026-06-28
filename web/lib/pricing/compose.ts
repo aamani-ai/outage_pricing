@@ -5,7 +5,7 @@
  * re-derives the math (the old dashboard duplicated it 5× — the divergence risk
  * we are ending). Pure: same inputs → same output, no side effects, no I/O.
  *
- * Discipline (principles/scaling.md): FAIL LOUD — never silently fall back to a
+ * Discipline (principles/structural_verification.md): FAIL LOUD — never silently fall back to a
  * default that hides a broken input. A crash you notice today beats a wrong
  * premium discovered in three weeks.
  */

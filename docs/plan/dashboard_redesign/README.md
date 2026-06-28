@@ -5,7 +5,7 @@ The build plan for the new two-audience pricing dashboard. **Design is settled**
 
 ## Sequencing principle — engine first, confidence before features
 
-Per `principles/scaling.md` (and D1): the silent-failure risk in an LLM-built rebuild is killed by
+Per `principles/structural_verification.md` (and D1): the silent-failure risk in an LLM-built rebuild is killed by
 **structural verification, not eyeballs**. So we **extract and canary-test the pricing engine before
 any UI**, and every view renders the premium from that one engine — never re-deriving the formula
 (the old dashboard duplicated it 5×; that is the anti-pattern we're ending).

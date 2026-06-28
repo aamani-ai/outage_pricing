@@ -39,8 +39,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -48,14 +46,18 @@ import numpy as np
 import pandas as pd
 
 HERE = Path(__file__).resolve().parent
-SUMMARY = HERE.parent / "data" / "county_summary.parquet"
-DURATIONS = HERE.parent / "data" / "county_durations.parquet"
-TIERS = HERE.parent / "filtration" / "county_tiers.csv"
-EVENTS = HERE.parent / "data" / "events.parquet"
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "price_engine"))
+from core import gcs_io, data_paths  # noqa: E402 — inputs resolve local↔GCS via OUTAGE_PRICING_DATA_ROOT
 
-OUT_CSV = HERE / "county_premiums.csv"
-OUT_JSON = HERE / "county_drilldown.json"
-OUT_EVIDENCE_DIR = HERE / "event_evidence"
+SUMMARY = data_paths.resolve("price_engine/data/county_summary.parquet")
+DURATIONS = data_paths.resolve("price_engine/data/county_durations.parquet")
+TIERS = data_paths.resolve("price_engine/filtration/county_tiers.csv")
+EVENTS = data_paths.resolve("price_engine/data/events.parquet")
+
+OUT_CSV = data_paths.resolve("price_engine/pricing/county_premiums.csv")
+OUT_JSON = data_paths.resolve("price_engine/pricing/county_drilldown.json")
+OUT_EVIDENCE_DIR = data_paths.resolve("price_engine/pricing/event_evidence")
 
 T_GRID = [2, 4, 8, 12, 24]                # hours
 X_GRID = [500, 1000, 2500, 5000, 10000]   # dollars
@@ -99,7 +101,7 @@ def write_event_evidence(
         "start_time", "end_time", "duration_hours",
         "n_snapshots", "min_customers", "max_customers", "mean_customers", "year",
     ]
-    events = pd.read_parquet(events_path, columns=columns)
+    events = gcs_io.read_parquet(events_path, columns=columns)
     events["fips"] = events["fips"].astype("int64")
     print(f"[load] {len(events):,} events for evidence table", flush=True)
 
@@ -115,10 +117,6 @@ def write_event_evidence(
         .head(max_rows)
     )
     del events
-
-    if out_dir.exists():
-        shutil.rmtree(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
 
     written = 0
     for fips, group in top.groupby("fips", sort=False):
@@ -174,7 +172,7 @@ def write_event_evidence(
             "threshold_summary": threshold_summary,
             "events": rows,
         }
-        (out_dir / f"{key}.json").write_text(json.dumps(record, separators=(",", ":")))
+        gcs_io.write_json(record, f"{out_dir}/{key}.json", separators=(",", ":"))
         written += 1
 
     print(f"[save] {out_dir} ({written:,} county files; top {max_rows} events each)", flush=True)
@@ -182,13 +180,13 @@ def write_event_evidence(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--summary", type=Path, default=SUMMARY)
-    parser.add_argument("--durations", type=Path, default=DURATIONS)
-    parser.add_argument("--tiers", type=Path, default=TIERS)
-    parser.add_argument("--events", type=Path, default=EVENTS)
-    parser.add_argument("--out-csv", type=Path, default=OUT_CSV)
-    parser.add_argument("--out-json", type=Path, default=OUT_JSON)
-    parser.add_argument("--out-evidence-dir", type=Path, default=OUT_EVIDENCE_DIR)
+    parser.add_argument("--summary", default=SUMMARY)
+    parser.add_argument("--durations", default=DURATIONS)
+    parser.add_argument("--tiers", default=TIERS)
+    parser.add_argument("--events", default=EVENTS)
+    parser.add_argument("--out-csv", default=OUT_CSV)
+    parser.add_argument("--out-json", default=OUT_JSON)
+    parser.add_argument("--out-evidence-dir", default=OUT_EVIDENCE_DIR)
     parser.add_argument("--evidence-max-rows", type=int, default=200)
     parser.add_argument("--skip-evidence", action="store_true")
     args = parser.parse_args()
@@ -197,13 +195,13 @@ def main() -> int:
     if not args.skip_evidence:
         required.append(args.events)
     for p in required:
-        if not p.exists():
+        if not gcs_io.exists(p):
             print(f"[fail] missing {p}; run upstream scripts first", flush=True)
             return 1
 
-    summary = pd.read_parquet(args.summary)
-    durations = pd.read_parquet(args.durations)
-    tiers = pd.read_csv(args.tiers)
+    summary = gcs_io.read_parquet(args.summary)
+    durations = gcs_io.read_parquet(args.durations)
+    tiers = gcs_io.read_csv(args.tiers)
     print(f"[load] {len(summary):,} FIPS summary; {len(durations):,} event rows; {len(tiers):,} tier rows",
           flush=True)
 
@@ -272,13 +270,10 @@ def main() -> int:
         }
 
     out_df = pd.DataFrame(rows)
-    args.out_csv.parent.mkdir(parents=True, exist_ok=True)
-    out_df.to_csv(args.out_csv, index=False)
+    gcs_io.write_csv(out_df, args.out_csv, index=False)
     print(f"[save] {args.out_csv} ({len(out_df):,} rows)", flush=True)
 
-    args.out_json.parent.mkdir(parents=True, exist_ok=True)
-    with args.out_json.open("w") as fh:
-        json.dump(drilldown, fh)
+    gcs_io.write_json(drilldown, args.out_json, separators=(", ", ": "))
     print(f"[save] {args.out_json} ({len(drilldown):,} FIPS)", flush=True)
 
     if not args.skip_evidence:

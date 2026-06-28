@@ -33,8 +33,12 @@ import numpy as np
 import pandas as pd
 
 HERE = Path(__file__).resolve().parent
-SUMMARY = HERE.parent / "data" / "county_summary.parquet"
-OUT_TIERS = HERE / "county_tiers.csv"
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "price_engine"))
+from core import gcs_io, data_paths  # noqa: E402
+
+SUMMARY = data_paths.resolve("price_engine/data/county_summary.parquet")
+OUT_TIERS = data_paths.resolve("price_engine/filtration/county_tiers.csv")
 
 TIER_RANK = {"green": 0, "amber": 1, "red": 2}
 RANK_TIER = {v: k for k, v in TIER_RANK.items()}
@@ -56,14 +60,14 @@ def worst(tiers: list[str]) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--summary", type=Path, default=SUMMARY)
-    parser.add_argument("--out", type=Path, default=OUT_TIERS)
+    parser.add_argument("--summary", type=str, default=SUMMARY)
+    parser.add_argument("--out", type=str, default=OUT_TIERS)
     args = parser.parse_args()
 
-    if not args.summary.exists():
+    if not gcs_io.exists(args.summary):
         print(f"[fail] {args.summary} not found; run 03_aggregate_county.py first", flush=True)
         return 1
-    df = pd.read_parquet(args.summary)
+    df = gcs_io.read_parquet(args.summary)
     print(f"[load] {len(df):,} FIPS", flush=True)
 
     df["d1_volume"]    = df["n_events_total"].apply(lambda v: tier_from_thresholds(v, 200, 50))
@@ -105,8 +109,7 @@ def main() -> int:
         "d1_volume", "d2_per_year", "d3_obs_years", "d4_tail", "d5_dqi",
         "tier",
     ]]
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    out.to_csv(args.out, index=False)
+    gcs_io.write_csv(out, args.out, index=False)
     print(f"[save] {args.out}", flush=True)
 
     counts = out["tier"].value_counts().to_dict()

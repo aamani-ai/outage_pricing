@@ -1,6 +1,6 @@
 /**
  * Canary suite for the pricing engine — written BEFORE any UI (engine-first,
- * principles/scaling.md "ask for the test, not the feature").
+ * principles/structural_verification.md "ask for the test, not the feature").
  *
  * The anchor fixtures are REAL values from the source of truth
  * (price_engine/catalogs/eagle-i-45min/pricing/per_customer_view.json, the

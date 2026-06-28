@@ -23,11 +23,16 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import subprocess
 import sys
 import time
 from pathlib import Path
 
 import requests
+
+ENGINE_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ENGINE_ROOT))
+from core import data_paths  # noqa: E402 — maps each raw file to its canonical lake key
 
 ARTICLE_ID = 24237376
 API_URL = f"https://api.figshare.com/v2/articles/{ARTICLE_ID}"
@@ -127,11 +132,43 @@ def download_one(file_info: dict, dest_dir: Path, force: bool) -> None:
         print(f"[ok  ] {name} downloaded (no md5 published)", flush=True)
 
 
+def push_to_lake(files: list[dict], dest_dir: Path) -> int:
+    """Promote each verified local raw file to its canonical lake location.
+
+    Uses `gcloud storage cp` (the right tool for the ~11 GB of raw) rather than streaming
+    through pandas/gcsfs. Each file's lake key comes from the SAME data_paths map the rest of
+    the pipeline reads through, so ingest and read agree on layout (sources/eagle_i, /mcc, /reference).
+    """
+    if not data_paths.using_gcs():
+        print(
+            "[lake] --push-lake needs OUTAGE_PRICING_DATA_ROOT=gs://<bucket> "
+            f"(currently {data_paths.root_label()})",
+            flush=True,
+        )
+        return 1
+    for f in files:
+        name = f["name"]
+        local = dest_dir / name
+        if not local.exists():
+            print(f"[lake] skip {name} (not present locally)", flush=True)
+            continue
+        target = data_paths.resolve(f"price_engine/data/raw/{name}")
+        print(f"[lake] cp {name} -> {target}", flush=True)
+        subprocess.run(["gcloud", "storage", "cp", str(local), target], check=True)
+    print(f"[lake] raw promoted to {data_paths.root_label()}", flush=True)
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--force", action="store_true", help="re-download even if present")
     parser.add_argument("--list", action="store_true", help="list files from API and exit")
     parser.add_argument("--dest", type=Path, default=RAW_DIR, help="output directory")
+    parser.add_argument(
+        "--push-lake",
+        action="store_true",
+        help="after download, promote each raw file to the lake (needs OUTAGE_PRICING_DATA_ROOT=gs://...)",
+    )
     args = parser.parse_args()
 
     args.dest.mkdir(parents=True, exist_ok=True)
@@ -154,6 +191,9 @@ def main() -> int:
             return 1
 
     print(f"[done] all files in {args.dest}", flush=True)
+
+    if args.push_lake:
+        return push_to_lake(files, args.dest)
     return 0
 
 

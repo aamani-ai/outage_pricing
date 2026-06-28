@@ -1,7 +1,7 @@
 # P1 — Pricing Engine (the immediate next step)
 
 Build the one pure, typed, tested function both sections render from — **before any pricing UI**.
-This is the keystone of D1 and the `scaling.md` "ask for the test, not the feature" discipline.
+This is the keystone of D1 and the `structural_verification.md` "ask for the test, not the feature" discipline.
 
 ## Goal
 
@@ -49,11 +49,11 @@ Write these before the function is "done"; they test our *understanding*, not ju
                           PRECOMPUTED in the pipeline (bootstrap needs per-year counts) and shipped, not run at quote time.
 ```
 
-Plus **count assertions** on the data the engine consumes (per `scaling.md`): the catalog row count
+Plus **count assertions** on the data the engine consumes (per `structural_verification.md`): the catalog row count
 and the regime CSV row count (3,090 counties) are asserted in-range at load, so a silently truncated
 read fails a test instead of shipping a plausible-but-wrong premium.
 
-## Fail loud, no fallback (scaling.md)
+## Fail loud, no fallback (structural_verification.md)
 
 If an input is missing (no λ for a county/T, ER+TM≥1, bad geocode), the engine **throws** — it does
 not silently fall back to a default that hides the break. The UI catches and shows an honest empty

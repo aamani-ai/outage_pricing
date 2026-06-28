@@ -250,7 +250,7 @@ exits its Phase 3 gate.
 | Pricing script | `price_engine/pricing/05_price.py` |
 | Math spec | `price_engine/plan/02_pricing_math.md` |
 | Drilldown schema | `price_engine/data/SCHEMA.md` §Event Evidence JSON |
-| Dashboard math display | `price_engine/dashboard/app.js` (evidence KPIs and matrix view) |
+| Dashboard math display | `web/components/studio/tabs/price-breakdown.tsx` (build-up to premium) |
 
 ## Cross-references
 

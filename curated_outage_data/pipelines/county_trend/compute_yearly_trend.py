@@ -20,7 +20,7 @@ Schema: curated_outage_data/schemas/county_yearly_trend.md
 from __future__ import annotations
 
 import argparse
-import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -28,8 +28,10 @@ import numpy as np
 import pandas as pd
 
 REPO = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO / "price_engine"))
+from core import gcs_io, data_paths  # noqa: E402 — inputs/outputs resolve local↔GCS via OUTAGE_PRICING_DATA_ROOT
+
 DEFAULT_CATALOGS = ['eagle-i-30min', 'eagle-i-45min', 'eagle-i-60min']
-DEFAULT_OUT_DIR = REPO / 'curated_outage_data' / 'outputs' / 'county_trend'
 
 T_GRID = [2, 4, 8, 12, 24]
 
@@ -57,12 +59,12 @@ CT_PLANNING_REGION_FIPS = set(range(9110, 9200, 10))
 
 
 def load_catalog_events(catalog_id: str) -> tuple[pd.DataFrame, float]:
-    cat_dir = REPO / 'price_engine' / 'catalogs' / catalog_id / 'data'
-    events = pd.read_parquet(
-        cat_dir / 'events.parquet',
+    cat_dir = f'price_engine/catalogs/{catalog_id}/data'
+    events = gcs_io.read_parquet(
+        data_paths.resolve(f'{cat_dir}/events.parquet'),
         columns=['fips', 'duration_hours', 'year'],
     )
-    meta = json.loads((cat_dir / 'annualization_meta.json').read_text())
+    meta = gcs_io.read_json(data_paths.resolve(f'{cat_dir}/annualization_meta.json'))
     return events, float(meta['source_observation_years'])
 
 
@@ -292,7 +294,7 @@ def compute_fips_rows(events_fips: pd.DataFrame, T_grid=T_GRID) -> list[dict]:
     return rows
 
 
-def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
+def run_catalog(catalog_id: str) -> pd.DataFrame:
     print(f'[{catalog_id}] loading events...')
     events, obs_years = load_catalog_events(catalog_id)
 
@@ -315,8 +317,10 @@ def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
     df = pd.DataFrame(all_rows)
 
     # Parquet view — flatten yearly_counts to a list column
-    parquet_path = out_dir / f'county_yearly_trend__{catalog_id}.parquet'
-    df.to_parquet(parquet_path, index=False)
+    parquet_path = data_paths.resolve(
+        f'curated_outage_data/outputs/county_trend/county_yearly_trend__{catalog_id}.parquet'
+    )
+    gcs_io.write_parquet(df, parquet_path, index=False)
     print(f'[{catalog_id}] wrote {parquet_path} ({len(df):,} rows)')
 
     # On-screen summary by trend class
@@ -406,18 +410,19 @@ def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
         },
         'view': view,
     }
-    json_path = out_dir / f'county_yearly_trend__{catalog_id}.json'
-    json_payload_text = json.dumps(view_payload, separators=(',', ':'))
-    json_path.write_text(json_payload_text)
+    json_path = data_paths.resolve(
+        f'curated_outage_data/outputs/county_trend/county_yearly_trend__{catalog_id}.json'
+    )
+    gcs_io.write_json(view_payload, json_path, separators=(',', ':'))
     print(f'[{catalog_id}] wrote {json_path} ({len(view):,} fips)')
 
     # Mirror into the catalog pricing folder so the static dashboard can
     # fetch it via a sibling relative path. Same pattern as
     # per_customer_view.json.
-    catalog_pricing = REPO / 'price_engine' / 'catalogs' / catalog_id / 'pricing'
-    if catalog_pricing.exists():
-        mirror_path = catalog_pricing / 'county_yearly_trend.json'
-        mirror_path.write_text(json_payload_text)
+    catalog_pricing = f'price_engine/catalogs/{catalog_id}/pricing'
+    if gcs_io.exists(data_paths.resolve(catalog_pricing)):
+        mirror_path = data_paths.resolve(f'{catalog_pricing}/county_yearly_trend.json')
+        gcs_io.write_json(view_payload, mirror_path, separators=(',', ':'))
         print(f'[{catalog_id}] mirrored to {mirror_path}')
 
     return df
@@ -438,15 +443,10 @@ def main() -> None:
     ap = argparse.ArgumentParser(description='County yearly outage-trend pipeline.')
     ap.add_argument('--catalogs', nargs='+', default=DEFAULT_CATALOGS,
                     help='Catalogs to process (default: all three).')
-    ap.add_argument('--out-dir', default=str(DEFAULT_OUT_DIR),
-                    help='Output directory for parquet files.')
     args = ap.parse_args()
 
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
     for cat in args.catalogs:
-        run_catalog(cat, out_dir)
+        run_catalog(cat)
 
 
 if __name__ == '__main__':

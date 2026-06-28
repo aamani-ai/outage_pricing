@@ -29,16 +29,20 @@ from __future__ import annotations
 
 import argparse
 import gc
-import json
 import sys
 import time
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "price_engine"))
+from core import gcs_io, data_paths  # noqa: E402 — inputs resolve local↔GCS via OUTAGE_PRICING_DATA_ROOT
 
 # --- knobs (documented in EVENT_CONSTRUCTION.md) ---------------------------
 GAP_TOLERANCE = timedelta(minutes=30)
@@ -50,9 +54,13 @@ PARQUET_TIME_CONVENTION = "timezone-naive UTC"
 # ---------------------------------------------------------------------------
 
 HERE = Path(__file__).resolve().parent
-RAW_DIR = HERE / "raw"
-OUT_PARQUET = HERE / "events.parquet"
-OUT_META = HERE / "events_meta.json"
+OUT_PARQUET = data_paths.resolve("price_engine/data/events.parquet")
+OUT_META = data_paths.resolve("price_engine/data/events_meta.json")
+
+
+def raw_path(year: int) -> str:
+    """Resolve one year's raw EAGLE-I snapshot CSV (local path or gs:// URI)."""
+    return data_paths.resolve(f"price_engine/data/raw/eaglei_outages_{year}.csv")
 
 YEARS = list(range(2014, 2026))
 
@@ -73,12 +81,13 @@ EVENT_COLUMNS = [
 
 def load_year(year: int) -> pd.DataFrame:
     """Load one year's snapshots. Handles schema differences across years."""
-    path = RAW_DIR / f"eaglei_outages_{year}.csv"
-    if not path.exists():
-        print(f"[warn] missing {path.name}; skipping year {year}", flush=True)
+    path = raw_path(year)
+    name = str(path).rsplit("/", 1)[-1]
+    if not gcs_io.exists(path):
+        print(f"[warn] missing {name}; skipping year {year}", flush=True)
         return pd.DataFrame()
 
-    print(f"[load] {path.name}", flush=True)
+    print(f"[load] {name}", flush=True)
     usecols_options = [
         ["fips_code", "county", "state", "customers_out", "run_start_time"],
         ["fips_code", "county", "state", "sum", "run_start_time"],
@@ -86,7 +95,7 @@ def load_year(year: int) -> pd.DataFrame:
     df = None
     for cols in usecols_options:
         try:
-            df = pd.read_csv(
+            df = gcs_io.read_csv(
                 path,
                 usecols=cols,
                 parse_dates=["run_start_time"],
@@ -96,7 +105,7 @@ def load_year(year: int) -> pd.DataFrame:
         except (ValueError, KeyError):
             continue
     if df is None:
-        raise RuntimeError(f"{path.name}: could not match expected schema")
+        raise RuntimeError(f"{name}: could not match expected schema")
 
     if "customers_out" not in df.columns and "sum" in df.columns:
         df = df.rename(columns={"sum": "customers_out"})
@@ -259,18 +268,38 @@ def process_year(year: int, carry: dict[int, dict], sample_fips: int | None = No
     return rows_to_events(all_rows)
 
 
-def write_batch(writer: pq.ParquetWriter | None, out_path: Path, frame: pd.DataFrame) -> pq.ParquetWriter | None:
+def _open_parquet_sink(out_path: str, schema: pa.Schema) -> tuple[pq.ParquetWriter, Any]:
+    """Open a streaming ParquetWriter over a local path or a gs:// URI.
+
+    Returns (writer, fh) where fh is the underlying gcsfs file handle (gs://) or
+    None (local). Local parents are created so output lands identically to before.
+    """
+    if gcs_io.is_gcs(out_path):
+        import gcsfs
+
+        fh = gcsfs.GCSFileSystem().open(str(out_path), "wb")
+        return pq.ParquetWriter(fh, schema), fh
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    return pq.ParquetWriter(out_path, schema), None
+
+
+def write_batch(
+    writer: pq.ParquetWriter | None,
+    fh: Any,
+    out_path: str,
+    frame: pd.DataFrame,
+) -> tuple[pq.ParquetWriter | None, Any]:
     if frame.empty:
-        return writer
+        return writer, fh
     table = pa.Table.from_pandas(frame, preserve_index=False)
     if writer is None:
-        writer = pq.ParquetWriter(out_path, table.schema)
+        writer, fh = _open_parquet_sink(out_path, table.schema)
     writer.write_table(table)
-    return writer
+    return writer, fh
 
 
-def build_meta(out_path: Path, years_processed: list[int], wall_seconds: float) -> dict:
-    stats = pd.read_parquet(out_path, columns=["fips", "duration_hours"])
+def build_meta(out_path: str, years_processed: list[int], wall_seconds: float) -> dict:
+    stats = gcs_io.read_parquet(out_path, columns=["fips", "duration_hours"])
     duration = stats["duration_hours"]
     return {
         "knobs": {
@@ -301,10 +330,12 @@ def build_meta(out_path: Path, years_processed: list[int], wall_seconds: float) 
     }
 
 
-def meta_path_for(out_path: Path) -> Path:
-    if out_path.resolve() == OUT_PARQUET.resolve():
+def meta_path_for(out_path: str) -> str:
+    if str(out_path) == str(OUT_PARQUET):
         return OUT_META
-    return out_path.with_name(f"{out_path.stem}_meta.json")
+    head, sep, name = str(out_path).rpartition("/")
+    stem = name[: -len(".parquet")] if name.endswith(".parquet") else name
+    return f"{head}{sep}{stem}_meta.json"
 
 
 def main() -> int:
@@ -313,7 +344,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--years", type=int, nargs="*", default=YEARS, help="years to ingest")
     parser.add_argument("--sample-fips", type=int, default=None, help="only first N FIPS (smoke test)")
-    parser.add_argument("--out", type=Path, default=OUT_PARQUET)
+    parser.add_argument("--out", type=str, default=OUT_PARQUET)
     parser.add_argument(
         "--gap-tolerance-minutes",
         type=float,
@@ -330,23 +361,23 @@ def main() -> int:
     GAP_TOLERANCE_NS = np.int64(GAP_TOLERANCE.total_seconds() * 1e9)
 
     years = sorted(args.years)
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    if args.out.exists():
-        args.out.unlink()
+    if not gcs_io.is_gcs(args.out) and Path(args.out).exists():
+        Path(args.out).unlink()  # local stale-file clean; gs:// "wb" open overwrites
 
     t0 = time.time()
     carry: dict[int, dict] = {}
     writer: pq.ParquetWriter | None = None
+    fh: Any = None
     years_processed: list[int] = []
     n_written = 0
 
     try:
         for year in years:
-            if (RAW_DIR / f"eaglei_outages_{year}.csv").exists():
+            if gcs_io.exists(raw_path(year)):
                 years_processed.append(year)
             ev_y = process_year(year, carry=carry, sample_fips=args.sample_fips)
             if not ev_y.empty:
-                writer = write_batch(writer, args.out, ev_y)
+                writer, fh = write_batch(writer, fh, args.out, ev_y)
                 n_written += len(ev_y)
                 print(f"[write] {year}: {len(ev_y):,} rows ({n_written:,} total)", flush=True)
             gc.collect()
@@ -358,12 +389,14 @@ def main() -> int:
                 final_rows.append(closed)
         final_events = rows_to_events(final_rows)
         if not final_events.empty:
-            writer = write_batch(writer, args.out, final_events)
+            writer, fh = write_batch(writer, fh, args.out, final_events)
             n_written += len(final_events)
             print(f"[write] final seams: {len(final_events):,} rows ({n_written:,} total)", flush=True)
     finally:
         if writer is not None:
             writer.close()
+        if fh is not None:
+            fh.close()
 
     if n_written == 0:
         print("[fail] no events constructed", flush=True)
@@ -371,7 +404,8 @@ def main() -> int:
 
     meta = build_meta(args.out, years_processed=years_processed, wall_seconds=time.time() - t0)
     meta_path = meta_path_for(args.out)
-    meta_path.write_text(json.dumps(meta, indent=2, default=str))
+    # byte-identical to json.dumps(meta, indent=2, default=str): keep indent's default separators
+    gcs_io.write_json(meta, meta_path, indent=2, default=str, separators=(",", ": "))
     print(f"[save] {args.out} ({meta['n_events_out']:,} rows)", flush=True)
     print(f"[save] {meta_path}", flush=True)
     print(f"[done] wall {meta['wall_time_seconds']}s, {meta['n_events_out']:,} events", flush=True)

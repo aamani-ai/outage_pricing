@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,8 +22,12 @@ import numpy as np
 import pandas as pd
 
 REPO = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO / "price_engine"))
+from core import gcs_io, data_paths  # noqa: E402
+
 DEFAULT_CATALOGS = ['eagle-i-30min', 'eagle-i-45min', 'eagle-i-60min']
-DEFAULT_OUT_DIR = REPO / 'curated_outage_data' / 'outputs' / 'per_customer_rate'
+# Repo-relative (posix) prefix for outputs; data_paths maps it local<->GCS.
+DEFAULT_OUT_REL = 'curated_outage_data/outputs/per_customer_rate'
 
 T_GRID = [2, 4, 8, 12, 24]
 
@@ -43,8 +48,7 @@ def load_customer_base() -> dict[int, dict]:
     whose garbage values (Henderson NC = 24) drove multi-$M premiums. See
     docs/dicsscssion/premium_implausibility_investigation/.
     """
-    p = REPO / 'price_engine' / 'data' / 'customer_base.csv'
-    cb = pd.read_csv(p)
+    cb = gcs_io.read_csv(data_paths.resolve('price_engine/data/customer_base.csv'))
     out: dict[int, dict] = {}
     for _, r in cb.iterrows():
         base = float(r['base']) if pd.notna(r['base']) else None
@@ -53,12 +57,12 @@ def load_customer_base() -> dict[int, dict]:
 
 
 def load_catalog(catalog_id: str) -> tuple[pd.DataFrame, float]:
-    cat_dir = REPO / 'price_engine' / 'catalogs' / catalog_id / 'data'
-    events = pd.read_parquet(
-        cat_dir / 'events.parquet',
+    cat_rel = f'price_engine/catalogs/{catalog_id}/data'
+    events = gcs_io.read_parquet(
+        data_paths.resolve(f'{cat_rel}/events.parquet'),
         columns=['fips', 'duration_hours', 'mean_customers', 'max_customers'],
     )
-    meta = json.loads((cat_dir / 'annualization_meta.json').read_text())
+    meta = json.loads(gcs_io.read_text(data_paths.resolve(f'{cat_rel}/annualization_meta.json')))
     return events, float(meta['source_observation_years'])
 
 
@@ -173,7 +177,7 @@ def compute_fips_rows(
     return rows
 
 
-def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
+def run_catalog(catalog_id: str, out_rel: str) -> pd.DataFrame:
     print(f'[{catalog_id}] loading events + meta...')
     events, obs_years = load_catalog(catalog_id)
     cbase = load_customer_base()
@@ -211,8 +215,9 @@ def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
     ]
     df = df[cols]
 
-    out_path = out_dir / f'per_customer_lambda__{catalog_id}.parquet'
-    df.to_parquet(out_path, index=False)
+    out_path = gcs_io.write_parquet(
+        df, data_paths.resolve(f'{out_rel}/per_customer_lambda__{catalog_id}.parquet'), index=False
+    )
     print(f'[{catalog_id}] wrote {out_path} ({len(df):,} rows)')
 
     # Quick on-screen summary
@@ -270,9 +275,9 @@ def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
         },
         'view': view,
     }
-    json_path = out_dir / f'per_customer_view__{catalog_id}.json'
-    json_payload_text = json.dumps(view_payload, separators=(',', ':'))
-    json_path.write_text(json_payload_text)
+    json_path = gcs_io.write_json(
+        view_payload, data_paths.resolve(f'{out_rel}/per_customer_view__{catalog_id}.json')
+    )
     print(f'[{catalog_id}] wrote {json_path} ({len(view):,} fips)')
 
     # Mirror the JSON into the catalog's pricing folder so the static dashboard
@@ -280,10 +285,11 @@ def run_catalog(catalog_id: str, out_dir: Path) -> pd.DataFrame:
     # is a presentation-only mirror — the source of truth is the parquet + JSON
     # under curated_outage_data/outputs/ and the curated pipeline is the only
     # writer.
-    catalog_pricing = REPO / 'price_engine' / 'catalogs' / catalog_id / 'pricing'
-    if catalog_pricing.exists():
-        mirror_path = catalog_pricing / 'per_customer_view.json'
-        mirror_path.write_text(json_payload_text)
+    catalog_pricing = data_paths.resolve(f'price_engine/catalogs/{catalog_id}/pricing')
+    if gcs_io.exists(catalog_pricing):
+        mirror_path = gcs_io.write_json(
+            view_payload, data_paths.resolve(f'price_engine/catalogs/{catalog_id}/pricing/per_customer_view.json')
+        )
         print(f'[{catalog_id}] mirrored to {mirror_path}')
 
     return df
@@ -309,15 +315,14 @@ def main() -> None:
     ap = argparse.ArgumentParser(description='Phase 2 per-customer shadow rate pipeline.')
     ap.add_argument('--catalogs', nargs='+', default=DEFAULT_CATALOGS,
                     help='Catalogs to process (default: all three).')
-    ap.add_argument('--out-dir', default=str(DEFAULT_OUT_DIR),
-                    help='Output directory for parquet files.')
+    ap.add_argument('--out-dir', default=DEFAULT_OUT_REL,
+                    help='Repo-relative (posix) output dir; resolved local<->GCS via OUTAGE_PRICING_DATA_ROOT.')
     args = ap.parse_args()
 
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_rel = args.out_dir
 
     for cat in args.catalogs:
-        run_catalog(cat, out_dir)
+        run_catalog(cat, out_rel)
 
 
 if __name__ == '__main__':

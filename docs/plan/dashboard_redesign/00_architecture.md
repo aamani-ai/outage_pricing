@@ -1,7 +1,7 @@
 # P0 — Architecture & Scaffold
 
 The layering, the repo layout, and the boundaries that keep this from becoming another organic
-monolith. Grounded in `principles/scaling.md`: the data/pipeline side has zero web-framework deps;
+monolith. Grounded in `principles/structural_verification.md`: the data/pipeline side has zero web-framework deps;
 the web side has zero pandas — they meet at JSON/CSV files.
 
 ## Three layers, one rule
@@ -39,7 +39,7 @@ The engine never imports React; the UI never imports the math directly — it im
 
 `web/` mirrors the renewablesinfo structure so the recon's component layer ports directly, and keeps
 the web side cleanly separated from the Python side (either half replaceable without touching the
-other — scaling.md). Add `web/node_modules/`, `web/.next/`, `web/config.local.js` to `.gitignore` at P0.
+other — structural_verification.md). Add `web/node_modules/`, `web/.next/`, `web/config.local.js` to `.gitignore` at P0.
 
 ## What we harvest vs build fresh (D1, reference-not-constraint)
 
