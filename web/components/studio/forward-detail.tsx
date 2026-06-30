@@ -99,7 +99,7 @@ export function ForwardDetail({
       <p className="text-muted-foreground/70 text-xs leading-relaxed">
         From this county&rsquo;s own EAGLE-I qualifying-event history. <span className="text-foreground/70">One-directional</span> — it raises the
         forecast where recent years run above the long-run mean and holds otherwise (it never lowers the premium); credibility-weighted
-        {d && <> (×{d.cred.toFixed(2)} here)</>} and capped at +50%. Method chosen per behaviour regime. Assumptions A018.
+        {d && <> (×{d.cred.toFixed(2)} here)</>} and capped at +50%. Method chosen per behaviour regime. Assumption A020.
       </p>
     </div>
   );
