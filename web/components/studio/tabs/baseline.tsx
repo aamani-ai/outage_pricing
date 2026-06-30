@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { EChartsOption } from "echarts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/info-hint";
 import { ExpandBox } from "@/components/ui/expand-box";
 import { EChart, tooltipStyle, useChartColors } from "@/components/charts/echart";
 import { cn } from "@/components/ui/utils";
-import type { StudioData } from "@/components/studio/shared";
+import { usd, type StudioData } from "@/components/studio/shared";
 
 const TS = [2, 4, 8, 12, 24] as const;
 
@@ -132,9 +132,17 @@ function ChainOp({ op }: { op: string }) {
   return <div className="text-muted-foreground flex items-center px-0.5 text-base font-medium">{op}</div>;
 }
 
-export function BaselineTab({ data, T }: { data: StudioData; T: number }) {
+export function BaselineTab({ data, T, X }: { data: StudioData; T: number; X: number }) {
   const c = useChartColors();
   const s = data.studio;
+  // the cell-read triplet can read as a frequency (λ / customer) or as a dollar expected loss per
+  // policy (λ × payout) — toggled below. Dollars make the duration-conservatism magnitude tangible.
+  const [unit, setUnit] = useState<"rate" | "dollar">("rate");
+  const fmtVal = (v: number) => {
+    if (unit !== "dollar") return rate(v);
+    const d = v * X;
+    return d > 0 && d < 0.5 ? "<$1" : usd(d);
+  };
   const cells = data.county.T;
   const cur = s?.cell?.[String(T)];
 
@@ -245,7 +253,23 @@ export function BaselineTab({ data, T }: { data: StudioData; T: number }) {
               <CardTitle className="text-sm">Cell read · trust &amp; posture</CardTitle>
               <CardDescription>two reads per trigger — how much to trust it, and how conservative it is</CardDescription>
             </div>
-            <InfoHint title="Trust & Posture — two different questions">
+            <div className="flex shrink-0 items-center gap-2">
+              <div className="border-border inline-flex overflow-hidden rounded-md border text-xs">
+                {(["rate", "dollar"] as const).map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setUnit(u)}
+                    className={cn(
+                      "px-2 py-1 font-medium tabular-nums transition-colors",
+                      unit === u ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+                    )}
+                  >
+                    {u === "rate" ? "λ / cust" : "$ / policy"}
+                  </button>
+                ))}
+              </div>
+              <InfoHint title="Trust & Posture — two different questions">
               <p>
                 <b>Trust</b> — how hard can I lean on this number? The <b>weakest</b> of three checks: source coverage,
                 sample volume, and eventization stability. Strong · Medium · Thin.
@@ -258,7 +282,8 @@ export function BaselineTab({ data, T }: { data: StudioData; T: number }) {
                 They&rsquo;re <b>independent</b> — never merged into one score — and posture <b>never moves the price</b>;
                 it routes and contextualizes.
               </p>
-            </InfoHint>
+              </InfoHint>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -267,7 +292,9 @@ export function BaselineTab({ data, T }: { data: StudioData; T: number }) {
               <thead>
                 <tr className="text-muted-foreground border-border border-b text-xs">
                   <th className="py-1.5 text-left font-medium">Trigger</th>
-                  <th className="py-1.5 text-right font-medium">λ / customer (typ · priced · peak)</th>
+                  <th className="py-1.5 text-right font-medium">
+                    {unit === "dollar" ? "Expected loss / policy" : "λ / customer"} (typical · priced · peak)
+                  </th>
                   <th className="py-1.5 text-right font-medium">Events</th>
                   <th className="py-1.5 pl-5 text-left font-medium">Trust</th>
                   <th className="py-1.5 pl-5 text-left font-medium">Posture</th>
@@ -288,12 +315,12 @@ export function BaselineTab({ data, T }: { data: StudioData; T: number }) {
                       <td className="py-2 text-right tabular-nums">
                         {mt ? (
                           <>
-                            <span className="text-foreground/60">{rate(mt[0])}</span> ·{" "}
-                            <span className="font-semibold">{rate(mt[1])}</span> ·{" "}
-                            <span className="text-foreground/60">{rate(mt[2])}</span>
+                            <span className="text-foreground/60">{fmtVal(mt[0])}</span> ·{" "}
+                            <span className="font-semibold">{fmtVal(mt[1])}</span> ·{" "}
+                            <span className="text-foreground/60">{fmtVal(mt[2])}</span>
                           </>
                         ) : cell ? (
-                          rate(cell.lam)
+                          fmtVal(cell.lam)
                         ) : (
                           "—"
                         )}
@@ -341,7 +368,16 @@ export function BaselineTab({ data, T }: { data: StudioData; T: number }) {
             <b className="text-foreground/80">Posture</b> = how conservative the price is. We claim a cushion only at{" "}
             <b className="text-foreground/80">longer triggers (≥8h)</b>; at <b className="text-foreground/80">2–4h</b> the
             event-average is duration-blind, so the cushion is <b className="text-tier-amber">not established</b> →{" "}
-            <b className="text-tier-amber">verify</b>, lead with longer triggers. Neither moves the price.
+            <b className="text-tier-amber">verify</b>, lead with longer triggers. Neither moves the price. The triplet is{" "}
+            <b className="text-foreground/80">typical</b> (median) · <b className="text-foreground/80">priced</b> (mean, the
+            charged rate) · <b className="text-foreground/80">peak</b> (max)
+            {unit === "dollar" && (
+              <>
+                ; <b className="text-foreground/80">$ / policy</b> = that rate × the {usd(X)} payout (expected loss, before
+                loadings, location basis &amp; forward)
+              </>
+            )}
+            .
           </p>
 
           {/* current-cell detail + orthogonality grid — collapsed by default; expand to dig in */}

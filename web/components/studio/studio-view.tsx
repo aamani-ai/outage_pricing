@@ -189,7 +189,7 @@ export function StudioView() {
             {studioTab === "breakdown" && (
               <PriceBreakdownTab data={data} stack={stack} T={T} X={X} ER={ER} TM={TM} onNavigate={setStudioTab} />
             )}
-            {studioTab === "baseline" && <BaselineTab data={data} T={T} />}
+            {studioTab === "baseline" && <BaselineTab data={data} T={T} X={X} />}
             {studioTab === "clustering" && <CountyClusteringTab data={data} />}
             {studioTab === "location" && <LocationTab data={data} stack={stack} T={T} X={X} />}
             {studioTab === "forecast" && <ForecastTab data={data} stack={stack} T={T} X={X} />}
