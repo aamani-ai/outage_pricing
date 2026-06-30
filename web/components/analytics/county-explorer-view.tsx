@@ -8,8 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EChart, tooltipStyle, useChartColors } from "@/components/charts/echart";
 import { KpiTile } from "@/components/analytics/kpi-tile";
 import { EventSnapshot } from "@/components/analytics/event-snapshot";
+import { composePremium } from "@/lib/pricing";
 import { useQuoteStore } from "@/lib/quote-store";
 import { api } from "@/lib/base-path";
+import { money } from "@/lib/analytics/format";
 import { stateName } from "@/lib/analytics/states";
 import { cn } from "@/components/ui/utils";
 import CENTROIDS from "@/lib/data/county-centroids.json";
@@ -112,11 +114,15 @@ const HINTS = {
   mcc: <p>EAGLE-I&rsquo;s modelled max customer count for the utility — the <b>raw source</b> number. We override it when it&rsquo;s implausibly low.</p>,
   hu: <p>Census <b>housing units</b> (B25001) — every home incl. seasonal/vacation. A sanity floor, since each home has a meter.</p>,
   method: <p>How the customer base was chosen: <b>MCC kept</b> · <b>housing-units floor</b> (MCC too low) · <b>peak floor</b> (largest outage seen) · <b>excluded</b> (data invalid).</p>,
+  el: <p>The <b>expected loss</b> for a single customer per year = λ/customer × payout (a.k.a. pure premium / loss cost) — the risk cost, before expenses and margin.</p>,
+  premium: <p>The <b>indicative annual premium</b> = expected loss ÷ (1 − expenses − margin). County-representative: the within-county <b>location basis</b> and the forward factor are held at ×1.00 here.</p>,
+  annualChance: <p>The chance of at least one qualifying outage in a year for a single customer ≈ 1 − e<sup>−λ</sup>.</p>,
+  payout: <p>The fixed payout when an outage crosses the trigger — carried over from the Analytics view (change it there).</p>,
 };
 
-export function CountyExplorerView() {
+export function CountyExplorerView({ initialFips }: { initialFips?: string }) {
   const router = useRouter();
-  const { setLocation, setT: setStoreT } = useQuoteStore();
+  const { current, loadings, setLocation, setT: setStoreT, setStudioTab } = useQuoteStore();
   const c = useChartColors();
 
   const [list, setList] = useState<CountyLite[]>([]);
@@ -125,8 +131,8 @@ export function CountyExplorerView() {
   const [regimeF, setRegimeF] = useState("");
   const [confF, setConfF] = useState("");
   const [denomF, setDenomF] = useState("");
-  const [sel, setSel] = useState<string | null>(null);
-  const [T, setT] = useState(8);
+  const [sel, setSel] = useState<string | null>(initialFips ?? null);
+  const [T, setT] = useState(() => (T_OPTS.includes(current.T) ? current.T : 8));
   const [hist, setHist] = useState<CountyHistory | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -136,6 +142,11 @@ export function CountyExplorerView() {
       .then((j) => setList(j.counties ?? []))
       .catch(() => {});
   }, []);
+
+  // deep-link from Analytics QC (?fips=) — select that county, including on repeat navigations.
+  useEffect(() => {
+    if (initialFips) setSel(initialFips);
+  }, [initialFips]);
 
   useEffect(() => {
     if (!sel) {
@@ -182,6 +193,7 @@ export function CountyExplorerView() {
     const ll = centroids[hist.fips];
     if (!ll) return;
     setStoreT(T);
+    setStudioTab("breakdown"); // land on Price Breakdown — the QC → Explorer → Studio funnel
     setLocation({ lon: ll[0], lat: ll[1], label: `${hist.name} County, ${hist.state}` });
     router.push("/studio");
   }
@@ -264,6 +276,23 @@ export function CountyExplorerView() {
     const base = hist.customerBase?.base ?? null;
     return { lamCounty: ch.lc, shareOut: ch.sh, lamCust: ch.lc * ch.sh, avgOut: base != null ? ch.sh * base : null };
   }, [hist, T]);
+
+  // indicative pricing at the carried payout — rendered through the ONE engine (composePremium),
+  // never re-derived. County-representative: location basis & forward held at ×1.00.
+  const pricing = useMemo(() => {
+    if (!buildup || cbExcluded) return null;
+    const X = current.X;
+    try {
+      const s = composePremium(
+        { baseline: { lambdaCustomer: buildup.lamCust, status: "active" } },
+        { T, X, expenseRatio: loadings.ER, targetMargin: loadings.TM },
+      );
+      const annualPct = buildup.lamCust > 0 ? Math.max(1, Math.round((1 - Math.exp(-buildup.lamCust)) * 100)) : 0;
+      return { X, el: s.pure, premium: s.premium.point, annualPct };
+    } catch {
+      return null;
+    }
+  }, [buildup, cbExcluded, T, current.X, loadings.ER, loadings.TM]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
@@ -439,6 +468,26 @@ export function CountyExplorerView() {
                       <KpiTile label="share-out" value={fShare(buildup.shareOut)} hint={HINTS.shareOut} />
                       <KpiTile label="λ / customer" value={fLam(buildup.lamCust)} hint={HINTS.lamCust} />
                     </div>
+                  </div>
+                )}
+
+                {/* indicative pricing at the carried payout — county-representative (before location/forward basis) */}
+                {pricing && (
+                  <div>
+                    <div className="text-muted-foreground mb-2 text-[10px] font-medium uppercase tracking-wider">
+                      Indicative pricing · ≥{T}h · payout {money(pricing.X)}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <KpiTile label="expected loss / yr" value={money(pricing.el)} hint={HINTS.el} />
+                      <KpiTile label="indicative premium" value={money(pricing.premium)} hint={HINTS.premium} highlight />
+                      <KpiTile label="annual chance" value={`~${pricing.annualPct}%`} hint={HINTS.annualChance} />
+                      <KpiTile label="payout" value={money(pricing.X)} hint={HINTS.payout} />
+                    </div>
+                    <p className="text-muted-foreground/80 mt-2 text-xs leading-relaxed">
+                      County-representative — the within-county <b>location basis</b> &amp; forward factor are held at ×1.00,
+                      before underwriter adjustments (ER {Math.round(loadings.ER * 100)}% · TM {Math.round(loadings.TM * 100)}%).
+                      Open in Studio for the full breakdown.
+                    </p>
                   </div>
                 )}
 

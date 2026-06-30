@@ -20,7 +20,7 @@ const SECTION_LABEL: Record<string, string> = {
   breakdown: "Price Breakdown",
   baseline: "Baseline",
   clustering: "County Clustering",
-  location: "Location",
+  location: "Location basis",
   forecast: "Forecast",
   adjustments: "Adjustments",
 };

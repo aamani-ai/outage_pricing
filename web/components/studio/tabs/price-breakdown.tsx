@@ -43,7 +43,7 @@ export function PriceBreakdownTab({
   const mgnR = loadR - expR;
 
   const waterfall = useMemo<EChartsOption>(() => {
-    const cats = ["Pure risk", "+ Expenses", "+ Margin", "Retail"];
+    const cats = ["Expected loss", "+ Expenses", "+ Margin", "Retail"];
     const lbl = (idx: number, val: number) => ({
       show: true,
       position: "top" as const,
@@ -54,7 +54,7 @@ export function PriceBreakdownTab({
     return {
       grid: { left: 6, right: 12, top: 16, bottom: 34, containLabel: true },
       legend: {
-        data: ["Baseline", "Location", "Forward", "Expenses", "Margin", "Retail"],
+        data: ["Baseline", "Location basis", "Forward", "Expenses", "Margin", "Retail"],
         bottom: 0,
         icon: "roundRect",
         itemWidth: 9,
@@ -78,7 +78,7 @@ export function PriceBreakdownTab({
       series: [
         { name: "base", type: "bar", stack: "t", silent: true, itemStyle: { color: "transparent" }, data: [0, pureR, pureR + expR, 0] },
         { name: "Baseline", type: "bar", stack: "t", barWidth: "52%", itemStyle: { color: c.bar }, data: [baselineR, 0, 0, 0] },
-        { name: "Location", type: "bar", stack: "t", barWidth: "52%", itemStyle: { color: c.loc }, data: [locR, 0, 0, 0] },
+        { name: "Location basis", type: "bar", stack: "t", barWidth: "52%", itemStyle: { color: c.loc }, data: [locR, 0, 0, 0] },
         { name: "Forward", type: "bar", stack: "t", barWidth: "52%", itemStyle: { color: c.fwd }, data: [fwdR, 0, 0, 0], label: lbl(0, pureR) },
         { name: "Expenses", type: "bar", stack: "t", barWidth: "52%", itemStyle: { color: c.barSoft }, data: [0, expR, 0, 0], label: lbl(1, expR) },
         { name: "Margin", type: "bar", stack: "t", barWidth: "52%", itemStyle: { color: c.amber }, data: [0, 0, mgnR, 0], label: lbl(2, mgnR) },
@@ -97,12 +97,12 @@ export function PriceBreakdownTab({
       cta: "Baseline",
     },
     {
-      label: "× Location (within-county)",
+      label: "× Location basis (within-county)",
       val: `×${stack.location.relativity.toFixed(2)}`,
       status: stack.location.status,
       note: stack.location.relativity === 1 ? "not yet applied" : "adjusted",
       tab: "location" as StudioTab,
-      cta: "Location",
+      cta: "Location basis",
     },
     {
       label: "× Forecast (stat + climate + grid)",
@@ -122,12 +122,12 @@ export function PriceBreakdownTab({
           <div className="flex items-start justify-between gap-2">
             <div>
               <CardTitle className="text-sm">Factor build-up</CardTitle>
-              <CardDescription>baseline → location → forward → pure → expense + margin → annual premium</CardDescription>
+              <CardDescription>baseline → location basis → forward → expected loss → expense + margin → annual premium</CardDescription>
             </div>
             <InfoHint title="How the premium is built">
               <p>
                 We start from the county&rsquo;s per-customer outage frequency (the <b>baseline</b> λ), apply the
-                within-county <b>location</b> factor and the <b>forward</b> (stat + climate + grid) factor, multiply by
+                within-county <b>location basis</b> factor and the <b>forward</b> (stat + climate + grid) factor, multiply by
                 the payout, then divide by (1 − expenses − margin).
               </p>
               <p>
@@ -157,11 +157,11 @@ export function PriceBreakdownTab({
               </div>
             </div>
           ))}
-          {/* pure premium — the expected loss cost (emphasized) */}
+          {/* expected loss — the pure premium / loss cost (emphasized) */}
           <div className="border-border mt-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
             <span className="text-sm font-medium">
-              Pure premium
-              <span className="text-muted-foreground/70 text-xs font-normal"> · adjusted λ × {usd(X)} · expected loss cost</span>
+              Expected loss
+              <span className="text-muted-foreground/70 text-xs font-normal"> · adjusted λ × {usd(X)} / yr · a.k.a. pure premium</span>
             </span>
             <span className="text-base font-semibold tabular-nums">{usd(stack.pure)}</span>
           </div>
@@ -185,7 +185,7 @@ export function PriceBreakdownTab({
             <div className="min-w-0">
               <div className="text-sm font-semibold">
                 Annual premium
-                <span className="text-muted-foreground/70 text-xs font-normal"> · pure ÷ (1 − ER − TM) · what the customer pays</span>
+                <span className="text-muted-foreground/70 text-xs font-normal"> · expected loss ÷ (1 − ER − TM) · what the customer pays</span>
               </div>
               {stack.bandDriver !== "none" && (
                 <div className="text-muted-foreground/70 mt-0.5 text-xs tabular-nums">
@@ -207,12 +207,12 @@ export function PriceBreakdownTab({
           <div className="flex items-start justify-between gap-2">
             <div>
               <CardTitle className="text-sm">Where the premium goes</CardTitle>
-              <CardDescription>pure risk grossed up to the retail premium · hover any bar</CardDescription>
+              <CardDescription>expected loss grossed up to the retail premium · hover any bar</CardDescription>
             </div>
-            <InfoHint title="Pure · expenses · margin">
+            <InfoHint title="Expected loss · expenses · margin">
               <p>
-                The pure risk cost (expected payouts) is grossed up by an <b>expenses</b> load and a{" "}
-                <b>target margin</b> to the retail premium.
+                The <b>expected loss</b> (the pure premium / loss cost — expected annual payouts) is grossed up by an{" "}
+                <b>expenses</b> load and a <b>target margin</b> to the retail premium.
               </p>
               <p>
                 Expense ratio and margin are platform-wide — set them in the <b>Adjustments</b> tab. (Currently {pct(ER)} /{" "}

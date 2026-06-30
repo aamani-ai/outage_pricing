@@ -180,7 +180,7 @@ export function QcPanel({
               <p>
                 An offered county is <b>never shown as $0</b> — thin / insufficient counties are <b>excluded</b>, and a
                 very small offered premium (low payout × high trigger) reads <b>&lt;$1</b>. Every row carries flags so a
-                high or low price is never presented as &ldquo;clean&rdquo; when it isn&rsquo;t — they link into the Studio.
+                high or low price is never presented as &ldquo;clean&rdquo; when it isn&rsquo;t — they link into the County Explorer.
               </p>
               {FLAG_LEGEND}
               <p className="text-muted-foreground/70">
@@ -205,7 +205,7 @@ export function QcPanel({
 
       <WatchTable
         title="Lowest-priced — defensible?"
-        desc={`the ${lowest.length} cheapest offered counties ${where} at this trigger · click to open in the Underwriting Studio`}
+        desc={`the ${lowest.length} cheapest offered counties ${where} at this trigger · click to open in the County Explorer`}
         rows={lowest}
         onPick={onPick}
       />

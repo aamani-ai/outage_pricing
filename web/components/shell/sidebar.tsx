@@ -13,7 +13,7 @@ import { cn } from "@/components/ui/utils";
 // The read-only FACTORS (the multiplicative price chain) — a collapsible group, collapsed by default.
 const FACTORS: { key: StudioTab; label: string }[] = [
   { key: "baseline", label: "Baseline" },
-  { key: "location", label: "Location" },
+  { key: "location", label: "Location basis" },
   { key: "forecast", label: "Forecast" },
 ];
 const FACTOR_KEYS: StudioTab[] = FACTORS.map((f) => f.key);

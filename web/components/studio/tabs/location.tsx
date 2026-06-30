@@ -26,14 +26,14 @@ export function LocationTab({ data, stack, T, X }: { data: StudioData; stack: No
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-sm">Location (within-county)</CardTitle>
+            <CardTitle className="text-sm">Location basis (within-county)</CardTitle>
             <CardDescription>where in the county the address sits — redistributes risk, never the county total</CardDescription>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <StatusBadge status={stack.location.status} />
             <InfoHint title="Why this is a factor, not a slider">
               <p>
-                The <b>location</b> factor is produced by a statistical model (within-county density), so it reads as an{" "}
+                The <b>location basis</b> factor is produced by a statistical model (within-county density), so it reads as an{" "}
                 <b>output</b>, not a lever. It is mean-1 — it moves risk between addresses inside a county but never changes
                 the county total.
               </p>

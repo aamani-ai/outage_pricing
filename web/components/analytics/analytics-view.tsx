@@ -156,15 +156,16 @@ export function AnalyticsView() {
     return Number.isFinite(minX) ? [[minX, minY], [maxX, maxY]] : null;
   }, [scope, scopedRows]);
 
-  // open a county in the Underwriting Studio (centroid → /api/studio resolves the county)
-  function openInStudio(fips: string) {
+  // open a county in the County Explorer (the QC dossier: denominator, regime, raw event traces).
+  // Carry the trigger/payout so the Explorer's indicative pricing matches what's on screen here, and
+  // set the shared location too, so a later "Open in Studio" from the Explorer is seamless.
+  function openInExplorer(fips: string) {
     const ll = centroids[fips];
     const row = data?.rows.find((r) => r.fips === fips);
-    if (!ll) return;
     setStoreT(T);
     setStoreX(X);
-    setLocation({ lon: ll[0], lat: ll[1], label: row ? `${row.name} County, ${row.state}` : fips });
-    router.push("/studio");
+    if (ll) setLocation({ lon: ll[0], lat: ll[1], label: row ? `${row.name} County, ${row.state}` : fips });
+    router.push(`/analytics/explorer?fips=${fips}`);
   }
 
   return (
@@ -204,7 +205,7 @@ export function AnalyticsView() {
             </select>
           </label>
           <div className="text-muted-foreground/70 ml-auto text-xs">
-            loadings ER {Math.round(ER * 100)}% · TM {Math.round(TM * 100)}% · location held at county average
+            loadings ER {Math.round(ER * 100)}% · TM {Math.round(TM * 100)}% · location basis held at county average
           </div>
         </CardContent>
       </Card>
@@ -270,18 +271,18 @@ export function AnalyticsView() {
                     <InfoHint title="The premium map">
                       <p>
                         Each CONUS county is shaded by its <b>county-representative</b> annual premium at the chosen
-                        trigger &amp; payout (location held at county average). The color scale is <b>clamped to p10–p90</b>{" "}
+                        trigger &amp; payout (location basis held at county average). The color scale is <b>clamped to p10–p90</b>{" "}
                         so a few outliers don&rsquo;t wash out the middle.
                       </p>
                       <p>
-                        <b>Hover</b> a county for its value; <b>click</b> to open it in the Underwriting Studio.
+                        <b>Hover</b> a county for its value; <b>click</b> to open it in the County Explorer.
                       </p>
                     </InfoHint>
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 p-0">
                   <div className="h-full min-h-[420px] w-full">
-                    <PremiumMap rows={scopedRows} lo={s.p10} hi={s.p90} onPick={openInStudio} matchIds={matchIds} focusBounds={focusBounds} />
+                    <PremiumMap rows={scopedRows} lo={s.p10} hi={s.p90} onPick={openInExplorer} matchIds={matchIds} focusBounds={focusBounds} />
                   </div>
                 </CardContent>
               </Card>
@@ -318,7 +319,7 @@ export function AnalyticsView() {
           </div>
 
           {/* QC — scoped to the same region as the map / distribution / summary */}
-          <QcPanel rows={scopedRows} summary={s} onPick={openInStudio} scope={scope} />
+          <QcPanel rows={scopedRows} summary={s} onPick={openInExplorer} scope={scope} />
         </>
       )}
     </div>

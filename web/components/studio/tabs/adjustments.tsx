@@ -100,7 +100,7 @@ export function AdjustmentsTab({ fips }: { fips: string }) {
             {tmUnderFloor && <p className="text-tier-amber mt-1 text-xs">below the house margin floor — would need carrier sign-off</p>}
           </label>
           <p className="text-muted-foreground/70 text-xs tabular-nums">
-            retail = pure ÷ (1 − expense − margin) = ÷ {denom.toFixed(2)}
+            retail = expected loss ÷ (1 − expense − margin) = ÷ {denom.toFixed(2)}
           </p>
           <div className="flex items-center gap-3 pt-1">
             <button
