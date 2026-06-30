@@ -17,7 +17,9 @@ export type Status =
   | "house-default"
   | "not-configured";
 
-const DOT: Record<Status, string> = {
+/** dot colour per status — exported so other surfaces (e.g. the Price Breakdown's dollar rows) can
+ *  show the maturity signal without the full pill. */
+export const STATUS_DOT: Record<Status, string> = {
   active: "bg-status-active",
   modeled: "bg-status-modeled",
   placeholder: "bg-transparent ring-1 ring-status-placeholder",
@@ -43,7 +45,7 @@ export function StatusBadge({ status, className }: { status: Status; className?:
         className,
       )}
     >
-      <span className={cn("size-1.5 rounded-full", DOT[status])} />
+      <span className={cn("size-1.5 rounded-full", STATUS_DOT[status])} />
       {LABEL[status]}
     </span>
   );

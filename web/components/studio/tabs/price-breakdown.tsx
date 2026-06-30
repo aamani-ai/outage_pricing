@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ArrowRight, ChevronRight } from "lucide-react";
 import type { EChartsOption } from "echarts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { STATUS_DOT } from "@/components/ui/status-badge";
 import { InfoHint } from "@/components/ui/info-hint";
 import { cn } from "@/components/ui/utils";
 import { EChart, tooltipStyle, useChartColors } from "@/components/charts/echart";
@@ -88,6 +88,9 @@ export function PriceBreakdownTab({
     };
   }, [c, baselineR, locR, fwdR, expR, mgnR, pureR, retailR]);
 
+  // each row's $ is its contribution to the expected loss (baseline = the base $; location & forward =
+  // the marginal +/− $ they add). Same buckets that drive the waterfall, so the chain reads additively:
+  // baseline → +location → +forward = expected loss → +expense → +margin = annual premium.
   const factors = [
     {
       label: `Baseline λ_customer (${T}h)`,
@@ -96,6 +99,8 @@ export function PriceBreakdownTab({
       note: "per-customer annual frequency",
       tab: "baseline" as StudioTab,
       cta: "Baseline",
+      dollar: baselineR,
+      base: true,
     },
     {
       label: "× Location basis (within-county)",
@@ -104,6 +109,8 @@ export function PriceBreakdownTab({
       note: stack.location.relativity === 1 ? "not yet applied" : "adjusted",
       tab: "location" as StudioTab,
       cta: "Location basis",
+      dollar: locR,
+      base: false,
     },
     {
       label: "× Forecast",
@@ -112,6 +119,8 @@ export function PriceBreakdownTab({
       note: stack.forward.factor > 1.005 ? "statistical — county’s own history" : "holds at county average",
       tab: "forecast" as StudioTab,
       cta: "Forecast",
+      dollar: fwdR,
+      base: false,
     },
   ];
 
@@ -137,8 +146,10 @@ export function PriceBreakdownTab({
                 the payout, then divide by (1 − expenses − margin).
               </p>
               <p>
-                Each pill shows how solid that input is — <b>active</b> (in the price today), <b>modeled</b> (an
-                estimate), <b>placeholder</b> (not plugged in yet, shown at 1.00×). Open a row to see its evidence.
+                Each row shows its <b>dollar contribution</b> to the expected loss — the baseline $, then the +/− each
+                factor adds — so the chain adds up to the annual premium. The small dot is data maturity:{" "}
+                <b>active</b> (in the price today), <b>modeled</b> (an estimate), <b>placeholder</b> (not plugged in yet,
+                ×1.00). Open a row to see its evidence.
               </p>
             </InfoHint>
           </div>
@@ -169,8 +180,13 @@ export function PriceBreakdownTab({
                     </span>
                   </span>
                   <div className="flex shrink-0 items-center gap-3">
-                    <span className="text-muted-foreground tabular-nums">{row.val}</span>
-                    <StatusBadge status={row.status} />
+                    <span className="text-muted-foreground/70 text-xs tabular-nums">{row.val}</span>
+                    <span className="flex w-20 items-center justify-end gap-1.5 text-sm" title={`${row.status} — data maturity`}>
+                      <span className={cn("size-1.5 shrink-0 rounded-full", STATUS_DOT[row.status])} />
+                      <span className="font-medium tabular-nums">
+                        {row.base ? usd(row.dollar) : `${row.dollar < 0 ? "−" : "+"}${usd(Math.abs(row.dollar))}`}
+                      </span>
+                    </span>
                     <button
                       type="button"
                       onClick={() => onNavigate(row.tab)}
