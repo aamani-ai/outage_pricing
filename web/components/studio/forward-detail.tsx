@@ -18,8 +18,8 @@ const METHOD: Record<string, string> = {
 /**
  * The statistical forward-factor detail — opened from the Forecast factor row in the Forecast tab.
  * Decision-read first (regime → method → factor), then the annual series with the long-run mean vs the
- * next-year forecast, then climate/grid (the challengers) and honest maturity. No "shadow": this is the
- * forward component of the one composed premium.
+ * next-year forecast, then honest maturity. No "shadow": this is the statistical component of the one
+ * composed premium. (Climate/Weather + Grid live as their own planned cards in the Forecast tab.)
  */
 export function ForwardDetail({
   fwd,
@@ -94,12 +94,6 @@ export function ForwardDetail({
           <EChart option={series} height={160} />
         </div>
       )}
-
-      {/* climate + grid — the challengers (box + label carry it; no emoji, no colour literal) */}
-      <div className="border-border/60 bg-muted/30 text-muted-foreground rounded-md border p-3 text-xs leading-relaxed">
-        <span className="text-foreground/80 font-medium">climate + grid · ×1.00 (not yet wired). </span>
-        Weather/climate and utility-reliability signals layer on top later — each must beat this statistical baseline before it earns a place.
-      </div>
 
       {/* maturity — honest, split from the factor */}
       <p className="text-muted-foreground/70 text-xs leading-relaxed">
