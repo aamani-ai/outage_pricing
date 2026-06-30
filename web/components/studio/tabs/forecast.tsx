@@ -6,7 +6,7 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { FactorHeadline } from "@/components/studio/factor-headline";
 import { ForwardDetail } from "@/components/studio/forward-detail";
 import { cn } from "@/components/ui/utils";
-import type { Stack, StudioData } from "@/components/studio/shared";
+import { forwardComponents, type Stack, type StudioData } from "@/components/studio/shared";
 
 /** A forward sub-component that isn't wired yet — a quiet "planned" card: what it will measure and why
  *  it's gated. Honest by design: shown at ×1.00, never implying the model already exists. */
@@ -44,14 +44,10 @@ export function ForecastTab({ data, stack, T, X }: { data: StudioData; stack: No
   const dollar = stack.premium.point - withoutFwd;
   const movePct = Math.round((f - 1) * 100);
 
-  // the three intended forward sub-components. Statistical carries the whole forward factor today
-  // (= stack.forward.factor); Climate/Weather and Grid are not wired → ×1.00. Their product is the
-  // composed forward, so this decomposition reconciles to the headline exactly (no price change).
-  const components = [
-    { name: "Statistical", factor: f, status: stack.forward.status, active: true, blurb: "county's own outage-history trend vs its long-run mean" },
-    { name: "Climate / Weather", factor: 1, status: "placeholder" as const, active: false, blurb: "forward hazard — storm, heat & seasonal-climate exposure" },
-    { name: "Grid", factor: 1, status: "placeholder" as const, active: false, blurb: "utility / resource reliability — asset age, restoration, capacity" },
-  ];
+  // the three intended forward sub-components (shared with the Price Breakdown expansion). Statistical
+  // carries the whole forward factor today (= stack.forward.factor); Climate/Weather and Grid are not
+  // wired → ×1.00. Their product is the composed forward, so this reconciles to the headline exactly.
+  const components = forwardComponents(f, stack.forward.status);
 
   return (
     <Card>

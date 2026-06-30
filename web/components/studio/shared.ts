@@ -1,4 +1,5 @@
 import type { composePremium } from "@/lib/pricing";
+import type { LayerStatus } from "@/lib/pricing/types";
 
 export const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 export const pct = (n: number) => `${Math.round(n * 100)}%`;
@@ -121,4 +122,28 @@ export function parseLabels(s: string | null | undefined): Record<string, string
     if (t && l) m[t] = l;
   }
   return m;
+}
+
+/** One intended forward sub-component (Step 5). */
+export interface ForwardComponent {
+  key: string;
+  name: string;
+  factor: number;
+  status: LayerStatus;
+  active: boolean;
+  blurb: string;
+}
+
+/**
+ * The three intended forward sub-components — defined ONCE so the Forecast tab and the Price
+ * Breakdown's expandable forward row never drift (communicate_to_share). Statistical carries the
+ * whole forward factor today; Climate/Weather and Grid are honest ×1.00 placeholders, so the product
+ * equals the composed forward factor — no price change until they're wired.
+ */
+export function forwardComponents(forwardFactor: number, statStatus: LayerStatus): ForwardComponent[] {
+  return [
+    { key: "statistical", name: "Statistical", factor: forwardFactor, status: statStatus, active: true, blurb: "county's own outage-history trend vs its long-run mean" },
+    { key: "climate", name: "Climate / Weather", factor: 1, status: "placeholder", active: false, blurb: "forward hazard — storm, heat & seasonal-climate exposure" },
+    { key: "grid", name: "Grid", factor: 1, status: "placeholder", active: false, blurb: "utility / resource reliability — asset age, restoration, capacity" },
+  ];
 }

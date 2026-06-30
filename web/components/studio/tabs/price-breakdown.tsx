@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
-import { ArrowRight } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowRight, ChevronRight } from "lucide-react";
 import type { EChartsOption } from "echarts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { InfoHint } from "@/components/ui/info-hint";
+import { cn } from "@/components/ui/utils";
 import { EChart, tooltipStyle, useChartColors } from "@/components/charts/echart";
-import { usd, pct, type Stack, type StudioData, type StudioTab } from "@/components/studio/shared";
+import { forwardComponents, usd, pct, type Stack, type StudioData, type StudioTab } from "@/components/studio/shared";
 
 export function PriceBreakdownTab({
   data,
@@ -105,7 +106,7 @@ export function PriceBreakdownTab({
       cta: "Location basis",
     },
     {
-      label: "× Forecast (stat + climate + grid)",
+      label: "× Forecast",
       val: `×${stack.forward.factor.toFixed(2)}`,
       status: stack.forward.status,
       note: stack.forward.factor > 1.005 ? "statistical — county’s own history" : "holds at county average",
@@ -113,6 +114,11 @@ export function PriceBreakdownTab({
       cta: "Forecast",
     },
   ];
+
+  // the Forecast row expands in place to reveal its three components (stat · climate · grid) without
+  // leaving the page — same shared decomposition as the Forecast tab; collapsed by default.
+  const [fwdOpen, setFwdOpen] = useState(false);
+  const fwdComponents = forwardComponents(stack.forward.factor, stack.forward.status);
 
   return (
     <div className="space-y-5">
@@ -138,25 +144,70 @@ export function PriceBreakdownTab({
           </div>
         </CardHeader>
         <CardContent className="space-y-0">
-          {factors.map((row) => (
-            <div key={row.label} className="border-border/60 flex items-center justify-between gap-3 border-b py-2.5 text-sm">
-              <span className="text-foreground/80 min-w-0">
-                {row.label}
-                <span className="text-muted-foreground/60 text-xs"> · {row.note}</span>
-              </span>
-              <div className="flex shrink-0 items-center gap-3">
-                <span className="text-muted-foreground tabular-nums">{row.val}</span>
-                <StatusBadge status={row.status} />
-                <button
-                  type="button"
-                  onClick={() => onNavigate(row.tab)}
-                  className="text-primary hover:bg-muted inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs"
-                >
-                  {row.cta} <ArrowRight className="size-3" />
-                </button>
+          {factors.map((row) => {
+            const expandable = row.tab === "forecast";
+            return (
+              <div key={row.label}>
+                <div className="border-border/60 flex items-center justify-between gap-3 border-b py-2.5 text-sm">
+                  <span className="text-foreground/80 flex min-w-0 items-center gap-1.5">
+                    {expandable ? (
+                      <button
+                        type="button"
+                        onClick={() => setFwdOpen((o) => !o)}
+                        aria-expanded={fwdOpen}
+                        aria-label="Toggle forward components"
+                        className="text-muted-foreground hover:text-foreground -ml-1 shrink-0"
+                      >
+                        <ChevronRight className={cn("size-3.5 transition-transform", fwdOpen && "rotate-90")} />
+                      </button>
+                    ) : (
+                      <span className="size-3.5 shrink-0" aria-hidden />
+                    )}
+                    <span className="min-w-0">
+                      {row.label}
+                      <span className="text-muted-foreground/60 text-xs"> · {row.note}</span>
+                    </span>
+                  </span>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="text-muted-foreground tabular-nums">{row.val}</span>
+                    <StatusBadge status={row.status} />
+                    <button
+                      type="button"
+                      onClick={() => onNavigate(row.tab)}
+                      className="text-primary hover:bg-muted inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs"
+                    >
+                      {row.cta} <ArrowRight className="size-3" />
+                    </button>
+                  </div>
+                </div>
+                {expandable && fwdOpen && (
+                  <div className="border-border/60 border-b pb-2">
+                    {fwdComponents.map((comp) => (
+                      <div key={comp.key} className="flex items-center justify-between gap-3 py-1 pl-6 text-xs">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span
+                            className={cn(
+                              "size-1.5 shrink-0 rounded-full",
+                              comp.active ? "bg-status-active" : "ring-status-placeholder bg-transparent ring-1",
+                            )}
+                          />
+                          <span className="text-foreground/70 shrink-0">{comp.name}</span>
+                          <span className="text-muted-foreground/50 truncate">· {comp.blurb}</span>
+                        </span>
+                        <span className={cn("shrink-0 tabular-nums", comp.active ? "text-foreground/80" : "text-muted-foreground/40")}>
+                          ×{comp.factor.toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                    <p className="text-muted-foreground/60 pl-6 pt-1 text-[11px] leading-relaxed">
+                      Statistical × Climate/Weather × Grid = {row.val} · only Statistical is wired today, so the others hold
+                      at ×1.00 and don&rsquo;t move the price.
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
           {/* expected loss — the pure premium / loss cost (emphasized) */}
           <div className="border-border mt-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
             <span className="text-sm font-medium">
