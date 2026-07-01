@@ -4,8 +4,8 @@
 >
 > **Audience.** Carriers, external actuaries, internal teammates, and future-us.
 >
-> **Status.** v0 production model + shadow/placeholder layers, as shipped to the dashboard.
-> **Last reviewed.** 2026-06-30.
+> **Status.** v0 production model — applied model layers (per-customer baseline, location, routed forward) + placeholder layers (grid), as shipped to the dashboard.
+> **Last reviewed.** 2026-07-01.
 
 **Contents.**
 
@@ -51,10 +51,9 @@ There are three documents and they do not overlap. Use whichever answers your qu
 **How to read an answer.** Each Q→A carries a **STATUS tag** and **cross-references** (assumption IDs, file paths, notebook/output, external links).
 
 ```
-STATUS vocabulary  (docs say "shadow"; the dashboard badge says "modeled" — same thing)
-  active       in the quoted price today                         (badge: green "active")
-  modeled      computed + shown, an estimate; in the STUDIO      (badge: amber "modeled")
-  ( = shadow )   composed premium but NOT the outward quote
+STATUS vocabulary  (the dashboard badge shows the same word)
+  active       in the composed premium today                     (badge: green "active")
+  modeled      composed into the premium, an estimate            (badge: amber "modeled")
   placeholder  not plugged in; holds at ×1.00, moves no price    (badge: hollow grey ring)
   diagnostic   notebook-only; no artifact wired into pricing
   not-built    planned, no code wired
@@ -81,7 +80,7 @@ STATUS vocabulary  (docs say "shadow"; the dashboard badge says "modeled" — sa
 
 > **Two things to know before anything else** (both are real and partly contradictory across sources):
 >
-> 1. **"Active vs shadow" now means "Outward vs Studio," not "in the engine vs not."** The engine (`web/lib/pricing/compose.ts`) *can* apply location and forward; the shipped Studio (2026-06-30) **does** compose both into the headline premium as `modeled`. The **outward Pricing view holds them at ×1.00 display-only** until governance graduates them. The framework doc's per-step "shadow / not in price" table predates this and is stale on Steps 4–5.
+> 1. **One premium everywhere — no "shadow."** The engine (`web/lib/pricing/compose.ts`) composes `baseline × location × routed-forward × loadings`, and **both** the Studio and the outward Pricing view now price on it (the outward page reads `/api/studio` and applies the same factors — 2026-07-01). Location and the routed forward (statistical, or the **weather** challenger where it wins the backtest — §7) are **applied**, as `modeled` factors. Layer maturity is expressed as **confidence** (location is pilot-calibrated; weather is a routed challenger), never as a not-priced "shadow" status. Grid is still a `placeholder` (×1.00).
 > 2. **Registry now runs A001–A026** (extended 2026-06-30 in the docs consolidation): **A022/A023** register the location cap + validation status (previously "defined-in-use"); **A024/A025/A026** register the eventization knobs (gap-merge / restoration / min-duration) that had been *mis-citing* A005/A006/A007 — that ID collision is now fixed.
 
 ---
@@ -118,15 +117,15 @@ STATUS: **active**. Cite: A005, A006; `pricing_methodology.md`.
 **The factor stack and each layer's status:**
 
 ```
-LAYER          SYMBOL                 STATUS (outward quote)          STATUS (Studio)
+LAYER          SYMBOL                 STATUS (outward quote = Studio — one premium)
 ─────────────────────────────────────────────────────────────────────────────────────
-Baseline       λ_customer(T)          active  (headline)             active  (headline)
-Location       location_relativity    placeholder ×1.0 (display)     modeled (composed)
-Forward        forward_factor         placeholder ×1.0 (display)     modeled (stat sub-factor)
-  ├ statistical  stat                 ── (shadow / not outward)      modeled
-  ├ climate      ×1.0                  placeholder                    placeholder
-  └ grid         ×1.0                  placeholder                    placeholder
-Loadings       ÷ (1 − ER − TM)        active                         active
+Baseline       λ_customer(T)          active   (headline)
+Location       location_relativity    modeled  (applied; pilot-calibrated, capped 0.80–1.40)
+Forward        forward_factor         modeled  (applied; routed frequency expert × grid)
+  ├ statistical  stat                 governs most counties
+  ├ climate      weather (EOF-XGB)    governs the 16 backtest winners; else the shown challenger
+  └ grid         ×1.0                 placeholder (planned)
+Loadings       ÷ (1 − ER − TM)        active
 ```
 
 Omitted location/forward default to a neutral `1.0` (tested by an IDENTITY canary). The band `{low, point, high}` carries through the same factors **linearly** (`bandDriver ∈ {'confidence','placement-widened','none'}`).
@@ -369,7 +368,7 @@ A: *"Abstain, don't force."* For thin / near-zero / recently-changed counties th
 STATUS: **active**. Cite: A015. See §11 C-3 for the "two faces of insufficient" surfacing rule.
 
 **Q: Does the regime move the price?**
-A: **No.** It is descriptive, and is consumed downstream as the **routing key** for the Step-5 forward factor (which is itself shadow) and for dashboard views.
+A: **No.** It is descriptive, and is consumed downstream as the **routing key** for the Step-5 forward factor (itself an applied, routed model factor) and for dashboard views.
 STATUS: **router only**.
 
 ---
@@ -393,7 +392,7 @@ Method per regime (shipped):  stable→wtd_recent · trend→capped_lin · shift
 T=8h calibration:  median ×1.15 · mean ×1.20 · 70% uplift · 18% at the cap   (stat_forward_factor_model_card.md)
 ```
 
-STATUS: **modeled (shadow)** — built, calibrated, composed in the Studio; **NOT in the outward quoted premium.** Cite: A020, A021; `web/lib/data/forward.ts`; `stat_forward_factor_model_card.md`.
+STATUS: **modeled (applied)** — built, calibrated, composed into the premium (Studio + outward quote). Cite: A020, A021; `web/lib/data/forward.ts`; `stat_forward_factor_model_card.md`.
 
 **Q: Why a router instead of one method everywhere?**
 A: The county-specificity principle — avoid both one-method-for-all and per-county-everything. The regime (Step 3) is the routing key; the estimator is the machinery.
@@ -407,7 +406,7 @@ STATUS: **active design**. Cite: A020; `model_to_the_consequence.md`.
 A: No (first-order). Routed by **county regime alone** (one per county, A014); only the per-T input series varies. `regime × T` routing is a **v1 candidate (promoted 2026-06-30)** but adopted only where it earns a stable OOS win. The session analysis shows the trigger dimension is **INERT for statistical-expert selection** (see §12 D-3).
 STATUS: regime-only routing **active**; cluster×T **in-scope candidate, not adopted**. Cite: A021.
 
-**Out-of-sample skill (national, the basis for the IDEA — still shadow):** regime-routed experts beat the flat mean — typical-cell WAPE **0.356 → 0.257, +27.7%**, wins in **66% of cells** (rolling-origin, 14,383 county-cells). **Read with C-5: ~2/3 of this apparent skill is the EAGLE-I coverage ramp, not a causal forward signal — so genuine forward skill is roughly one-third of the headline +27.7%.** Quoted standalone, the +27.7% and 66% over-state real forecasting skill ~3×.
+**Out-of-sample skill (national, the basis for the IDEA):** regime-routed experts beat the flat mean — typical-cell WAPE **0.356 → 0.257, +27.7%**, wins in **66% of cells** (rolling-origin, 14,383 county-cells). **Read with C-5: ~2/3 of this apparent skill is the EAGLE-I coverage ramp, not a causal forward signal — so genuine forward skill is roughly one-third of the headline +27.7%.** Quoted standalone, the +27.7% and 66% over-state real forecasting skill ~3×.
 
 ```
 Per-regime best expert (median WAPE)
@@ -485,7 +484,7 @@ STATUS: pending. See §12 D-2 (and the C-14 caveat in §11).
 
 **Q: What does location basis do?**
 A: It **redistributes** the per-customer rate *within* a county by population density split into within-county terciles (rural / mid / urban), each mapped to a multiplicative relativity. `price_location = price_per_customer × relativity(tercile, T)`. It owns the within-county *redistribution* only; the county baseline + per-customer layer own the *level*.
-STATUS: **modeled (shadow)** — composed in the Studio; **×1.00 display-only in the outward quote**; `validated:false` everywhere outside the pilot. Cite: `docs/methodology/04_location_basis/location_basis_methodology.md`; `compose.ts`.
+STATUS: **modeled (applied)** — composed into the premium (Studio + outward quote); `validated:false` everywhere outside the pilot (confidence is pilot-grade, bounded by the cap). Cite: `docs/methodology/04_location_basis/location_basis_methodology.md`; `compose.ts`.
 
 **Q: Why a multiplier, and why within-county rank not absolute density?**
 A: A multiplier matches expected-loss math, preserves the county baseline (mean-1 → county total unchanged), composes cleanly across payouts/durations, and avoids double-counting county rurality (already in λ_county). Within-county rank because the county baseline already carries overall rurality — location basis is only the residual. *"A density of 50/km² is 'rural' inside dense Fairfield County but near-average inside rural Litchfield."*
@@ -504,10 +503,10 @@ The relativity table (relativity_table.json) — empirical → v0_shadow, cap [0
 **Three v0 governance controls:** monotone (rural ≥ mid ≥ urban, physics prior), mean-1 renormalization (the `renormalizeMeanOne` firewall — location can only redistribute, never move the county total), and the attribution-confidence cap `[0.80, 1.40]`. The cap is set **deliberately tighter than the raw empirical signal** (raw rural 1.76–2.06×): a v0 face-validity throttle that ships only ~±40% of an unvalidated within-county effect, not a fitted bound — chosen conservatively pending the outcome validation it doesn't yet have.
 
 **Validation — honest:** the signal is **real and structural** on the only region with sub-county outcomes (PoUS, CT/MA/RI, Jan–Mar 2019): within-county Spearman **ρ = −0.35** (median over 24 counties, Jan–Mar 2019 only), 22/24 counties negative, sign-test **p = 1.79e-5**; the tail survives a ≥3-event filter and credibility shrink. **But it is one region, one quiet season** — every other county is nationally extrapolated, not independently validated.
-STATUS: pilot-validated CT/MA/RI; national shadow. See §11 C-8.
+STATUS: applied everywhere (capped); outcome-validated CT/MA/RI, nationally extrapolated elsewhere. See §11 C-8.
 
-**The known flaw + the fix:** population density mis-ranks dense commercial cores — Midtown Manhattan reads **p13 ("rural")** and would wrongly get an uplift. The fix is a **symmetric, conservative zonal-mean NLCD impervious % guardrail** (a veto on contradictions, not a replacement): Type A (density-rural but built-up → reclassify urban → discount) fires only on a strong signal; Type B (density-urban but not built-up → higher premium) is deliberately conservative ("discounts require stronger evidence than uplifts"). The calibration notebook is built and executed; still shadow.
-STATUS: fix built, **still shadow**. Cite: `notebooks/04_location_basis/location_basis_calibration.ipynb`.
+**The known flaw + the fix:** population density mis-ranks dense commercial cores — Midtown Manhattan reads **p13 ("rural")** and would wrongly get an uplift. The fix is a **symmetric, conservative zonal-mean NLCD impervious % guardrail** (a veto on contradictions, not a replacement): Type A (density-rural but built-up → reclassify urban → discount) fires only on a strong signal; Type B (density-urban but not built-up → higher premium) is deliberately conservative ("discounts require stronger evidence than uplifts"). The calibration notebook is built and executed, and the guardrail is **live** — the Studio API (`/api/studio`) applies it on demand.
+STATUS: fix built + **applied** (guardrail live in the pricing API). Cite: `notebooks/04_location_basis/location_basis_calibration.ipynb`; `web/app/api/studio/route.ts`.
 
 > **Assumption IDs.** **A022** (cap = policy throttle) and **A023** (validated CT/MA/RI only, `validated:false` elsewhere) are now registered (2026-06-30). Note the dashboard code historically cited the range "A018–A023" for location; A018/A019 are actually the per-customer *denominator* — location is A022/A023. The finer **LB-1…LB-4** namespace in the location docs is self-consistent but not yet folded into the A-series (low-priority follow-up).
 
@@ -591,7 +590,7 @@ The all-duration coverage onset mask is applied unchanged to the ≥8h series, d
 **v1 (bootstrap of the mean, "confidence") ships today and is ~2.9× too tight at the median** — it contradicts the year-to-year-bounce framing the dashboard itself tells. A Poisson-on-count band is rejected (overconfident ~2×, up to 8–10× for storm-prone counties; 94% overdispersed at T=8h). The experience band (p10/p90) is **wider = conservative** but **conflates trend**, and the p25/p75 variant has a trap: it trims the storm-year tail → can **under-reserve** (the dangerous direction for outage insurance, where storm years are the thing being priced). For thin counties (<5 yr; 43 zero / 76 tiny at T=8h) the band is unreliable → route to `insufficient`, suppress the point quote. Decision pending team feedback. Cite: A017.
 
 ### C-5 — A020: the forward stat factor is ~2/3 a COVERAGE-RAMP ARTIFACT, not forecasting skill
-Verbatim: *"~2/3 of the apparent forward 'skill' is the EAGLE-I coverage ramp, not a causal forward signal."* Among counties observed every year, typical relative level: 0.55 (2015) → 0.94 (2018) → 1.25 (2025) — a near-uniform +70% jump by 2018 = reporting ramping up, not real outages. Drop 2015–2017 and flat-mean bias falls **−17% → −6%.** So the shipped stat factor is *"largely a per-county coverage/level correction labelled as forward,"* honestly "recent experience vs the long-run mean," not a clean prediction. **Direction: uplift → over-reserve → conservative.** It is shadow, so no live price impact. The trap: a future climate/grid challenger "beating the stat baseline" is partly beating a data artifact (this is why §7 frames weather's loss carefully). Cite: A020; `forward_router_became_baseline_cleanup.md`.
+Verbatim: *"~2/3 of the apparent forward 'skill' is the EAGLE-I coverage ramp, not a causal forward signal."* Among counties observed every year, typical relative level: 0.55 (2015) → 0.94 (2018) → 1.25 (2025) — a near-uniform +70% jump by 2018 = reporting ramping up, not real outages. Drop 2015–2017 and flat-mean bias falls **−17% → −6%.** So the shipped stat factor is *"largely a per-county coverage/level correction labelled as forward,"* honestly "recent experience vs the long-run mean," not a clean prediction. **Direction: uplift → over-reserve → conservative.** It is applied (it moves the price), but that conservative direction — plus the cap, credibility shrink, and abstain — keeps it safe. The trap: a future climate/grid challenger "beating the stat baseline" is partly beating a data artifact (this is why §7 frames weather's loss carefully, and why weather governing the 16 is a routing choice, not a claim it's a cleaner signal). Cite: A020; `forward_router_became_baseline_cleanup.md`.
 
 ### C-6 — A008: MCC is a non-uniform customer unit on a static 2023 vintage
 A "customer" is usually a meter but sometimes a building/facility (per each utility's EIA-861 convention) → cross-utility unit noise. Three failure modes: customer-growth drift since 2023 (biases the multiplier **up** → over-states), allocation error where LandScan is a poor density proxy (bias **varies by county**), and the non-uniform unit. The ratio is internally consistent *within* a utility's territory. Cite: A008.
@@ -642,7 +641,7 @@ A011  measure the empirical staggering bias via PoUS per-OutageId data (Phase 4)
 A012  replace the global denominator with per-county observed years (pending pricing decision)
 A016  derive a T-specific coverage signal before the actuarial-consultant ship
 A017  land the band estimator decision (confidence vs experience p10/p90 vs p25/p75)
-LOC   VALIDATE (don't rebuild) location; shadow→active gated on validation;
+LOC   VALIDATE (don't rebuild) location; cap-widening gated on validation;
       A018/A019 parked refinements (vacancy haircut; housing-primary where MCC over-states)
 ELIG  carrier-set λ_customer eligibility gate + trigger-T restructure for the high-frequency tail
 A007  build concentration loading + portfolio YLT once the activation threshold trips
@@ -706,6 +705,8 @@ External  EAGLE-I  Figshare 24237376, DOI 10.6084/m9.figshare.24237376 ; Brelsfo
           Weather  Sarasi EOF-XGB, run ve7_res (EOF v1: PC1/PC2 + elevation + log pop-density + year)
 ```
 
-> **Open items still needing a human decision:** (1) MCC source-paper citation (Brelsford 2024, Sci Data 11:308 = EAGLE-I, vs Moehl 2024, 11:271 = the MCC allocation model — confirm which is cited where); (2) `best_expert_by_regime.csv` (persist) vs the shipped model-card mapping (capped_lin) for trend/shift; (3) the framework doc's stale Step 4/5 "shadow" labels; (4) fold the location `LB-1…LB-4` namespace into the A-series; (5) drop the stale "deck needs refresh" canary comment in `web/lib/pricing/README.md`.
+> **Open items still needing a human decision:** (1) MCC source-paper citation (Brelsford 2024, Sci Data 11:308 = EAGLE-I, vs Moehl 2024, 11:271 = the MCC allocation model — confirm which is cited where); (2) `best_expert_by_regime.csv` (persist) vs the shipped model-card mapping (capped_lin) for trend/shift; (3) fold the location `LB-1…LB-4` namespace into the A-series; (4) drop the stale "deck needs refresh" canary comment in `web/lib/pricing/README.md`.
+>
+> **Resolved 2026-07-01:** the **weather challenger is APPLIED** as a per-county router — it governs the forward factor (and prices) in the 16 durable NE winners, statistical elsewhere (§7, A021, `routedForward()`); the **outward Pricing quote now composes the same factors as the Studio** (one premium everywhere — it reads `/api/studio`); and **"shadow" terminology was purged** — location + forward are *applied* (maturity stated as confidence: location pilot-calibrated, weather a routed challenger), not a not-priced shadow status.
 >
 > **Resolved in the 2026-06-30 consolidation:** the **A005/A006/A007 ID collision** is fixed — the eventization knobs are now **A024 (gap-merge) / A025 (restoration) / A026 (min-duration)**, and **A022/A023** (location cap + validation) are registered (registry now A001–A026); the **gap-merge default is 45 min** (dashboard ships `eagle-i-45min` only; 30/60-min are unwired sensitivity catalogs); the §2 event/duration stats were corrected to the shipped 45-min catalog; the methodology **deck is current** (refreshed 2026-06-28); and the discussion / plan / methodology folders were archived into `done/` + `_archive/` with cross-references repaired.
