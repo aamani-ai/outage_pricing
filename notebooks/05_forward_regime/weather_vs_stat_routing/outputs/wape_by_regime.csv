@@ -1,0 +1,5 @@
+regime,flat,linear,routed_stat,xgb,glm,margin_xgb_vs_routed,n_counties
+insufficient,0.069,0.096,0.08,0.083,0.121,-0.033,12
+shift,0.225,0.17,0.14,0.183,0.207,-0.306,21
+stable,0.133,0.163,0.126,0.143,0.158,-0.13,113
+trend,0.191,0.137,0.114,0.155,0.18,-0.359,43
