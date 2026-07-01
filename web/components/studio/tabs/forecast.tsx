@@ -149,8 +149,10 @@ function WeatherComponent({ weather, T }: { weather: WeatherRead; T: number }) {
 
 /**
  * Forecast — the forward-regime FACTOR (Step 5), decomposed into its three intended components:
- * Statistical (own-history trend, the only one wired today) × Climate/Weather × Grid. The latter two
- * are honest ×1.00 placeholders, so the composed forward equals the statistical factor — no price change.
+ * Statistical (own-history trend — the only one that moves the price today) × Climate/Weather × Grid.
+ * Climate/Weather is now a wired-but-shadow challenger for Northeast counties (shown + backtested, held at
+ * ×1.00 in the price); Grid is still a planned ×1.00 placeholder. Both hold at ×1.00, so the composed
+ * forward still equals the statistical factor — no price change.
  * (Internal keys stay `forward`; the UI label is "Forecast".)
  */
 export function ForecastTab({ data, stack, T, X }: { data: StudioData; stack: NonNullable<Stack>; T: number; X: number }) {
@@ -163,8 +165,9 @@ export function ForecastTab({ data, stack, T, X }: { data: StudioData; stack: No
   const movePct = Math.round((f - 1) * 100);
 
   // the three intended forward sub-components (shared with the Price Breakdown expansion). Statistical
-  // carries the whole forward factor today (= stack.forward.factor); Climate/Weather and Grid are not
-  // wired → ×1.00. Their product is the composed forward, so this reconciles to the headline exactly.
+  // carries the whole forward factor today (= stack.forward.factor); Climate/Weather (wired as a shadow
+  // read) holds at ×1.00 in the price and Grid isn't wired yet → ×1.00. Their product is the composed
+  // forward, so this reconciles to the headline exactly.
   const components = forwardComponents(f, stack.forward.status);
 
   return (
@@ -177,15 +180,17 @@ export function ForecastTab({ data, stack, T, X }: { data: StudioData; stack: No
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <StatusBadge status={stack.forward.status} />
-            <InfoHint title="Statistical baseline + gated challengers">
+            <InfoHint title="Statistical baseline + shadow challengers">
               <p>
                 The forward view is built from three components: <b>Statistical</b> (the county&rsquo;s own outage history
                 forecasting next year vs its long-run mean), <b>Climate/Weather</b>, and <b>Grid</b>.
               </p>
               <p>
-                Only <b>Statistical</b> is wired today — one-directional (uplift or hold) and credibility-shrunk. Climate
-                and Grid are <b>gated challengers</b>: each must beat the statistical baseline out-of-sample before it
-                activates, so they hold at ×1.00 for now and don&rsquo;t move the price.
+                <b>Statistical</b> prices today — one-directional (uplift or hold) and credibility-shrunk.{" "}
+                <b>Climate/Weather</b> is now a <b>wired shadow challenger</b> for Northeast counties: its forecast is
+                shown and backtested below, but it holds at ×1.00 in the price. <b>Grid</b> is still a planned
+                challenger, also at ×1.00. Each must beat the statistical baseline out-of-sample before it moves the
+                premium, so neither moves the price today.
               </p>
             </InfoHint>
           </div>
@@ -227,12 +232,13 @@ export function ForecastTab({ data, stack, T, X }: { data: StudioData; stack: No
             <span className="font-semibold tabular-nums">×{f.toFixed(2)}</span>
           </div>
           <p className="text-muted-foreground/60 mt-1.5 text-xs leading-relaxed">
-            Only Statistical is wired today; Climate/Weather and Grid hold at ×1.00, so the composed forward equals the
-            statistical factor — <b className="text-foreground/70">no change to the price</b>.
+            Only Statistical moves the price today; Climate/Weather (a shadow challenger on the NE pilot) and Grid hold
+            at ×1.00, so the composed forward equals the statistical factor —{" "}
+            <b className="text-foreground/70">no change to the price</b>.
           </p>
         </div>
 
-        {/* Statistical — the only wired component (regime → method → annual series) */}
+        {/* Statistical — the price-moving component (regime → method → annual series) */}
         <div>
           <div className="text-muted-foreground mb-1.5 text-[10px] font-medium uppercase tracking-wider">Statistical · wired</div>
           {fwd ? (

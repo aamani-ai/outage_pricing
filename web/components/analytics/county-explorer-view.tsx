@@ -114,7 +114,7 @@ const HINTS = {
   mcc: <p>EAGLE-I&rsquo;s modelled max customer count for the utility — the <b>raw source</b> number. We override it when it&rsquo;s implausibly low.</p>,
   hu: <p>Census <b>housing units</b> (B25001) — every home incl. seasonal/vacation. A sanity floor, since each home has a meter.</p>,
   method: <p>How the customer base was chosen: <b>MCC kept</b> · <b>housing-units floor</b> (MCC too low) · <b>peak floor</b> (largest outage seen) · <b>excluded</b> (data invalid).</p>,
-  el: <p>The <b>expected loss</b> for a single customer per year = λ/customer × payout (a.k.a. pure premium / loss cost) — the risk cost, before expenses and margin.</p>,
+  el: <p>The <b>expected loss</b> for a single customer per year = λ/customer × payout — the risk cost, before expenses and margin.</p>,
   premium: <p>The <b>indicative annual premium</b> = expected loss ÷ (1 − expenses − margin). County-representative: the within-county <b>location basis</b> and the forward factor are held at ×1.00 here.</p>,
   annualChance: <p>The chance of at least one qualifying outage in a year for a single customer ≈ 1 − e<sup>−λ</sup>.</p>,
   payout: <p>The fixed payout when an outage crosses the trigger — carried over from the Analytics view (change it there).</p>,

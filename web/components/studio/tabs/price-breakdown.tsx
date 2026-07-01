@@ -131,7 +131,7 @@ export function PriceBreakdownTab({
 
   return (
     <div className="space-y-5">
-      {/* factor build-up — multiplicative chain into pure premium */}
+      {/* factor build-up — multiplicative chain into the expected loss */}
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between gap-2">
@@ -216,19 +216,19 @@ export function PriceBreakdownTab({
                       </div>
                     ))}
                     <p className="text-muted-foreground/60 pl-6 pt-1 text-[11px] leading-relaxed">
-                      Statistical × Climate/Weather × Grid = {row.val} · only Statistical is wired today, so the others hold
-                      at ×1.00 and don&rsquo;t move the price.
+                      Statistical × Climate/Weather × Grid = {row.val} · only Statistical moves the price today;
+                      Climate/Weather (shadow) and Grid hold at ×1.00.
                     </p>
                   </div>
                 )}
               </div>
             );
           })}
-          {/* expected loss — the pure premium / loss cost (emphasized) */}
+          {/* expected loss — the loss cost (emphasized) */}
           <div className="border-border mt-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
             <span className="text-sm font-medium">
               Expected loss
-              <span className="text-muted-foreground/70 text-xs font-normal"> · adjusted λ × {usd(X)} / yr · a.k.a. pure premium</span>
+              <span className="text-muted-foreground/70 text-xs font-normal"> · adjusted λ × {usd(X)} / yr</span>
             </span>
             <span className="text-base font-semibold tabular-nums">{usd(stack.pure)}</span>
           </div>
@@ -278,7 +278,7 @@ export function PriceBreakdownTab({
             </div>
             <InfoHint title="Expected loss · expenses · margin">
               <p>
-                The <b>expected loss</b> (the pure premium / loss cost — expected annual payouts) is grossed up by an{" "}
+                The <b>expected loss</b> (expected annual payouts) is grossed up by an{" "}
                 <b>expenses</b> load and a <b>target margin</b> to the retail premium.
               </p>
               <p>

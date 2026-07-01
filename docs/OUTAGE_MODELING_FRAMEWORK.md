@@ -24,7 +24,7 @@ STEP                       BUILD                       IN QUOTED PRICE?
    └─ cell read         ███░░░░░░░░░░  diagnostic      ○  no
 3  Risk clustering      ██████████░░  shadow (built)  ○  no      ◀ CURRENT
 4  Location basis       █████████░░░░  shadow          ○  no
-5  Forward regime       ░░░░░░░░░░░░░  not built       ○  no
+5  Forward regime       ████████░░░░░  shadow          ○  no
 ──────────────────────────────────────────────────────────────────────
  ● in price    ○ not in price    ◀ where we are now
 ```
@@ -262,7 +262,7 @@ county per-customer rate ──▶ × within-county density relativity ──▶
 historical-regime estimate ──▶ + grid/climate/weather/hazard covariates ──▶ fwd est.
 ```
 
-**Status:** **not built** — plans exist; hazard infra exists but disconnected; no overlay wired.
+**Status:** **partially built (shadow)** — the **statistical** forward factor is wired and applied (one regime-routed expert per county; [A020](methodology/assumptions.md), [`web/lib/data/forward.ts`](../web/lib/data/forward.ts)). The **weather/climate** challenger (Sarasi EOF-XGB) is now wired as a **shadow read** ([`web/lib/data/weather.ts`](../web/lib/data/weather.ts)) — shown in the Studio Forecast detail with a route badge for the 300 NE counties (16 weather-governed backtest winners / shown-not-chosen / excluded), held at ×1.00 in the price. **Grid** remains an un-wired ×1.00 placeholder, and the broader hazard/covariate overlay is still unbuilt (plans exist; hazard infra exists but disconnected). See [A020/A021](methodology/assumptions.md) and [`MODEL_QA_AND_CAVEATS.md`](MODEL_QA_AND_CAVEATS.md) §6–§7.
 
 **Honesty question:** *which covariates legitimately move the forward view, gated how?* + the structural one: *how does Step 3 connect to prediction?*
 

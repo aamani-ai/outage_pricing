@@ -17,9 +17,11 @@ Hi Sarasi — dug into the `_ve7_res` Northeast drop. Notebook, writeup, and the
 
 **Worth flagging:** counts-only, NE-only — and NE has **zero episodic (rare storm-spike) counties**, which is exactly where a weather model should win most. So this can't test its strongest suit.
 
+**Already wired (shadow).** Those 16 — Saratoga, Rensselaer, Rockland, St. Mary's, Chittenden, and the rest — are now live in the pricing dashboard as a **shadow** read: the forecast, the factor it *would* apply, and the routing reason all show in the forecast detail, held at ×1.00 so it doesn't move the price yet. So the last piece is a **live current-year forecast** — send those and they flip straight from shadow to governing.
+
 A few things that would help:
 1. Does the scoring look fair — shared observed = annual ≥T county event counts, is that the right target?
 2. Any chance of a run over an **episodic region** (interior West — KS/WY/UT/ND/MT)? That's the untested case.
-3. Eventually, current-year forecasts for those 16 counties (as forecast ÷ long-run mean) to wire them in.
+3. Live current-year forecasts for those 16 (forecast ÷ long-run mean) — the piece that switches them on.
 
 Happy to walk through the notebook anytime.

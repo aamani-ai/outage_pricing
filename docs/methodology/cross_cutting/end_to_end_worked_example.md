@@ -115,7 +115,7 @@ naive Poisson on the event count — outages cluster; see [A017](../assumptions.
 ```text
   baseline  λ_customer(8h)     0.080 /yr            active        ×
   location  (address)          ×1.00 (county avg)   modeled       ×   (a real address applies its relativity)
-  forward   (climate+grid)     ×1.00                placeholder   ×   (not yet plugged in)
+  forward   (stat·clim·grid)   ×1.00                active        ×   (statistical prices — ×1.00 here; weather = shadow challenger; grid planned)
   payout    X                  $2,500                             ×
   loadings  ER 20% · TM 15%    ÷ 0.65
   ─────────────────────────────────────────────────────────────────

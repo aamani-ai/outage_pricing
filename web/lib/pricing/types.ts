@@ -86,7 +86,7 @@ export interface PremiumStack {
   adjustedRate: number;
   /** 1 − ER − TM. */
   denom: number;
-  /** adjustedRate × X (the point expected loss — a.k.a. pure premium / loss cost). */
+  /** adjustedRate × X (the point expected loss / loss cost). */
   pure: number;
   /** Retail band {low, point, high}. */
   premium: PremiumBand;

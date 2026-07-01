@@ -142,8 +142,9 @@ export interface ForwardComponent {
 /**
  * The three intended forward sub-components — defined ONCE so the Forecast tab and the Price
  * Breakdown's expandable forward row never drift (communicate_to_share). Statistical carries the
- * whole forward factor today; Climate/Weather and Grid are honest ×1.00 placeholders, so the product
- * equals the composed forward factor — no price change until they're wired.
+ * whole forward factor today; Climate/Weather (wired as a shadow read) and Grid hold at ×1.00 in the
+ * price, so the product equals the composed forward factor — no price change until a challenger is
+ * promoted from shadow to governing.
  */
 export function forwardComponents(forwardFactor: number, statStatus: LayerStatus): ForwardComponent[] {
   return [
