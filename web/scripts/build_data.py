@@ -279,9 +279,23 @@ def main() -> None:
         json.dump(obj, open(fwd_out / "forward_factor.json", "w"), separators=(",", ":"))
         n_fwd = len(obj)
 
+    # --- weather_factor.json (Step-05 weather challenger; SHADOW pilot on 16 backtest-durable NE counties) ---
+    # Sarasi's EOF-XGB annual event-count forecast expressed as a forward factor (same one-directional/capped
+    # construction as the stat factor), plus the per-county routing verdict. The dashboard SHOWS this in the
+    # Forecast detail (weather forecast + why chosen / not) but does NOT price on it yet — the composed premium
+    # stays on the statistical factor. Calibrated in notebooks/05_forward_regime/weather_vs_stat_routing/.
+    wx_src = data_paths.resolve("notebooks/05_forward_regime/weather_vs_stat_routing/outputs/weather_factor.json")
+    n_wx = 0
+    if gcs_io.exists(wx_src):
+        wx_out = OUT / "forward"
+        wx_out.mkdir(exist_ok=True)
+        obj = gcs_io.read_json(wx_src)
+        json.dump(obj, open(wx_out / "weather_factor.json", "w"), separators=(",", ":"))
+        n_wx = len(obj)
+
     print(f"built: pricing {len(pricing)} counties · studio {len(studio)} · {len(cbs)} states "
           f"({sum(len(v) for v in cbs.values())} counties) · location {n_tracts} tracts / {n_counties_lb} counties "
-          f"· forward {n_fwd} counties")
+          f"· forward {n_fwd} counties · weather {n_wx} counties")
 
 
 if __name__ == "__main__":

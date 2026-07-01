@@ -3,6 +3,7 @@ import { getCounty } from "@/lib/data/pricing";
 import { getStudio } from "@/lib/data/studio";
 import { getTract, getCounty as getLocCounty, getRelativity, GUARDRAIL, type Tercile } from "@/lib/data/location";
 import { getForward } from "@/lib/data/forward";
+import { getWeather } from "@/lib/data/weather";
 
 export const dynamic = "force-dynamic";
 
@@ -128,5 +129,5 @@ export async function GET(req: Request) {
     };
   }
 
-  return NextResponse.json({ fips, county, studio: getStudio(fips), location, forward: getForward(fips) });
+  return NextResponse.json({ fips, county, studio: getStudio(fips), location, forward: getForward(fips), weather: getWeather(fips) });
 }

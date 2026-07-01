@@ -455,13 +455,18 @@ Routed-stat wins every regime (2023-only):  trend −36% · shift −31% · stab
   (the insufficient margin −3% is within noise, not a clean win)
 
 Per-county (pooled over triggers): weather beats routed-stat in 71/189 (38%), 45 by ≥10%,
-  overwhelmingly STABLE (55 of 71). BUT 0 counties win on all 12 (trigger×year) cells;
-  ~14 win ≥9/12; only ~6–8 win DURABLY across all 3 years
-  (Saratoga/Rockland/Seneca/Rensselaer NY, St. Mary's MD). Many "wins" flip sign year-to-year = noise.
+  overwhelmingly STABLE (55 of 71). Many "wins" flip sign year-to-year = noise, so we gate for
+  durability: wins ALL 3 test years AND ≥5% margin → exactly 16 counties (14 stable + 2 shift):
+  Saratoga/Chenango/Rensselaer/Seneca/Rockland/Cortland/Tioga NY, St. Mary's MD, Chittenden VT,
+  Grafton/Sullivan NH, Union PA, Androscoggin/Waldo ME, Hudson NJ, Kent RI. These are the routing map.
 ```
 
 **Mechanism:** weather beats the naive flat/trend baselines (matching Sarasi's own finding) but **not our regime-ROUTED stat** (persist for trend/shift, wtd_recent for stable). The router exists *because* routed stat already beats flat/trend.
-STATUS: routed-stat preferred. Cite: session analysis (scratchpad → `notebooks/05_forward_regime/weather_vs_stat_routing/`).
+STATUS: routed-stat preferred; the 16 durable winners are **wired as a SHADOW pilot** — see below. Cite: `notebooks/05_forward_regime/weather_vs_stat_routing/` (`outputs/routing_map.csv`, `outputs/weather_factor.json`).
+
+**Q: If weather loses overall, why is it in the dashboard?**
+A: As a **shadow** read, not a price input. The Studio → Forecast detail shows, for every NE county, Sarasi's weather forecast (annual event count + 90% band), the forward factor it *would* apply (same one-directional/capped construction as the stat factor), and the routing verdict — **weather-governed** (the 16 durable winners), **shown · not chosen** (statistical won), or **excluded** (chronic-grid cluster). The composed premium still uses the statistical factor everywhere. This makes the challenger legible and pipeline-ready without moving any price. The 16 winners flip to genuinely govern only once a **live current-year forecast** replaces the backtest fit (ask #3 to Sarasi). Artifact: `web/lib/data/forward/weather_factor.json` (300 NE counties → 16 weather / 173 statistical / 111 excluded); reader `web/lib/data/weather.ts`.
+STATUS: shadow / display-only. See §12 D-2, A021.
 
 **Q: What would we need before using the weather model?**
 A: Three things, in order:
@@ -624,8 +629,8 @@ The honest open-validation roadmap. Nothing here is a pricing change yet.
 ### D-1 — Forward Step 5 is NOT built (the research frontier)
 Plans exist; hazard infra exists but is disconnected; **no climate/grid overlay wired** (both ×1.00 placeholders). The Step 3→5 bridge (predict the annual **residual**, not raw counts; the cluster label gates which forward method is allowed) is unbuilt. An enriched cause-tagged event source is unbuilt (PoUS cause coverage ~24%, below the ~80% gate).
 
-### D-2 — Weather (Sarasi EOF-XGB) vs routed-stat — decision in progress
-Routed-stat beats weather **27% pooled** (20% on the fair 2023 slice), wins every regime (insufficient by only −3%, within noise). Weather's genuine theoretical edge — **episodic counties — is untested** (NE-189 has none). Before any weather adoption: an episodic test outside the NE, a coverage-clean re-score, live weather wiring, and an exposure (not counts-only) evaluation. Promote the scratchpad scripts to `notebooks/05_forward_regime/weather_vs_stat_routing/`. (Numbers in §7; from the session analysis, not yet committed to a notebook.)
+### D-2 — Weather (Sarasi EOF-XGB) vs routed-stat — SHADOW pilot wired; live-forecast adoption pending
+Routed-stat beats weather **27% pooled** (20% on the fair 2023 slice), wins every regime (insufficient by only −3%, within noise). Weather's genuine theoretical edge — **episodic counties — is untested** (NE-189 has none). The analysis is committed (`notebooks/05_forward_regime/weather_vs_stat_routing/`, `.py`+`.ipynb`+`outputs/`), and the 16 durable winners are now **wired as a shadow read** in the Studio → Forecast detail (`web/lib/data/weather.ts`; artifact `weather_factor.json`) — shown with the routing reason but **not priced**. Before weather genuinely governs: an episodic test outside the NE, a coverage-clean re-score, **a live current-year forecast** (backtest fit ≠ forward forecast), and an exposure (not counts-only) evaluation. Numbers in §7; findings + Slack draft in `docs/extra/sarasi_weather_outage_model/new_jun_30/`.
 
 ### D-3 — Cluster vs cluster×trigger granularity — trigger axis is INERT for stat selection
 The best statistical expert flips by trigger in only **8% of (regime,T) cells** (only at T=24h in thin shift/insufficient buckets); stable→wtd_recent and trend→persist at every trigger. OOS gain of cluster×T over cluster ≈ **0%** (national pooled 0.1811 vs 0.1812). Conclusion: regime-only granularity is validated and well-reasoned; the trigger dimension is inert for statistical-expert selection (the experts are scale-free recency/persistence operators — regime picks the operator, trigger just rescales the count). The trigger dimension matters for the **weather-vs-stat routing decision, not** for stat-expert selection. Registered in A021.

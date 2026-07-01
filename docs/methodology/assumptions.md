@@ -913,6 +913,20 @@ pre-decided**: the forward-expert-routing analysis ([`dicsscssion/forward_expert
 climbs a ladder (cluster → cluster×T → county → county×T) and adopts the coarsest rung that captures the
 real, stable lift.
 
+**Update (2026-06-30) — weather challenger wired as a SHADOW pilot (display only, not priced).** The
+weather-vs-stat routing analysis ([`notebooks/05_forward_regime/weather_vs_stat_routing/`](../../notebooks/05_forward_regime/weather_vs_stat_routing/))
+produced a per-county routing verdict: on the 2023–25 backtest the EOF-XGB weather model is the **durable
+winner in 16 Northeast counties** (wins all 3 test years, ≥5% margin), loses everywhere else, and the
+chronic-grid (`NE_bad`) cluster is excluded by the model. Sarasi's annual event-count forecast is now
+expressed as a forward factor the **same way** as the stat factor (one-directional, credibility-shrunk,
+capped — [A020](#a020--forward-stat-factor-one-regime-routed-expert-per-county-one-directional-baseline))
+and promoted to the dashboard (`web/lib/data/weather.ts` → Studio → Forecast detail). It is **SHADOW**: the
+composed premium still uses the statistical factor everywhere; the weather forecast + its would-be factor +
+the routing reason are *shown* (why chosen / not) but do **not** move the price. The 16 winners flip to
+weather-governed only once a **live current-year forecast** replaces the backtest fit. Artifact:
+`web/lib/data/forward/weather_factor.json` (300 NE counties: 16 weather / 173 statistical / 111 excluded).
+See [MODEL_QA_AND_CAVEATS §7](../MODEL_QA_AND_CAVEATS.md#7-weather--climate--the-challenger-sarasi-eof-model) / [D-2](../MODEL_QA_AND_CAVEATS.md#d-2--weather-sarasi-eof-xgb-vs-routed-stat--shadow-pilot-wired-live-forecast-adoption-pending).
+
 **Justification.** Most counties do not need a per-threshold story; one county-level method keeps the router explainable and robust, and avoids a sparse `regime × T` matrix that *looks* more precise than the evidence supports (county-specificity — [`principles/county_specificity.md`](../principles/county_specificity.md)). Adopt the finer routing only where the lift is real and stable.
 
 **Impact if wrong / direction.** If a county's short- vs long-trigger behaviour genuinely differs, a single expert mis-routes the other thresholds. Mitigation: `xT` flags low-stability counties; a regime × T router is built as a **diagnostic** to measure the lift before any adoption; and every factor stays bounded by [A020](#a020--forward-stat-factor-one-regime-routed-expert-per-county-one-directional-baseline)'s cap / credibility / abstain. No price bias is claimed either way.

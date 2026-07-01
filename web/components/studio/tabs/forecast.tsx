@@ -6,7 +6,7 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { FactorHeadline } from "@/components/studio/factor-headline";
 import { ForwardDetail } from "@/components/studio/forward-detail";
 import { cn } from "@/components/ui/utils";
-import { forwardComponents, type Stack, type StudioData } from "@/components/studio/shared";
+import { forwardComponents, type Stack, type StudioData, type WeatherRead } from "@/components/studio/shared";
 
 /** A forward sub-component that isn't wired yet — a quiet "planned" card: what it will measure and why
  *  it's gated. Honest by design: shown at ×1.00, never implying the model already exists. */
@@ -25,6 +25,124 @@ function PlannedComponent({ name, measures }: { name: string; measures: string }
         Planned — not yet wired. A <b className="text-foreground/70">gated challenger</b>: it activates only once it beats
         the statistical baseline out-of-sample; until then it holds at ×1.00 and doesn&rsquo;t move the price.
       </p>
+    </div>
+  );
+}
+
+const num = (n: number) => (n >= 100 ? Math.round(n).toLocaleString("en-US") : n.toFixed(1));
+
+/** Route styling for the weather challenger: a green rail only when weather is the durable backtest
+ *  winner; muted otherwise. The pill NEVER reads "active" — this is shadow, it doesn't price. */
+const WX_ROUTE: Record<WeatherRead["route"], { label: string; note: string; rail: string; dot: string }> = {
+  weather: {
+    label: "Weather-governed",
+    note: "pilot · shadow",
+    rail: "border-l-status-active/50",
+    dot: "bg-status-active",
+  },
+  statistical: {
+    label: "Shown · not chosen",
+    note: "statistical wins the backtest",
+    rail: "border-l-border",
+    dot: "bg-transparent ring-status-placeholder ring-1",
+  },
+  excluded: {
+    label: "Excluded",
+    note: "chronic-grid cluster",
+    rail: "border-l-border",
+    dot: "bg-transparent ring-status-placeholder ring-1",
+  },
+};
+
+/**
+ * Climate / Weather — the WIRED-BUT-SHADOW read for NE counties (Sarasi's EOF-XGB event-count forecast).
+ * Shows the forecast, the factor it WOULD apply, and the backtest verdict (why chosen / not) — but it does
+ * NOT move the price: the composed forward stays on the statistical factor until a live forecast lands.
+ * Deliberately un-highlighted (no headline factor, muted rail) so it reads as a challenger under review.
+ */
+function WeatherComponent({ weather, T }: { weather: WeatherRead; T: number }) {
+  const d = weather.byT[String(T)];
+  const meta = WX_ROUTE[weather.route];
+  const wf = d?.weatherFactor;
+  return (
+    <div className={cn("bg-muted/20 rounded-lg border border-l-2 p-4", meta.rail)}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className={cn("size-1.5 shrink-0 rounded-full", meta.dot)} />
+          <span className="text-foreground/80 text-sm font-medium">Climate / Weather</span>
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="border-border bg-background/60 text-muted-foreground rounded-full border px-2 py-0.5 text-[11px] font-medium">
+            {meta.label} · {meta.note}
+          </span>
+          <InfoHint title="Weather challenger — shadow, not priced">
+            <p>
+              Sarasi&rsquo;s EOF-XGB model forecasts the county&rsquo;s annual ≥T outage-event count from weather/climate
+              signals. We express it as a forward factor the <b>same way</b> as the statistical one (one-directional,
+              credibility-shrunk, capped) so the two are directly comparable.
+            </p>
+            <p>
+              It is <b>shadow</b>: the price still uses the statistical factor. On the 2023–25 backtest weather is the
+              durable winner in <b>16 Northeast counties</b> — those are flagged &ldquo;weather-governed&rdquo; and will
+              actually govern once a <b>live current-year forecast</b> replaces this backtest fit. Everywhere else the
+              statistical baseline won, and the chronic-grid cluster is excluded by the model.
+            </p>
+          </InfoHint>
+        </span>
+      </div>
+
+      {d ? (
+        <>
+          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-muted-foreground">Weather forecast</span>
+              <span className="text-foreground tabular-nums">{num(d.weatherMean)}/yr</span>
+            </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-muted-foreground">Would apply</span>
+              <span
+                className={cn(
+                  "tabular-nums",
+                  weather.route === "weather" ? "text-foreground font-medium" : "text-muted-foreground/70",
+                )}
+              >
+                {wf != null ? `×${wf.toFixed(2)}` : "—"}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-muted-foreground">90% band</span>
+              <span className="text-muted-foreground/80 tabular-nums">
+                {num(d.weatherP5)}–{num(d.weatherP95)}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-muted-foreground">Prices today (statistical)</span>
+              <span className="text-foreground/80 tabular-nums">{d.statFactor != null ? `×${d.statFactor.toFixed(2)}` : "—"}</span>
+            </div>
+            {d.lamFull != null && (
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-muted-foreground">Long-run mean</span>
+                <span className="text-muted-foreground/80 tabular-nums">{num(d.lamFull)}/yr</span>
+              </div>
+            )}
+          </div>
+          <p className="text-muted-foreground mt-3 text-xs leading-relaxed">{weather.why}</p>
+          <p className="text-muted-foreground/60 mt-1 text-[11px] leading-relaxed">
+            {weather.route === "weather" ? (
+              <>
+                <b className="text-foreground/70">Shadow</b> — the price still uses the statistical factor. This
+                backtest-durable county flips to weather-governed once a live current-year forecast lands.
+              </>
+            ) : (
+              <>Shown for transparency — this county is <b className="text-foreground/70">not</b> routed to weather, so it doesn&rsquo;t affect the price.</>
+            )}
+          </p>
+        </>
+      ) : (
+        <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
+          No weather forecast at this trigger — the weather model covers ≥4h events. {weather.why}
+        </p>
+      )}
     </div>
   );
 }
@@ -126,12 +244,17 @@ export function ForecastTab({ data, stack, T, X }: { data: StudioData; stack: No
           )}
         </div>
 
-        {/* Climate/Weather + Grid — planned, gated challengers (quiet cards) */}
+        {/* Climate/Weather — a live shadow read where the weather model has coverage (NE), else planned.
+            Grid — still a planned, gated challenger. */}
         <div className="space-y-3">
-          <PlannedComponent
-            name="Climate / Weather"
-            measures="Forward hazard the county's own history can't yet see — storm, wind, heat and a shifting seasonal-climate baseline (e.g. a worsening storm climatology)."
-          />
+          {data.weather ? (
+            <WeatherComponent weather={data.weather} T={T} />
+          ) : (
+            <PlannedComponent
+              name="Climate / Weather"
+              measures="Forward hazard the county's own history can't yet see — storm, wind, heat and a shifting seasonal-climate baseline (e.g. a worsening storm climatology)."
+            />
+          )}
           <PlannedComponent
             name="Grid"
             measures="Utility & resource reliability — feeder age, vegetation management, restoration performance, and capacity headroom."

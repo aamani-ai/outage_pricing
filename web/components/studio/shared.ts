@@ -1,5 +1,6 @@
 import type { composePremium } from "@/lib/pricing";
 import type { LayerStatus } from "@/lib/pricing/types";
+import type { WeatherRead } from "@/lib/data/weather";
 
 export const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 export const pct = (n: number) => `${Math.round(n * 100)}%`;
@@ -102,12 +103,16 @@ export interface ForwardRead {
   detailByT: Record<string, { lamFull: number; forecast: number; cred: number; raw: number }>;
 }
 
+export type { WeatherRead } from "@/lib/data/weather";
+
 export type StudioData = {
   fips: string;
   county: CountyPricing;
   studio: CountyStudio | null;
   location: LocationRead | null;
   forward: ForwardRead | null;
+  /** Step-05 weather challenger (SHADOW): the forecast + routing verdict for NE counties; null elsewhere. */
+  weather: WeatherRead | null;
 };
 
 export type { StudioTab } from "@/lib/quote-store";
