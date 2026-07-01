@@ -1,4 +1,4 @@
-"""Phase 2 pipeline: per-customer shadow rate.
+"""Phase 2 pipeline: per-customer rate (the headline base of the composed premium).
 
 Emits per-(FIPS, T, catalog) rows with the v0 lambda_county baseline plus the
 headline mean-based per-customer estimator, the robust median, the max-based
@@ -268,9 +268,8 @@ def run_catalog(catalog_id: str, out_rel: str) -> pd.DataFrame:
             'observation_years': obs_years,
             'T_grid': list(T_GRID),
             'description': (
-                'Per-customer shadow rate. Headline estimator is '
-                'lambda_customer_mean = lambda_county * mean(mean_customers / MCC | duration >= T). '
-                'Not used in v0 pricing.'
+                'Per-customer rate (the headline base of the composed premium). Headline estimator is '
+                'lambda_customer_mean = lambda_county * mean(mean_customers / MCC | duration >= T).'
             ),
         },
         'view': view,
@@ -312,7 +311,7 @@ def _safe_int(v) -> int | None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description='Phase 2 per-customer shadow rate pipeline.')
+    ap = argparse.ArgumentParser(description='Phase 2 per-customer rate pipeline.')
     ap.add_argument('--catalogs', nargs='+', default=DEFAULT_CATALOGS,
                     help='Catalogs to process (default: all three).')
     ap.add_argument('--out-dir', default=DEFAULT_OUT_REL,

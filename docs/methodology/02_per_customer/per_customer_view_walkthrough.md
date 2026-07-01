@@ -3,13 +3,14 @@
 - **Status:** complete (covers Phase 1–3 of the
   [Per-Customer Pricing Plan](../../plan/done/2026-05-30_per_customer_pricing_plan.md))
 - **First written:** 2026-05-30
-- **Last reviewed:** 2026-05-30
+- **Last reviewed:** 2026-07-01 (reconciled: per-customer is the headline base, not "shadow")
 - **Read alongside:** [Pricing Methodology](../cross_cutting/pricing_methodology.md), [Assumptions Registry](../assumptions.md), [Per-Customer Pricing Plan](../../plan/done/2026-05-30_per_customer_pricing_plan.md), [`customer_impact_v1` model card](../../../curated_outage_data/model_cards/customer_impact_v1.md)
 
 ## Why this file exists
 
-The per-customer "shadow" view on the dashboard converts the v0 county-event
-rate into a per-customer-experience rate. Five numbers, simple formulas —
+The per-customer view on the dashboard converts the county-event
+rate into a per-customer-experience rate — the **headline base** of the
+composed premium. Five numbers, simple formulas —
 but each number rests on a non-trivial modelling choice. This document is the
 pedagogical walkthrough: one worked county example, one nuance at a time,
 every assumption cited by stable ID.
@@ -43,7 +44,7 @@ Pure premium (per-cust.)   (annual expected payout, before load)
        |
        | ÷ (1 − ER − TM)
        v
-Retail premium (per-cust., shadow)
+Retail premium (per-cust.)
 ```
 
 Five steps. Each has nuance worth understanding before quoting the number.
@@ -62,11 +63,11 @@ Anchor case for the rest of this document. Selecting the dashboard cell
 | `multiplier_mean` | 0.2632 % | `mean(mean_customers / MCC | duration_hours ≥ 8)` |
 | λ_customer(T = 8 h) | 0.210211 / yr | λ_county × multiplier |
 | Pure premium @ X = $5,000 | $1,051.05 / yr / customer | λ_customer × X |
-| Retail premium (shadow) | $1,617.01 / yr / customer | Pure / (1 − 0.20 − 0.15) |
+| Retail premium | $1,617.01 / yr / customer | Pure / (1 − 0.20 − 0.15) |
 
 Read in one sentence: *a Boone, MO customer is expected to experience a
 power outage of duration ≥ 8 h roughly once every five years (1/0.21), and
-the shadow per-customer retail premium for a $5,000-per-event contract is
+the per-customer retail premium for a $5,000-per-event contract is
 about $1,617 per year.*
 
 Now we walk through each step and surface its nuance.
@@ -467,28 +468,27 @@ that we fold back into the multiplier.
 Phase 4 is **refinement work**, not a gate on the price. The price
 ships now; the refinement tightens A011 when capacity permits.
 
-### Why this is treated as a documented assumption, not a "shadow"
+### Why per-customer ships as the headline (a documented assumption, not a deferred layer)
 
 v0 already ships with eight documented assumptions
 (A001–A008) — including some genuinely-untested ones like A001 (UTC
 timestamps), placeholder commercial defaults like A006 (ER = 0.20,
 TM = 0.15), and known simplifications like A007 (no portfolio
-correlation). None of those are called "shadow"; they are documented
-in the registry and the engine ships.
+correlation). Those are documented in the registry and the engine ships
+on them — they aren't deferred to a side view.
 
 A011 is the same shape. It is a **data-constrained measurement
 assumption** with a clear resolution path. The per-customer chain that
 rests on it produces a number that is, by every empirical measure we
-have so far, **more accurate than v0's county-trigger rate** — Phase 1
-showed v0 over-prices the per-customer expected loss by 100×–4000×
+have so far, **more accurate than the raw county-trigger rate** — Phase 1
+showed the county-trigger rate over-prices the per-customer expected loss by 100×–4000×
 depending on the county, which is a far larger systematic error than
 the plausible synchronous-vs-staggered band of A011.
 
-Treating per-customer as "shadow" while shipping v0 as "the price"
-would invert the accuracy ordering. The correct posture is: ship
-per-customer as the headline, document its one new assumption (A011)
-in the registry alongside v0's assumptions, and queue Phase 4 as
-ongoing refinement.
+Deferring per-customer to a side view while quoting the raw county-trigger
+rate would invert the accuracy ordering. So the shipped posture is: **per-customer
+is the headline base**, its one new assumption (A011) sits in the registry
+alongside the others, and Phase 4 is queued as ongoing refinement.
 
 This refines the modifier lifecycle in the
 [adjustment framework](../../plan/cross_cutting/outage_baseline_adjustment_framework.md#modifier-lifecycle):
@@ -503,9 +503,9 @@ rather than correct present measurement.
 A short, deliberately explicit list of things this view does **not**
 claim:
 
-- It is **not** a quotable price. The headline figure on the dashboard
-  for any cell is still the v0 county-trigger retail premium. The
-  per-customer view is shadow-only.
+- It is the **headline base**, not the final quote: the composed premium
+  builds on it (× location × routed forward ÷ loadings). The raw
+  county-trigger rate is no longer the headline.
 - It does **not** measure per-individual probability. It measures
   county-average per-customer rate.
 - It does **not** account for customer-feeder correlation.
@@ -533,7 +533,7 @@ claim:
 ## Cross-references
 
 - [Pricing Methodology](../cross_cutting/pricing_methodology.md) — formula-level summary,
-  status of v0 vs Phase-2 shadow output.
+  the per-customer headline base and the layers composed on it.
 - [Per-Customer Pricing Plan](../../plan/done/2026-05-30_per_customer_pricing_plan.md) —
   phased rollout, gates, open questions.
 - [`customer_impact_v1` model card](../../../curated_outage_data/model_cards/customer_impact_v1.md)

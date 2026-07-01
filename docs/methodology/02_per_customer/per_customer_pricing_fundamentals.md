@@ -212,7 +212,7 @@ ship under the pricing adjustment mechanism taxonomy:
 | Mechanism family | What it does | Examples |
 |---|---|---|
 | **`basis_alignment`** | Shrink or align the county estimate toward what the policy actually sells | Per-customer rate (**active**), location-level basis risk (**wip**), trigger-source alignment (**discussion**) |
-| **`forward_regime`** | Adjust or review the future loss view for pattern, grid, hazard, and weather context | Predictability/shadow price read (**shipped as review layer**), grid and hazard (**wip**) |
+| **`forward_regime`** | Adjust the future loss view for pattern, grid, hazard, and weather context | Statistical + weather routed forward factor (**applied**), grid and hazard (**wip**) |
 
 See [`roadmap.md`](../roadmap.md) for the full sequencing logic and
 [`../../dicsscssion/pricing_adjustment_mechanisms/`](../../dicsscssion/pricing_adjustment_mechanisms/)

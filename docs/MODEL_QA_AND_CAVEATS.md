@@ -306,7 +306,7 @@ available       otherwise  (≥100 qualifying AND ≥500 total)
 Caution cells are "direction-only" — most likely to swing across the 30/45/60-min catalogs.
 STATUS: **active**. Cite: `compute_per_customer_lambda.py`.
 
-> ⚠ **Stale "shadow" labels in older code/docs.** The 2026-05-30 walkthrough and the `compute_per_customer_lambda.py` docstring still call per-customer "shadow / not used in v0." The newer fundamentals doc, A009/A010/A011, and the shipped engine all treat it as the **live headline** — those older strings are stale. Likewise the pipeline docstring describes a superseded `households × 1.324` denominator repair; the live logic is the A018 composite. Cite the A018 composite, never the `×1.324` figure.
+> ⚠ **Per-customer denominator caveat.** The `compute_per_customer_lambda.py` docstring still describes a `households × 1.324` denominator repair; the intended live logic is the **A018 composite** — confirm the code matches and cite A018, never the `×1.324` figure. (The older "per-customer = shadow / not used in v0" labels in the walkthrough + docstring were **corrected 2026-07-01**: per-customer is the headline base, A009/A010/A011.)
 
 ---
 
