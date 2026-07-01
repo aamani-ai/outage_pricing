@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { composePremium } from "@/lib/pricing";
+import { composePremium, routedForward } from "@/lib/pricing";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/info-hint";
 import { ExpandBox } from "@/components/ui/expand-box";
@@ -10,6 +10,7 @@ import { AddressSearch } from "@/components/pricing/address-search";
 import { Segmented } from "@/components/pricing/segmented";
 import { effectiveFactors, useQuoteStore } from "@/lib/quote-store";
 import { api } from "@/lib/base-path";
+import type { StudioData } from "@/components/studio/shared";
 
 // Map is browser-only (MapLibre) — load it client-side, after a location is picked.
 const LocationMap = dynamic(() => import("@/components/pricing/location-map"), {
@@ -25,20 +26,6 @@ const TRIGGERS = [4, 8, 12, 24] as const;
 const PAYOUTS = [500, 1000, 2500, 5000, 10000] as const;
 const TRIGGER_NOTE: Record<number, string> = { 4: "brief", 8: "half a workday", 12: "overnight", 24: "a full day+" };
 
-interface CountyRateT {
-  lam: number;
-  lo?: number;
-  hi?: number;
-  n: number | null;
-  gate: string | null;
-}
-interface CountyPricing {
-  name: string;
-  state: string;
-  tier: string | null;
-  quotable: boolean | null;
-  T: Record<string, CountyRateT>;
-}
 type Status = "idle" | "loading" | "error" | "nodata";
 
 const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
@@ -50,7 +37,7 @@ export function PricingView() {
   const X = current.X;
   const ER = loadings.ER;
   const TM = loadings.TM;
-  const [data, setData] = useState<{ fips: string; county: CountyPricing } | null>(null);
+  const [data, setData] = useState<StudioData | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [errMsg, setErrMsg] = useState("");
 
@@ -64,7 +51,7 @@ export function PricingView() {
     let cancelled = false;
     setStatus("loading");
     setData(null);
-    fetch(api(`/api/price?lat=${loc.lat}&lon=${loc.lon}`))
+    fetch(api(`/api/studio?lat=${loc.lat}&lon=${loc.lon}`))
       .then(async (r) => {
         const j = await r.json();
         if (cancelled) return;
@@ -90,19 +77,28 @@ export function PricingView() {
   const adj = adjustmentsFor(data?.fips);
   const hasAdj = adj.some((a) => a.enabled);
   const cell = data?.county.T[String(T)];
+  // the SAME model factors + routing as the Studio, so the outward quote equals the Studio premium:
+  // within-county location relativity, and the ROUTED forward factor (weather governs the winners, else stat).
+  const modelLocRel = data?.location?.relativityByT?.[String(T)] ?? 1;
+  const statFwd = data?.forward?.factorByT?.[String(T)] ?? 1;
+  const wxFactor = data?.weather?.byT?.[String(T)]?.weatherFactor ?? null;
+  const { factor: modelFwd } = routedForward(statFwd, wxFactor, data?.weather?.route === "weather");
   const stack = useMemo(() => {
     if (!cell || cell.lam == null) return null;
     const rateBand = cell.lo != null && cell.hi != null ? { low: cell.lo, high: cell.hi } : undefined;
     const ef = effectiveFactors(adj);
+    // model factors × any manual load (multiplicative), exactly as the Studio composes them.
+    const locRel = modelLocRel * ef.location;
+    const fwdF = modelFwd * ef.forward;
     return composePremium(
       {
         baseline: { lambdaCustomer: cell.lam, ...(rateBand ? { rateBand } : {}), status: "active" },
-        location: { relativity: ef.location, status: ef.location !== 1 ? "modeled" : "placeholder" },
-        forward: { factor: ef.forward, status: ef.forward !== 1 ? "modeled" : "placeholder" },
+        location: { relativity: locRel, status: locRel !== 1 ? "modeled" : "placeholder" },
+        forward: { factor: fwdF, status: data?.forward || fwdF !== 1 ? "modeled" : "placeholder" },
       },
       { T, X, expenseRatio: ER, targetMargin: TM },
     );
-  }, [cell, T, X, adj, ER, TM]);
+  }, [cell, T, X, adj, ER, TM, modelLocRel, modelFwd, data?.forward]);
 
   const lam = stack?.adjustedRate ?? 0;
   const years = lam > 0 ? 1 / lam : 0;

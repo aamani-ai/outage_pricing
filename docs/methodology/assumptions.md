@@ -380,7 +380,7 @@ the event."
 **Impact if wrong.** Phase 1 will test sensitivity against `max
 / MCC`, time-weighted mean, and per-outage reconstruction (Path C in
 the per-customer plan). If the first-order estimator is biased, the
-shadow rate is recomputed before it reaches the dashboard.
+per-customer rate is recomputed before it reaches the dashboard.
 
 **Cited from.** [`docs/plan/per_customer_pricing_plan.md`](../plan/done/2026-05-30_per_customer_pricing_plan.md), [Pricing §Per-customer view](cross_cutting/pricing_methodology.md), [Phase 1 notebook (executed 2026-05-30)](../../notebooks/outputs/per_customer_rate_phase1/per_customer_rate_phase1.html).
 
@@ -425,7 +425,7 @@ of customers affected than to the peak instantaneous share. Phase 1
 showed `multiplier_mean` and `multiplier_max` differ by **5–7×** for
 Alachua FL at T=4h (`multiplier_mean = 0.000333` vs
 `multiplier_max = 0.002113`), so the inner-statistic choice is not
-cosmetic — picking max would shift the published shadow premium by the
+cosmetic — picking max would shift the published premium by the
 same factor. The median sensitivity adds a complementary view (robust to
 outlier events) that the inner-statistic max sensitivity cannot give.
 
@@ -860,7 +860,7 @@ counties; (b) housing-*primary* (not `max`) where MCC over-states.
 ### A020 — Forward stat factor: one regime-routed expert per county, one-directional baseline
 
 - **Category:** modeling
-- **Status:** active — **shadow** (built + calibrated + composed in the Studio as a `modeled` factor; **not** in the outward quoted premium); validate before any live move
+- **Status:** active — **applied** (composed into the premium as a `modeled` factor — Studio + outward quote); the coverage-ramp caveat below is the key honesty point
 - **First written:** 2026-06-24
 - **Last reviewed:** 2026-06-30
 - **Owner:** modeling
@@ -880,7 +880,7 @@ counties; (b) housing-*primary* (not `max`) where MCC over-states.
 
 **Justification.** Behaviour-routed simple experts beat the flat mean out-of-sample (typical-cell WAPE 0.356 → 0.257, **+27.7%**, wins in 66% of cells; rolling-origin, 14,383 county-cells). One-expert-per-county is the robust first-order router — see [A021](#a021--forward-expert-routed-by-regime-only-regime-by-trigger-is-a-future-refinement). Asymmetric loss because under-reserving is the dangerous error; one-directional because `λ_full` is biased low by the coverage ramp, so honest corrections are upward and declining counties keep the higher mean as cushion.
 
-**Impact if wrong / direction.** **HONEST CAVEAT — read this:** ~2/3 of the apparent forward "skill" is the EAGLE-I **coverage ramp**, not a causal forward signal. The full-period mean is ~17% biased low because 2015–2017 under-count (drop those years and the flat-mean bias falls −17% → −6%). So the shipped `stat` factor is **largely a per-county coverage/level correction labelled as forward**, honestly characterised as "recent experience vs the long-run mean," not a clean prediction. Direction is **uplift → over-reserve → conservative (safe for the insurer)**. It is **shadow**, so no live price impact until validated; mis-routing is bounded by the cap + credibility shrink + abstain. Implication: a future climate / grid challenger "beating the stat baseline" is partly beating a data-artifact correction — clean the coverage window or treat the weather model as the first genuine forward signal before leaning on the ladder.
+**Impact if wrong / direction.** **HONEST CAVEAT — read this:** ~2/3 of the apparent forward "skill" is the EAGLE-I **coverage ramp**, not a causal forward signal. The full-period mean is ~17% biased low because 2015–2017 under-count (drop those years and the flat-mean bias falls −17% → −6%). So the shipped `stat` factor is **largely a per-county coverage/level correction labelled as forward**, honestly characterised as "recent experience vs the long-run mean," not a clean prediction. Direction is **uplift → over-reserve → conservative (safe for the insurer)**. It is **applied** (it moves the price), but that conservative direction plus the cap + credibility shrink + abstain bound any mis-routing. Implication: a future climate / grid challenger "beating the stat baseline" is partly beating a data-artifact correction — clean the coverage window or treat the weather model as the first genuine forward signal before leaning on the ladder.
 
 **Cited from.** [`04_statistical_adjuster_design.md`](../dicsscssion/forward_regime_statistical_router/04_statistical_adjuster_design.md), [`stat_forward_factor_model_card.md`](../../notebooks/outputs/forward_regime/statistical_router/stat_forward_factor_model_card.md), learning log [`forward_router_became_baseline_cleanup.md`](../learning_logs/forward_router_became_baseline_cleanup.md), code [`web/lib/data/forward.ts`](../../web/lib/data/forward.ts) + notebooks `05_forward_regime/statistical_router/`. Routing **key** is [A014](#a014--regime-derived-at-t8h-and-asserted-t-invariant-one-per-county); the coverage-ramp caveat relates to [A012](#a012--per-customer-exposure-uses-one-global-window-dilutes-partial-coverage-counties) / [A016](#a016--the-all-duration-coverage-mask-is-applied-as-a-proxy-for-t-specific-observability); routing granularity is [A021](#a021--forward-expert-routed-by-regime-only-regime-by-trigger-is-a-future-refinement). **Supersedes** the "A018 (proposed)" stub in `notebooks/outputs/forward_regime/statistical_router/stat_assumptions_to_register.md` (that ID was reassigned to the denominator).
 
@@ -942,34 +942,34 @@ mechanism is unchanged. See [MODEL_QA_AND_CAVEATS §7](../MODEL_QA_AND_CAVEATS.m
 ### A022 — Location relativity is capped to [0.80, 1.40] (attribution-confidence throttle)
 
 - **Category:** modeling
-- **Status:** active — shadow (Studio-only; not in the outward quote)
+- **Status:** active — applied (composed into the premium — Studio + outward quote); pilot-calibrated, cap-widening gated on validation
 - **First written:** 2026-06-17
 - **Last reviewed:** 2026-06-30
 - **Owner:** modeling
 
 **Statement.** The within-county location relativity ([Step 4](04_location_basis/location_basis_methodology.md)) is clipped to **[0.80, 1.40]** before it composes into the price. The raw empirical density gradient is wider (rural ≈ 1.76–2.06×); the cap is a deliberate **attribution-confidence throttle** — a policy choice that ships only a fraction of an unvalidated within-county effect — **not** the measured signal size. Relativities are renormalized mean-1 within each county (they redistribute, never move the county total).
 
-**Justification.** The gradient is real on the pilot but nationally extrapolated ([A023](#a023--location-basis-is-validated-only-on-the-ctmari-pous-pilot-shadow-elsewhere)); a tight cap bounds the harm if the extrapolation is wrong in a given county, keeping the shadow layer conservative pending outcome validation.
+**Justification.** The gradient is real on the pilot but nationally extrapolated ([A023](#a023--location-basis-is-validated-only-on-the-ctmari-pous-pilot-extrapolated-elsewhere)); a tight cap bounds the harm if the extrapolation is wrong in a given county, keeping the applied layer conservative pending outcome validation.
 
-**Impact if wrong.** Conservative: the cap can only shrink an aggressive relativity toward 1.0, so it under-uses a real signal rather than over-applying an unvalidated one. Loosening the cap is gated on [A023](#a023--location-basis-is-validated-only-on-the-ctmari-pous-pilot-shadow-elsewhere).
+**Impact if wrong.** Conservative: the cap can only shrink an aggressive relativity toward 1.0, so it under-uses a real signal rather than over-applying an unvalidated one. Loosening the cap is gated on [A023](#a023--location-basis-is-validated-only-on-the-ctmari-pous-pilot-extrapolated-elsewhere).
 
 **Cited from.** [`04_location_basis/location_basis_methodology.md`](04_location_basis/location_basis_methodology.md), [`location_relativity_factor_derivation.md`](04_location_basis/location_relativity_factor_derivation.md); `web/lib/data/location/relativity_table.json`; [`MODEL_QA_AND_CAVEATS.md`](../MODEL_QA_AND_CAVEATS.md) §8 / C-8. Registered 2026-06-30, consolidating the "A022" already referenced in code and the location docs' `LB-*` namespace.
 
 ---
 
-### A023 — Location basis is validated only on the CT/MA/RI PoUS pilot (shadow elsewhere)
+### A023 — Location basis is validated only on the CT/MA/RI PoUS pilot (extrapolated elsewhere)
 
 - **Category:** modeling
-- **Status:** active — shadow; `validated:false` outside the pilot
+- **Status:** active — applied; `validated:false` (pilot-calibrated) outside the pilot
 - **First written:** 2026-06-17
 - **Last reviewed:** 2026-06-30
 - **Owner:** modeling
 
-**Statement.** The within-county density relativity is calibrated and outcome-validated only on the **CT/MA/RI PoUS pilot** (one quiet season, town-grain): within-county Spearman ρ ≈ −0.35 (median over 24 counties), 22/24 negative, sign-test p = 1.79e-5. **Every other county's relativity is nationally extrapolated, not independently validated** (`validated:false`). Location therefore composes as a **shadow** factor (Studio only), never in the outward quote, until validated.
+**Statement.** The within-county density relativity is calibrated and outcome-validated only on the **CT/MA/RI PoUS pilot** (one quiet season, town-grain): within-county Spearman ρ ≈ −0.35 (median over 24 counties), 22/24 negative, sign-test p = 1.79e-5. **Every other county's relativity is nationally extrapolated, not independently validated** (`validated:false`). Location composes as an **applied** factor everywhere, but its confidence is **pilot-grade** outside CT/MA/RI — bounded by the cap ([A022](#a022--location-relativity-is-capped-to-080-140-attribution-confidence-throttle)).
 
-**Justification.** One pilot region shows the effect is real and directionally correct, but cannot certify it nationally; shipping shadow-only is the honest posture.
+**Justification.** One pilot region shows the effect is real and directionally correct, but cannot certify it nationally; shipping it **applied-but-capped**, with the pilot-only validation stated plainly, is the honest posture.
 
-**Impact if wrong.** Bounded by [A022](#a022--location-relativity-is-capped-to-080-140-attribution-confidence-throttle) (the cap) and mean-1 conservation (redistribute-only); the guardrail's Type-B leg is deliberately conservative (over-charge an ambiguous location rather than under-charge). Promotion shadow→active is gated on broader outcome validation.
+**Impact if wrong.** Bounded by [A022](#a022--location-relativity-is-capped-to-080-140-attribution-confidence-throttle) (the cap) and mean-1 conservation (redistribute-only); the guardrail's Type-B leg is deliberately conservative (over-charge an ambiguous location rather than under-charge). Widening the cap (loosening the confidence throttle) is gated on broader outcome validation.
 
 **Cited from.** [`04_location_basis/location_basis_methodology.md`](04_location_basis/location_basis_methodology.md), [`location_basis_fundamentals.md`](04_location_basis/location_basis_fundamentals.md); `web/lib/data/location.ts` (`validated` flag); [`MODEL_QA_AND_CAVEATS.md`](../MODEL_QA_AND_CAVEATS.md) C-8.
 
