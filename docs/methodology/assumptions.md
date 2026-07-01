@@ -913,19 +913,23 @@ pre-decided**: the forward-expert-routing analysis ([`dicsscssion/forward_expert
 climbs a ladder (cluster → cluster×T → county → county×T) and adopts the coarsest rung that captures the
 real, stable lift.
 
-**Update (2026-06-30) — weather challenger wired as a SHADOW pilot (display only, not priced).** The
+**Update (2026-06-30) — weather challenger APPLIED as a per-county router (governs the 16 winners).** The
 weather-vs-stat routing analysis ([`notebooks/05_forward_regime/weather_vs_stat_routing/`](../../notebooks/05_forward_regime/weather_vs_stat_routing/))
 produced a per-county routing verdict: on the 2023–25 backtest the EOF-XGB weather model is the **durable
 winner in 16 Northeast counties** (wins all 3 test years, ≥5% margin), loses everywhere else, and the
-chronic-grid (`NE_bad`) cluster is excluded by the model. Sarasi's annual event-count forecast is now
+chronic-grid (`NE_bad`) cluster is excluded by the model. Sarasi's annual event-count forecast is
 expressed as a forward factor the **same way** as the stat factor (one-directional, credibility-shrunk,
-capped — [A020](#a020--forward-stat-factor-one-regime-routed-expert-per-county-one-directional-baseline))
-and promoted to the dashboard (`web/lib/data/weather.ts` → Studio → Forecast detail). It is **SHADOW**: the
-composed premium still uses the statistical factor everywhere; the weather forecast + its would-be factor +
-the routing reason are *shown* (why chosen / not) but do **not** move the price. The 16 winners flip to
-weather-governed only once a **live current-year forecast** replaces the backtest fit. Artifact:
+capped — [A020](#a020--forward-stat-factor-one-regime-routed-expert-per-county-one-directional-baseline)).
+The forward factor is now a **routed choice** between the two frequency experts: in the **16 durable
+winners the weather factor GOVERNS the composed forward and prices** (the internal dashboard shows the
+final premium — no shadow); everywhere else the statistical expert governs and weather is shown as the
+challenger the router didn't pick; the chronic-grid cluster is excluded. Wiring: `routedForward()` in
+[`web/lib/pricing/compose.ts`](../../web/lib/pricing/compose.ts), applied in the Studio
+([`studio-view.tsx`](../../web/components/studio/studio-view.tsx)) and the Analytics national batch;
+reader [`web/lib/data/weather.ts`](../../web/lib/data/weather.ts); artifact
 `web/lib/data/forward/weather_factor.json` (300 NE counties: 16 weather / 173 statistical / 111 excluded).
-See [MODEL_QA_AND_CAVEATS §7](../MODEL_QA_AND_CAVEATS.md#7-weather--climate--the-challenger-sarasi-eof-model) / [D-2](../MODEL_QA_AND_CAVEATS.md#d-2--weather-sarasi-eof-xgb-vs-routed-stat--shadow-pilot-wired-live-forecast-adoption-pending).
+The backtest fit will be swapped for a **live current-year forecast** when Sarasi delivers one; the routing
+mechanism is unchanged. See [MODEL_QA_AND_CAVEATS §7](../MODEL_QA_AND_CAVEATS.md#7-weather--climate--the-challenger-sarasi-eof-model) / [D-2](../MODEL_QA_AND_CAVEATS.md#d-2--weather-sarasi-eof-xgb-vs-routed-stat--applied-as-a-per-county-router).
 
 **Justification.** Most counties do not need a per-threshold story; one county-level method keeps the router explainable and robust, and avoids a sparse `regime × T` matrix that *looks* more precise than the evidence supports (county-specificity — [`principles/county_specificity.md`](../principles/county_specificity.md)). Adopt the finer routing only where the lift is real and stable.
 

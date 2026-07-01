@@ -8,7 +8,7 @@ import { STATUS_DOT } from "@/components/ui/status-badge";
 import { InfoHint } from "@/components/ui/info-hint";
 import { cn } from "@/components/ui/utils";
 import { EChart, tooltipStyle, useChartColors } from "@/components/charts/echart";
-import { forwardComponents, usd, pct, type Stack, type StudioData, type StudioTab } from "@/components/studio/shared";
+import { forwardComponents, forwardRouting, usd, pct, type Stack, type StudioData, type StudioTab } from "@/components/studio/shared";
 
 export function PriceBreakdownTab({
   data,
@@ -127,7 +127,14 @@ export function PriceBreakdownTab({
   // the Forecast row expands in place to reveal its three components (stat · climate · grid) without
   // leaving the page — same shared decomposition as the Forecast tab; collapsed by default.
   const [fwdOpen, setFwdOpen] = useState(false);
-  const fwdComponents = forwardComponents(stack.forward.factor, stack.forward.status);
+  const fwdRouting = forwardRouting(data, T);
+  const fwdComponents = forwardComponents({
+    routedFactor: stack.forward.factor,
+    source: fwdRouting.source,
+    statFactor: fwdRouting.statFactor,
+    weatherFactor: fwdRouting.weatherFactor,
+    statStatus: stack.forward.status,
+  });
 
   return (
     <div className="space-y-5">
@@ -216,8 +223,10 @@ export function PriceBreakdownTab({
                       </div>
                     ))}
                     <p className="text-muted-foreground/60 pl-6 pt-1 text-[11px] leading-relaxed">
-                      Statistical × Climate/Weather × Grid = {row.val} · only Statistical moves the price today;
-                      Climate/Weather (shadow) and Grid hold at ×1.00.
+                      Statistical × Climate/Weather × Grid = {row.val} ·{" "}
+                      {fwdRouting.source === "weather"
+                        ? "weather governs here (won the backtest); statistical & grid stand down to ×1.00"
+                        : "statistical governs here; climate/weather & grid stand down to ×1.00"}.
                     </p>
                   </div>
                 )}

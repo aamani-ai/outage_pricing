@@ -78,7 +78,8 @@ export function regimeLabel(regime: string | null, sub: string | null): string {
   const k = regimeKey(regime, sub);
   return REGIME_DISPLAY[k] ?? (regime ?? "—");
 }
-/** Location basis (Step 04): the address's within-county density read + on-demand guardrail. Shadow. */
+/** Location basis (Step 04): the address's within-county density read + on-demand guardrail. Applied
+ *  (composes into the premium); pilot-calibrated on CT/MA/RI, nationally extrapolated. */
 export interface LocationRead {
   tract: string; // 11-digit tract GEOID
   tercile: "rural" | "mid" | "urban"; // post-guardrail tercile (drives the relativity)
@@ -89,7 +90,7 @@ export interface LocationRead {
   nSub: number | null; // tracts in the county
   validated: boolean; // PoUS-outcome-validated? false everywhere today (CT/MA/RI pilot is town-grain)
   guardrail: { triggered: boolean; type?: "A" | "B"; impervious?: number };
-  relativityByT: Record<string, number>; // v0_shadow capped relativity per trigger T (post-guardrail)
+  relativityByT: Record<string, number>; // capped within-county relativity per trigger T (post-guardrail), applied
 }
 
 /** Statistical forward factor (Step 05): the "stat" in FORWARD = stat + climate + grid — the county's
@@ -111,7 +112,8 @@ export type StudioData = {
   studio: CountyStudio | null;
   location: LocationRead | null;
   forward: ForwardRead | null;
-  /** Step-05 weather challenger (SHADOW): the forecast + routing verdict for NE counties; null elsewhere. */
+  /** Step-05 weather challenger + routing verdict for NE counties (governs the price where it wins the
+   *  backtest — the 16 durable winners); null elsewhere. */
   weather: WeatherRead | null;
 };
 
@@ -140,16 +142,64 @@ export interface ForwardComponent {
 }
 
 /**
- * The three intended forward sub-components — defined ONCE so the Forecast tab and the Price
- * Breakdown's expandable forward row never drift (communicate_to_share). Statistical carries the
- * whole forward factor today; Climate/Weather (wired as a shadow read) and Grid hold at ×1.00 in the
- * price, so the product equals the composed forward factor — no price change until a challenger is
- * promoted from shadow to governing.
+ * The forward sub-components — defined ONCE so the Forecast tab and the Price Breakdown's expandable
+ * forward row never drift (communicate_to_share). The forward factor is a ROUTED choice between two
+ * frequency experts (statistical own-history vs the weather challenger) times Grid (a future overlay):
+ * the router picks whichever won the backtest, so the CHOSEN expert carries the applied factor and the
+ * other stands down to ×1.00 here — the product equals the composed forward factor exactly. No shadow;
+ * the chosen expert is the one that prices.
  */
-export function forwardComponents(forwardFactor: number, statStatus: LayerStatus): ForwardComponent[] {
+export function forwardComponents(opts: {
+  routedFactor: number; // the applied forward factor (= stack.forward.factor, incl. any manual load)
+  source: "weather" | "statistical"; // which expert the router chose
+  statFactor: number; // the statistical expert's model factor (for the challenger read-out)
+  weatherFactor: number | null; // the weather expert's model factor; null = county outside weather coverage
+  statStatus: LayerStatus;
+}): ForwardComponent[] {
+  const { routedFactor, source, statFactor, weatherFactor, statStatus } = opts;
+  const wxCovered = weatherFactor != null;
   return [
-    { key: "statistical", name: "Statistical", factor: forwardFactor, status: statStatus, active: true, blurb: "county's own outage-history trend vs its long-run mean" },
-    { key: "climate", name: "Climate / Weather", factor: 1, status: "placeholder", active: false, blurb: "forward hazard — storm, heat & seasonal-climate exposure" },
-    { key: "grid", name: "Grid", factor: 1, status: "placeholder", active: false, blurb: "utility / resource reliability — asset age, restoration, capacity" },
+    {
+      key: "statistical",
+      name: "Statistical",
+      factor: source === "statistical" ? routedFactor : 1,
+      status: source === "statistical" ? statStatus : "placeholder",
+      active: source === "statistical",
+      blurb:
+        source === "statistical"
+          ? "county's own outage-history trend vs its long-run mean — governs here"
+          : `stands down — weather won the backtest (own-history would be ×${statFactor.toFixed(2)})`,
+    },
+    {
+      key: "climate",
+      name: "Climate / Weather",
+      factor: source === "weather" ? routedFactor : 1,
+      status: source === "weather" ? statStatus : "placeholder",
+      active: source === "weather",
+      blurb:
+        source === "weather"
+          ? "weather forecast — governs here (beat the statistical baseline out-of-sample)"
+          : wxCovered
+            ? `challenger — statistical won (weather would be ×${weatherFactor!.toFixed(2)})`
+            : "forward hazard — storm, heat & seasonal-climate exposure (not yet covered)",
+    },
+    { key: "grid", name: "Grid", factor: 1, status: "placeholder", active: false, blurb: "utility / resource reliability — asset age, restoration, capacity (planned)" },
   ];
+}
+
+/** Which forward expert the router chose for (county, T) + both experts' model factors — the single
+ *  source of truth shared by the Forecast tab and Price Breakdown so their read-outs never drift. */
+export function forwardRouting(data: StudioData, T: number): {
+  source: "weather" | "statistical";
+  statFactor: number;
+  weatherFactor: number | null;
+} {
+  const statFactor = data.forward?.factorByT?.[String(T)] ?? 1;
+  const weatherFactor = data.weather?.byT?.[String(T)]?.weatherFactor ?? null;
+  const isWeatherRouted = data.weather?.route === "weather";
+  const source: "weather" | "statistical" =
+    isWeatherRouted && weatherFactor != null && Number.isFinite(weatherFactor) && weatherFactor > 0
+      ? "weather"
+      : "statistical";
+  return { source, statFactor, weatherFactor };
 }

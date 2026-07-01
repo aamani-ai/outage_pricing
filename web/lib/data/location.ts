@@ -3,7 +3,8 @@
  * commercial-core guardrail). Imports the compact artifact promoted by build_data.py from
  * notebooks/outputs/location_basis/. Keep these imports SERVER-ONLY (the API route) —
  * tract_rurality.json is ~2.4MB and must never reach a client bundle. Math only; the numbers
- * are calibrated in the notebook and swapped here when new data lands (shadow / validated:false).
+ * are calibrated in the notebook and swapped here when new data lands. Applied (composes into the
+ * premium); pilot-calibrated on CT/MA/RI (validated:false until validated beyond the pilot).
  */
 import relTable from "./location/relativity_table.json";
 import tractData from "./location/tract_rurality.json";

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { composePremium } from "@/lib/pricing";
+import { composePremium, routedForward } from "@/lib/pricing";
 import { allCountyEntries } from "@/lib/data/pricing";
 import { getForward } from "@/lib/data/forward";
+import { getWeather } from "@/lib/data/weather";
 import { getStudio } from "@/lib/data/studio";
 import { getCustomerBase } from "@/lib/data/customer-base";
 import { isConus } from "@/lib/analytics/conus";
@@ -46,7 +47,13 @@ export function GET(req: Request) {
     const cell = c.T[Tk];
     const s = getStudio(fips);
     const fwd = getForward(fips);
-    const fwdF = fwd?.factorByT[Tk] ?? 1;
+    const wx = getWeather(fips);
+    // routed forward: weather governs where the backtest routes to it (the durable winners), else statistical
+    const { factor: fwdF, source: fwdSrc } = routedForward(
+      fwd?.factorByT[Tk] ?? 1,
+      wx?.byT[Tk]?.weatherFactor ?? null,
+      wx?.route === "weather",
+    );
 
     // exclusion — priority order → a single human reason. Excluded ≠ $0; it's "not offered".
     let exclReason: string | null = null;
@@ -61,7 +68,7 @@ export function GET(req: Request) {
       const stack = composePremium(
         {
           baseline: { lambdaCustomer: cell.lam, status: "active" },
-          forward: { factor: fwdF, status: fwd ? "modeled" : "placeholder" },
+          forward: { factor: fwdF, status: fwd || fwdSrc === "weather" ? "modeled" : "placeholder" },
           // location omitted → 1.00 (county-representative; mean-1 by construction)
         },
         { T, X, expenseRatio: ER, targetMargin: TM },

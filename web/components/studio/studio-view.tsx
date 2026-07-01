@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { composePremium } from "@/lib/pricing";
+import { composePremium, routedForward } from "@/lib/pricing";
 import { Card, CardContent } from "@/components/ui/card";
 import { AddressSearch } from "@/components/pricing/address-search";
 import { ContextBar } from "@/components/studio/context-bar";
@@ -77,16 +77,20 @@ export function StudioView() {
   const adj = adjustmentsFor(data?.fips);
   const cell = data?.county.T[String(T)];
   // model factors for this county at the selected trigger: within-county relativity (post-guardrail)
-  // and the statistical forward factor (the "stat" in stat + climate + grid)
+  // and the ROUTED forward factor — weather governs where the backtest routes to it (the durable
+  // winners), otherwise the statistical expert. The internal dashboard prices on the chosen one.
   const modelLocRel = data?.location?.relativityByT?.[String(T)] ?? 1;
-  const modelFwd = data?.forward?.factorByT?.[String(T)] ?? 1;
+  const statFwd = data?.forward?.factorByT?.[String(T)] ?? 1;
+  const wxRouted = data?.weather?.route === "weather";
+  const wxFactor = data?.weather?.byT?.[String(T)]?.weatherFactor ?? null;
+  const { factor: modelFwd } = routedForward(statFwd, wxFactor, wxRouted);
   const stack = useMemo(() => {
     if (!cell || cell.lam == null) return null;
     const rateBand = cell.lo != null && cell.hi != null ? { low: cell.lo, high: cell.hi } : undefined;
     const ef = effectiveFactors(adj);
     // model factors × any manual load (multiplicative, so the model and the lever never double-count).
-    // Both compose into the ONE premium: location = within-county relativity; forward = the statistical
-    // forward factor (the county's own-history forecast vs its long-run mean — the "stat" in stat+climate+grid).
+    // Both compose into the ONE premium: location = within-county relativity; forward = the routed forecast
+    // (statistical own-history OR the weather challenger where it wins the backtest).
     const locRel = modelLocRel * ef.location;
     const fwdF = modelFwd * ef.forward;
     return composePremium(

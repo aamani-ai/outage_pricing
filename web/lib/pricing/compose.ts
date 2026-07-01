@@ -55,6 +55,26 @@ export function renormalizeMeanOne(values: number[], weights?: number[]): number
 }
 
 /**
+ * The routed forward factor — which forecast expert governs the forward slot for a county. The internal
+ * dashboard prices on the BEST forecast: where the weather backtest routes a county to the weather expert
+ * (the durable winners), the weather factor governs; otherwise the statistical factor does. This is a
+ * routing choice (one OR the other), not a product — the two experts forecast the same annual frequency.
+ * There is NO shadow: the internal dashboard shows the final composed premium, so the chosen factor is the
+ * one that prices. Weather covers only a subset of triggers; where it doesn't cover T, statistical governs
+ * by fallback (return source 'statistical').
+ */
+export function routedForward(
+  statFactor: number,
+  weatherFactor: number | null | undefined,
+  isWeatherRouted: boolean,
+): { factor: number; source: 'weather' | 'statistical' } {
+  if (isWeatherRouted && weatherFactor != null && Number.isFinite(weatherFactor) && weatherFactor > 0) {
+    return { factor: weatherFactor, source: 'weather' };
+  }
+  return { factor: statFactor, source: 'statistical' };
+}
+
+/**
  * Compose the full premium stack from the layered inputs. The headline is
  * `premium.point`; `premium.{low,high}` is the range (the precomputed rate band
  * carried linearly through the same factors). Omitted location/forward default

@@ -3,14 +3,13 @@
  * Reads the artifact promoted by build_data.py from
  * notebooks/05_forward_regime/weather_vs_stat_routing/outputs/weather_factor.json.
  *
- * SHADOW ONLY. This is Sarasi's EOF-XGB annual event-count forecast expressed as a forward factor
- * (same one-directional / credibility-shrunk / capped construction as the statistical factor) plus the
- * per-county routing verdict from the 2023–25 backtest. The dashboard SHOWS it in the Forecast detail
- * (the forecast + why it was / wasn't chosen) but does NOT price on it — the composed premium stays on
- * the statistical factor. Coverage is Northeast-only (Sarasi's model scope); non-NE counties return null.
- *
- * When a live current-year forecast lands, the 16 `weather`-routed counties can be flipped to govern the
- * forward factor here — until then this is display-only. Keep SERVER-ONLY (the API route).
+ * This is Sarasi's EOF-XGB annual event-count forecast expressed as a forward factor (same one-directional
+ * / credibility-shrunk / capped construction as the statistical factor) plus the per-county routing verdict
+ * from the 2023–25 backtest. A per-county router picks the better forecast: in the 16 `weather`-routed
+ * counties the weather factor GOVERNS the composed forward and prices (see routedForward in lib/pricing);
+ * elsewhere the statistical factor governs and this is shown as the challenger the router didn't pick. No
+ * shadow — the internal dashboard shows the final premium. Coverage is Northeast-only (Sarasi's model
+ * scope); non-NE counties return null. Keep SERVER-ONLY (the API route).
  */
 import data from "./forward/weather_factor.json";
 
@@ -18,20 +17,21 @@ import data from "./forward/weather_factor.json";
 export type WeatherRoute = "weather" | "statistical" | "excluded";
 
 export interface WeatherReadT {
-  /** the weather factor this forecast WOULD apply (≥1.0, one-directional); null if uncomputable. */
+  /** the weather forward factor (≥1.0, one-directional); governs the price where route === "weather"
+   *  and the trigger is covered. null if uncomputable. */
   weatherFactor: number | null;
   /** XGB point forecast of next-year ≥T county event count, + its 90% band. */
   weatherMean: number;
   weatherP5: number;
   weatherP95: number;
-  /** the statistical factor for the same T (what actually prices today), for side-by-side. */
+  /** the statistical factor for the same T (the routed alternative), for side-by-side. */
   statFactor: number | null;
   /** the long-run baseline mean the factors are expressed against. */
   lamFull: number | null;
 }
 
 export interface WeatherRead {
-  /** weather governs (pilot, shadow) · shown but not chosen · excluded (chronic-grid cluster). */
+  /** weather governs the price · challenger the router didn't pick · excluded (chronic-grid cluster). */
   route: WeatherRoute;
   /** Sarasi's cluster label — NE_good (weather-scored) or NE_bad (chronic-grid, excluded). */
   cluster: string;

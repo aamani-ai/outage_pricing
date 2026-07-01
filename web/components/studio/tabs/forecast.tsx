@@ -6,7 +6,7 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { FactorHeadline } from "@/components/studio/factor-headline";
 import { ForwardDetail } from "@/components/studio/forward-detail";
 import { cn } from "@/components/ui/utils";
-import { forwardComponents, type Stack, type StudioData, type WeatherRead } from "@/components/studio/shared";
+import { forwardComponents, forwardRouting, type Stack, type StudioData, type WeatherRead } from "@/components/studio/shared";
 
 /** A forward sub-component that isn't wired yet — a quiet "planned" card: what it will measure and why
  *  it's gated. Honest by design: shown at ×1.00, never implying the model already exists. */
@@ -31,61 +31,48 @@ function PlannedComponent({ name, measures }: { name: string; measures: string }
 
 const num = (n: number) => (n >= 100 ? Math.round(n).toLocaleString("en-US") : n.toFixed(1));
 
-/** Route styling for the weather challenger: a green rail only when weather is the durable backtest
- *  winner; muted otherwise. The pill NEVER reads "active" — this is shadow, it doesn't price. */
-const WX_ROUTE: Record<WeatherRead["route"], { label: string; note: string; rail: string; dot: string }> = {
-  weather: {
-    label: "Weather-governed",
-    note: "pilot · shadow",
-    rail: "border-l-status-active/50",
-    dot: "bg-status-active",
-  },
-  statistical: {
-    label: "Shown · not chosen",
-    note: "statistical wins the backtest",
-    rail: "border-l-border",
-    dot: "bg-transparent ring-status-placeholder ring-1",
-  },
-  excluded: {
-    label: "Excluded",
-    note: "chronic-grid cluster",
-    rail: "border-l-border",
-    dot: "bg-transparent ring-status-placeholder ring-1",
-  },
+/** Route styling for the weather expert: a green rail + solid dot only where weather actually governs the
+ *  price (the durable backtest winners); muted where it's the challenger the router did not pick. */
+const WX_ROUTE: Record<WeatherRead["route"], { label: string; rail: string; dot: string }> = {
+  weather: { label: "Weather-governed", rail: "border-l-status-active/60", dot: "bg-status-active" },
+  statistical: { label: "Challenger · not chosen", rail: "border-l-border", dot: "bg-transparent ring-status-placeholder ring-1" },
+  excluded: { label: "Excluded · chronic grid", rail: "border-l-border", dot: "bg-transparent ring-status-placeholder ring-1" },
 };
 
 /**
- * Climate / Weather — the WIRED-BUT-SHADOW read for NE counties (Sarasi's EOF-XGB event-count forecast).
- * Shows the forecast, the factor it WOULD apply, and the backtest verdict (why chosen / not) — but it does
- * NOT move the price: the composed forward stays on the statistical factor until a live forecast lands.
- * Deliberately un-highlighted (no headline factor, muted rail) so it reads as a challenger under review.
+ * Climate / Weather — the weather expert (Sarasi's EOF-XGB event-count forecast) for NE counties. A
+ * per-county router picks whichever forecast won the 2023–25 backtest: where weather wins it GOVERNS the
+ * forward factor and prices (no shadow — the internal dashboard shows the final premium); elsewhere it's
+ * the challenger the router didn't pick, shown for transparency with the verdict.
  */
 function WeatherComponent({ weather, T }: { weather: WeatherRead; T: number }) {
   const d = weather.byT[String(T)];
   const meta = WX_ROUTE[weather.route];
   const wf = d?.weatherFactor;
+  // weather actually governs the PRICE here only if it's routed to weather AND it covers this trigger.
+  const governs = weather.route === "weather" && wf != null;
   return (
-    <div className={cn("bg-muted/20 rounded-lg border border-l-2 p-4", meta.rail)}>
+    <div className={cn("bg-muted/20 rounded-lg border border-l-2 p-4", governs ? "border-l-status-active/60" : meta.rail)}>
       <div className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-2">
-          <span className={cn("size-1.5 shrink-0 rounded-full", meta.dot)} />
+          <span className={cn("size-1.5 shrink-0 rounded-full", governs ? "bg-status-active" : meta.dot)} />
           <span className="text-foreground/80 text-sm font-medium">Climate / Weather</span>
         </span>
         <span className="flex items-center gap-2">
           <span className="border-border bg-background/60 text-muted-foreground rounded-full border px-2 py-0.5 text-[11px] font-medium">
-            {meta.label} · {meta.note}
+            {governs ? "Weather-governed · prices" : meta.label}
           </span>
-          <InfoHint title="Weather challenger — shadow, not priced">
+          <InfoHint title="Routed forecast — statistical vs weather">
             <p>
               Sarasi&rsquo;s EOF-XGB model forecasts the county&rsquo;s annual ≥T outage-event count from weather/climate
               signals. We express it as a forward factor the <b>same way</b> as the statistical one (one-directional,
-              credibility-shrunk, capped) so the two are directly comparable.
+              credibility-shrunk, capped) so a per-county router can compare them directly.
             </p>
             <p>
-              It is <b>shadow</b>: the price still uses the statistical factor. On the 2023–25 backtest weather is the
-              durable winner in <b>16 Northeast counties</b> — those are flagged &ldquo;weather-governed&rdquo; and will
-              actually govern once a <b>live current-year forecast</b> replaces this backtest fit. Everywhere else the
-              statistical baseline won, and the chronic-grid cluster is excluded by the model.
+              The router picks whichever won the <b>2023–25 backtest</b>. In <b>16 Northeast counties</b> the weather
+              forecast wins and <b>governs the forward factor here — it prices</b>; elsewhere the statistical baseline
+              governs, and the chronic-grid cluster is excluded by the model. The chosen forecast is the one that
+              prices — there is no separate shadow.
             </p>
           </InfoHint>
         </span>
@@ -99,13 +86,8 @@ function WeatherComponent({ weather, T }: { weather: WeatherRead; T: number }) {
               <span className="text-foreground tabular-nums">{num(d.weatherMean)}/yr</span>
             </div>
             <div className="flex items-baseline justify-between gap-2">
-              <span className="text-muted-foreground">Would apply</span>
-              <span
-                className={cn(
-                  "tabular-nums",
-                  weather.route === "weather" ? "text-foreground font-medium" : "text-muted-foreground/70",
-                )}
-              >
+              <span className="text-muted-foreground">{governs ? "Applies" : "Would apply"}</span>
+              <span className={cn("tabular-nums", governs ? "text-foreground font-medium" : "text-muted-foreground/70")}>
                 {wf != null ? `×${wf.toFixed(2)}` : "—"}
               </span>
             </div>
@@ -116,7 +98,7 @@ function WeatherComponent({ weather, T }: { weather: WeatherRead; T: number }) {
               </span>
             </div>
             <div className="flex items-baseline justify-between gap-2">
-              <span className="text-muted-foreground">Prices today (statistical)</span>
+              <span className="text-muted-foreground">{governs ? "Statistical (runner-up)" : "Statistical (governs here)"}</span>
               <span className="text-foreground/80 tabular-nums">{d.statFactor != null ? `×${d.statFactor.toFixed(2)}` : "—"}</span>
             </div>
             {d.lamFull != null && (
@@ -128,19 +110,24 @@ function WeatherComponent({ weather, T }: { weather: WeatherRead; T: number }) {
           </div>
           <p className="text-muted-foreground mt-3 text-xs leading-relaxed">{weather.why}</p>
           <p className="text-muted-foreground/60 mt-1 text-[11px] leading-relaxed">
-            {weather.route === "weather" ? (
+            {governs ? (
               <>
-                <b className="text-foreground/70">Shadow</b> — the price still uses the statistical factor. This
-                backtest-durable county flips to weather-governed once a live current-year forecast lands.
+                <b className="text-foreground/70">Governs the price here</b> — the weather forecast is the applied forward
+                factor for this county (it won the backtest).
               </>
+            ) : weather.route === "excluded" ? (
+              <>Outages here are chronic-grid, not weather-driven, so the statistical factor prices.</>
             ) : (
-              <>Shown for transparency — this county is <b className="text-foreground/70">not</b> routed to weather, so it doesn&rsquo;t affect the price.</>
+              <>Challenger — the statistical factor governs here, so this doesn&rsquo;t price.</>
             )}
           </p>
         </>
       ) : (
         <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
-          No weather forecast at this trigger — the weather model covers ≥4h events. {weather.why}
+          {weather.route === "weather"
+            ? "Weather governs this county at ≥4h; at this trigger it has no forecast, so the statistical factor prices. "
+            : "No weather forecast at this trigger — the weather model covers ≥4h events. "}
+          {weather.why}
         </p>
       )}
     </div>
@@ -148,11 +135,11 @@ function WeatherComponent({ weather, T }: { weather: WeatherRead; T: number }) {
 }
 
 /**
- * Forecast — the forward-regime FACTOR (Step 5), decomposed into its three intended components:
- * Statistical (own-history trend — the only one that moves the price today) × Climate/Weather × Grid.
- * Climate/Weather is now a wired-but-shadow challenger for Northeast counties (shown + backtested, held at
- * ×1.00 in the price); Grid is still a planned ×1.00 placeholder. Both hold at ×1.00, so the composed
- * forward still equals the statistical factor — no price change.
+ * Forecast — the forward-regime FACTOR (Step 5). The frequency forecast is a ROUTED choice between two
+ * experts — Statistical (own-history trend) and the Climate/Weather challenger — times Grid (a future
+ * overlay). A per-county router picks whichever won the backtest: in 16 NE counties weather governs and
+ * prices; elsewhere statistical governs. No shadow — the chosen expert is the one that prices. The other
+ * stands down to ×1.00 in the decomposition, so the product equals the composed forward factor exactly.
  * (Internal keys stay `forward`; the UI label is "Forecast".)
  */
 export function ForecastTab({ data, stack, T, X }: { data: StudioData; stack: NonNullable<Stack>; T: number; X: number }) {
@@ -164,11 +151,18 @@ export function ForecastTab({ data, stack, T, X }: { data: StudioData; stack: No
   const dollar = stack.premium.point - withoutFwd;
   const movePct = Math.round((f - 1) * 100);
 
-  // the three intended forward sub-components (shared with the Price Breakdown expansion). Statistical
-  // carries the whole forward factor today (= stack.forward.factor); Climate/Weather (wired as a shadow
-  // read) holds at ×1.00 in the price and Grid isn't wired yet → ×1.00. Their product is the composed
-  // forward, so this reconciles to the headline exactly.
-  const components = forwardComponents(f, stack.forward.status);
+  // which expert the router chose for (county, T) + both experts' model factors — the SAME source of truth
+  // the Price Breakdown reads, so the two never drift. The chosen expert carries the applied forward
+  // factor; the other stands down to ×1.00, so the decomposition product = the composed forward exactly.
+  const routing = forwardRouting(data, T);
+  const statGoverns = routing.source === "statistical";
+  const components = forwardComponents({
+    routedFactor: f,
+    source: routing.source,
+    statFactor: routing.statFactor,
+    weatherFactor: routing.weatherFactor,
+    statStatus: stack.forward.status,
+  });
 
   return (
     <Card>
@@ -180,17 +174,17 @@ export function ForecastTab({ data, stack, T, X }: { data: StudioData; stack: No
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <StatusBadge status={stack.forward.status} />
-            <InfoHint title="Statistical baseline + shadow challengers">
+            <InfoHint title="Routed forecast — statistical vs weather, × grid">
               <p>
-                The forward view is built from three components: <b>Statistical</b> (the county&rsquo;s own outage history
-                forecasting next year vs its long-run mean), <b>Climate/Weather</b>, and <b>Grid</b>.
+                The forward factor is a <b>routed frequency forecast</b> × <b>Grid</b>. Two experts forecast the
+                county&rsquo;s next-year outage frequency: <b>Statistical</b> (the county&rsquo;s own outage history vs
+                its long-run mean) and the <b>Climate/Weather</b> challenger. A per-county router picks whichever won
+                the out-of-sample backtest, and the chosen one <b>governs the price</b>.
               </p>
               <p>
-                <b>Statistical</b> prices today — one-directional (uplift or hold) and credibility-shrunk.{" "}
-                <b>Climate/Weather</b> is now a <b>wired shadow challenger</b> for Northeast counties: its forecast is
-                shown and backtested below, but it holds at ×1.00 in the price. <b>Grid</b> is still a planned
-                challenger, also at ×1.00. Each must beat the statistical baseline out-of-sample before it moves the
-                premium, so neither moves the price today.
+                Statistical governs most counties; in <b>16 Northeast counties</b> the weather forecast wins and governs
+                there. The unchosen expert stands down to ×1.00 in the breakdown (it doesn&rsquo;t double-count).
+                <b>Grid</b> is a planned overlay, still ×1.00. No shadow — the chosen forecast is the one that prices.
               </p>
             </InfoHint>
           </div>
@@ -232,15 +226,27 @@ export function ForecastTab({ data, stack, T, X }: { data: StudioData; stack: No
             <span className="font-semibold tabular-nums">×{f.toFixed(2)}</span>
           </div>
           <p className="text-muted-foreground/60 mt-1.5 text-xs leading-relaxed">
-            Only Statistical moves the price today; Climate/Weather (a shadow challenger on the NE pilot) and Grid hold
-            at ×1.00, so the composed forward equals the statistical factor —{" "}
-            <b className="text-foreground/70">no change to the price</b>.
+            {statGoverns ? (
+              <>
+                The router chose <b className="text-foreground/70">Statistical</b> here; Climate/Weather stands down to
+                ×1.00 (challenger) and Grid is planned — so the forward factor is the statistical forecast.
+              </>
+            ) : (
+              <>
+                The router chose <b className="text-foreground/70">Climate/Weather</b> here (it won the backtest);
+                Statistical stands down to ×1.00 and Grid is planned — so the weather forecast is the applied forward
+                factor and <b className="text-foreground/70">it prices</b>.
+              </>
+            )}
           </p>
         </div>
 
-        {/* Statistical — the price-moving component (regime → method → annual series) */}
+        {/* Statistical — the own-history frequency expert (regime → method → annual series). Governs where
+            the router picks it; where weather wins it's shown as the runner-up. */}
         <div>
-          <div className="text-muted-foreground mb-1.5 text-[10px] font-medium uppercase tracking-wider">Statistical · wired</div>
+          <div className="text-muted-foreground mb-1.5 text-[10px] font-medium uppercase tracking-wider">
+            {statGoverns ? "Statistical · governs" : "Statistical · runner-up (weather won)"}
+          </div>
           {fwd ? (
             <ForwardDetail fwd={fwd} studio={data.studio} T={T} county={`${data.county.name} County`} />
           ) : (
@@ -250,8 +256,8 @@ export function ForecastTab({ data, stack, T, X }: { data: StudioData; stack: No
           )}
         </div>
 
-        {/* Climate/Weather — a live shadow read where the weather model has coverage (NE), else planned.
-            Grid — still a planned, gated challenger. */}
+        {/* Climate/Weather — the weather expert where the model has coverage (NE): governs the price where
+            the router picks it, else shown as the challenger. Grid — still a planned overlay. */}
         <div className="space-y-3">
           {data.weather ? (
             <WeatherComponent weather={data.weather} T={T} />

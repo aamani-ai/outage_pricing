@@ -18,9 +18,9 @@ const METHOD: Record<string, string> = {
 /**
  * The statistical forward-factor detail — opened from the Forecast factor row in the Forecast tab.
  * Decision-read first (regime → method → factor), then the annual series with the long-run mean vs the
- * next-year forecast, then honest maturity. No "shadow": this is the statistical component of the one
- * composed premium. (Climate/Weather + Grid live as their own cards in the Forecast tab — Climate/Weather
- * as a shadow challenger where the weather model has coverage, Grid still planned.)
+ * next-year forecast, then honest maturity. This is the statistical frequency expert — it governs the
+ * forward factor unless the router picks the weather challenger for this county. (Climate/Weather + Grid
+ * live as their own cards in the Forecast tab; the chosen expert is the one that prices.)
  */
 export function ForwardDetail({
   fwd,

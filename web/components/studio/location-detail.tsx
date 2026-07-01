@@ -21,7 +21,8 @@ const relKey = (T: number) => `T${Math.min(T, 8)}`;
 /**
  * The within-county location-basis detail — opened from the Location factor row in the Location tab.
  * Decision-read first (position · guardrail · one bar · trust); deep evidence in a nested ExpandBox.
- * Shadow: pilot-calibrated, nationally extrapolated; never moves the outward premium.
+ * Applied: this relativity composes into the premium. Calibrated on the CT/MA/RI pilot and nationally
+ * extrapolated, so its confidence is pilot-grade — treat accordingly (Trust line below).
  */
 export function LocationDetail({ loc, T, county }: { loc: LocationRead; T: number; county: string }) {
   const c = useChartColors();
@@ -112,7 +113,7 @@ export function LocationDetail({ loc, T, county }: { loc: LocationRead; T: numbe
 
       {/* trust — honest maturity, split from the factor */}
       <p className="text-muted-foreground/70 text-xs leading-relaxed">
-        Trust: <span className="text-foreground/70">shadow</span> — calibrated on the CT/MA/RI pilot (one quiet season);
+        Trust: <span className="text-foreground/70">pilot-calibrated</span> — calibrated on the CT/MA/RI pilot (one quiet season);
         {loc.validated ? " this county is in the validated set." : " this county is nationally extrapolated, not independently validated."}
         {loc.dispersion != null && (
           <> Within-county density spread here is <span className="tabular-nums">{loc.dispersion.toFixed(2)}</span> — higher means location matters more.</>

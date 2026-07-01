@@ -1,4 +1,4 @@
-export { composePremium, renormalizeMeanOne } from './compose';
+export { composePremium, renormalizeMeanOne, routedForward } from './compose';
 export type {
   BandDriver,
   BaselineLayer,

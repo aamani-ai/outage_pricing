@@ -22,11 +22,11 @@ STEP                       BUILD                       IN QUOTED PRICE?
 2a County frequency     ████████████  production        base
 2b Per-customer mult.   ████████████  production      ●  YES (headline)
    └─ cell read         ███░░░░░░░░░░  diagnostic      ○  no
-3  Risk clustering      ██████████░░  shadow (built)  ○  no      ◀ CURRENT
-4  Location basis       █████████░░░░  shadow          ○  no
-5  Forward regime       ████████░░░░░  shadow          ○  no
+3  Risk clustering      ██████████░░  router (built)  ○  no      ◀ CURRENT
+4  Location basis       █████████░░░░  applied         ●  yes
+5  Forward regime       ████████░░░░░  applied         ●  yes
 ──────────────────────────────────────────────────────────────────────
- ● in price    ○ not in price    ◀ where we are now
+ ● in the Studio premium   ○ not a price factor   ◀ where we are now
 ```
 
 How to read each step:
@@ -39,8 +39,8 @@ How to read each step:
 | Tag | Meaning |
 |---|---|
 | **production** | wired into the quoted number today |
-| **shadow** | computed + shown, but not in the quoted price |
-| **diagnostic** | notebook only; no artifact in the pricing tree |
+| **applied (Studio)** | composed into the internal Studio premium (the outward quick-quote currently shows baseline + manual adjustments only) |
+| **router / diagnostic** | computed + shown, but not a multiplicative price factor |
 | **not built** | planned, no code wired |
 
 This document is **living** — when we execute a step, its section updates here.
@@ -208,7 +208,7 @@ masked ≥8h annual series per county  ──▶  significance-gated rule tree  
  └────────     └────────      └────────        └────────         └────────
 ```
 
-**Status:** **shadow** — `regime_classification.ipynb` → `outputs/regime_classification/county_regime_T8.csv` (per-county regime · sub-flag · confidence · cross-T stability). A behavioral **router / identity** — behavior not cause (A013), **not** a forecast, **not** in price. Significance-gated rule tree, adversarially verified (3 lenses).
+**Status:** **router (built)** — `regime_classification.ipynb` → `outputs/regime_classification/county_regime_T8.csv` (per-county regime · sub-flag · confidence · cross-T stability). A behavioral **router / identity** — behavior not cause (A013), **not** a forecast, **not** a multiplicative price factor (it routes which forward expert applies). Significance-gated rule tree, adversarially verified (3 lenses).
 
 ```text
  distribution (T=8h):  stable 42 · trend 23 · shift 22 · insufficient 11 · episodic 1.5  (% of counties)
@@ -246,11 +246,11 @@ county per-customer rate ──▶ × within-county density relativity ──▶
    urban  █████████         0.8×   denser → safer
 ```
 
-**Status:** **shadow** (shipped 2026-06-18, dashboard-only: map "color by" + matrix "location-adjusted" + Mapbox search). `build_density_relativity.py`, `build_county_dispersion.py`.
+**Status:** **applied · pilot** (shipped 2026-06-18; composed into the Studio premium — map "color by" + matrix "location-adjusted" + Mapbox search). Pilot-calibrated on CT/MA/RI, nationally extrapolated. `build_density_relativity.py`, `build_county_dispersion.py`.
 
 **Honesty question:** *is the within-county relativity real, or noise?* — density survived; tree canopy tested & discarded; PoUS-calibrated on CT/MA/RI.
 
-**Open bottlenecks** — most mature adjustment layer → **validate, don't rebuild.** Promotion shadow→active still gated on validation.
+**Open bottlenecks** — most mature adjustment layer → **validate, don't rebuild.** Widening the cap / promoting it into the outward quote is still gated on validation beyond the CT/MA/RI pilot.
 
 **Pointers** — [`location_basis_methodology.md`](methodology/04_location_basis/location_basis_methodology.md) · [`fundamentals/location_basis_fundamentals.md`](methodology/04_location_basis/location_basis_fundamentals.md) · [`dicsscssion/location_aware_outage_pricing/`](dicsscssion/location_aware_outage_pricing/) · [`extra/location_features/`](extra/location_features/)
 
@@ -262,7 +262,7 @@ county per-customer rate ──▶ × within-county density relativity ──▶
 historical-regime estimate ──▶ + grid/climate/weather/hazard covariates ──▶ fwd est.
 ```
 
-**Status:** **partially built (shadow)** — the **statistical** forward factor is wired and applied (one regime-routed expert per county; [A020](methodology/assumptions.md), [`web/lib/data/forward.ts`](../web/lib/data/forward.ts)). The **weather/climate** challenger (Sarasi EOF-XGB) is now wired as a **shadow read** ([`web/lib/data/weather.ts`](../web/lib/data/weather.ts)) — shown in the Studio Forecast detail with a route badge for the 300 NE counties (16 weather-governed backtest winners / shown-not-chosen / excluded), held at ×1.00 in the price. **Grid** remains an un-wired ×1.00 placeholder, and the broader hazard/covariate overlay is still unbuilt (plans exist; hazard infra exists but disconnected). See [A020/A021](methodology/assumptions.md) and [`MODEL_QA_AND_CAVEATS.md`](MODEL_QA_AND_CAVEATS.md) §6–§7.
+**Status:** **applied (routed)** — the forward factor is a per-county **router** between two frequency experts, times a future Grid overlay. The **statistical** expert (one regime-routed method per county; [A020](methodology/assumptions.md), [`web/lib/data/forward.ts`](../web/lib/data/forward.ts)) governs most counties. The **weather/climate** challenger (Sarasi EOF-XGB, [`web/lib/data/weather.ts`](../web/lib/data/weather.ts)) **wins the 2023–25 backtest in 16 NE counties and governs their forward factor — it prices there** ([`routedForward()`](../web/lib/pricing/compose.ts), applied in the Studio + Analytics batch); elsewhere statistical governs and weather shows as the challenger; the chronic-grid cluster is excluded. **Grid** remains an un-wired ×1.00 placeholder, and the broader hazard/covariate overlay is still unbuilt (plans exist; hazard infra exists but disconnected). See [A020/A021](methodology/assumptions.md) and [`MODEL_QA_AND_CAVEATS.md`](MODEL_QA_AND_CAVEATS.md) §6–§7.
 
 **Honesty question:** *which covariates legitimately move the forward view, gated how?* + the structural one: *how does Step 3 connect to prediction?*
 
