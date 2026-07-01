@@ -125,7 +125,7 @@ lambda_customer(T) = lambda_county(T) * E[mean_customers / MCC | duration_hours 
 ```
 
 This shadow rate is being validated by the
-[Per-Customer Pricing Plan](../../plan/02_per_customer/per_customer_pricing_plan.md). It
+[Per-Customer Pricing Plan](../../plan/done/2026-05-30_per_customer_pricing_plan.md). It
 does not change v0 pricing.
 
 ### Phase 1 evidence (2026-05-30)
@@ -222,7 +222,7 @@ Retail premium      = $236,268 / yr      (ER=0.20, TM=0.15)
 
 This is a per-customer **quoted** annual premium that reflects a
 **county-trigger expected payout**. The per-customer-aware shadow rate
-will be added once the [per-customer plan](../../plan/02_per_customer/per_customer_pricing_plan.md)
+will be added once the [per-customer plan](../../plan/done/2026-05-30_per_customer_pricing_plan.md)
 exits its Phase 3 gate.
 
 ## Validation
@@ -257,6 +257,6 @@ exits its Phase 3 gate.
 - [Event Catalog Creation Methodology](../01_eventization/event_catalog_creation_methodology.md)
 - [Aggregation and Annualization Methodology](../02_per_customer/aggregation_and_annualization_methodology.md)
 - [Filtration Methodology](filtration_methodology.md)
-- [Per-Customer Pricing Plan](../../plan/02_per_customer/per_customer_pricing_plan.md)
+- [Per-Customer Pricing Plan](../../plan/done/2026-05-30_per_customer_pricing_plan.md)
 - [Outage Baseline Adjustment Framework](../../plan/cross_cutting/outage_baseline_adjustment_framework.md)
 - [Forward-Looking Modeling Plan](../../plan/05_forward_regime/forward_looking_modeling_plan.md)

@@ -2,7 +2,7 @@
 
 *Audience: senior team. Started: 2026-06-28 (living doc — questions pending). Reads after
 [`per_customer_pricing_fundamentals.md`](per_customer_pricing_fundamentals.md). The bug-driven origin story is
-[`../../dicsscssion/premium_implausibility_investigation/02_understanding_the_denominator.md`](../../dicsscssion/premium_implausibility_investigation/02_understanding_the_denominator.md);
+[`../../dicsscssion/done/premium_implausibility_investigation/02_understanding_the_denominator.md`](../../dicsscssion/done/premium_implausibility_investigation/02_understanding_the_denominator.md);
 this doc is the durable "what is this number, and what kinds are there."*
 
 ---
@@ -25,6 +25,80 @@ It is tempting to treat this as trivial — *divide customers-out by a customer-
 not. **There is no single, clean "customer count."** There are several candidate definitions, they disagree (sometimes
 by multiples), the *unit* itself is ambiguous, and the geography doesn't line up. This doc lays out that nuance so the
 choice is explicit and reviewable — and flags where the **business side** will force more of it.
+
+---
+
+## The whole picture at a glance (mind map)
+
+```text
+                       THE DENOMINATOR  ·  premium ∝ 1 / BASE   ·  "how many customers are exposed?"
+                                                   │
+                 ┌─────────────────────────────────┼─────────────────────────────────┐
+            FOUR CANDIDATES                    KEY REALISATION                    THE DECISION
+                 │                                  │                                  │
+   ┌─────────────┼─────────────┐         MCC and total_customers are the      KEEP A018 (what's LIVE):
+   │             │             │           SAME ORNL model, two vintages         BASE = max(MCC, housing, peak)
+ MCC          total_       housing /         c_i = p_i × (C / P)                  housing ANCHORS it where the
+ (2022 file)  customers    households    (EIA-861 cust × LandScan pop ÷             modeled counts go garbage
+   │          (2024 inline)  (ACS)         HIFLD territory)                       → robust, never catastrophic
+   │             │             │                  │                                 (crude: housing is a proxy;
+   └──────┬──────┘             │            ⇒ they FAIL THE SAME WAY,               mild over-price = safe dir)
+          │                    │              in BOTH directions:                 ─────────────────────────────
+   MODELLED account counts  STABLE          • too SMALL — Henderson 24,           REJECT A019 (the trap):
+   (meter/building/facility) ANCHOR           partial utility coverage              BASE = max(MCC, total_customers)
+   from the SAME pipeline   (well-measured;  • too BIG — Berkshire 284k,            trusts the modeled counts →
+          │                  every home       Staunton 36k, over-allocation         • under-prices Berkshire/Staunton 3×
+   ✗ unreliable BOTH ways    has a meter)            │                             • over-prices SF −45% / Jo Daviess −3× (too SMALL)
+                             but a PROXY:     so NEITHER modelled count is        ─────────────────────────────
+   peak (4th candidate)      households ≠     trustworthy alone, and the          total_customers' REAL role:
+   = the NUMERATOR.          meters; multi-   "take the larger" rule is             a QC CROSS-CHECK / FLAG, not the
+   ✗ CIRCULAR as a divisor   family master-   unsafe (the larger may be the         divisor. Agrees w/ MCC → confidence;
+   (caps the rate at 100%)   metering skews   inflated one).                        diverges wildly → investigate.
+                             it.
+```
+
+```text
+   PER-COUNTY DECISION (A018, live)
+   ────────────────────────────────
+   cap_ref = max(MCC, housing)                    ← best estimate of the true base (housing anchors broken MCC)
+   peak > 1.5 × cap_ref ?  ──yes──►  EXCLUDE       ← numerator corrupt (more out than could exist) → not quotable
+        │ no
+        ▼
+   BASE = max(MCC, housing, peak)  ──►  PRICE      ← share-out = customers_out / BASE, capped at 1.0
+```
+
+**One-paragraph translation:** there is no clean customer count. The two that *look* like real counts (MCC and the
+new `total_customers`) are the *same modelled pipeline* and are garbage in both directions, so we can't simply trust
+the larger of them. **Census housing units is the one stable anchor**, so the live rule (A018) anchors on it — it's
+crude but never blows up. The shiny new `total_customers` is best used to *flag* suspect counties, not to *divide* by.
+(Full assumptions: [A018](../assumptions.md#a018--the-per-customer-denominator-is-validated-against-census-housing-units-not-raw-mcc) ·
+[A019](../assumptions.md#a019--research-strengthens-a018-total_customers-evaluated-as-the-denominator-and-rejected); evidence:
+[`notebooks/02_per_customer/customer_base_denominator_eval.ipynb`](../../../notebooks/02_per_customer/customer_base_denominator_eval.ipynb).)
+
+### The evidence — 6 ground-truth spot-checks (and how much to trust each)
+
+There is **no published metered customer count per county** (EIA-861 has no county dimension), so each "truth" below is
+*assembled*, at different confidence. We weight by how clean the source is — not a flat vote:
+
+```text
+  county            true ≈     MCC          total_customers    housing      closest   confidence / source
+  ───────────────────────────────────────────────────────────────────────────────────────────────────────
+  San Francisco    395,000     210k (−45%)  210k (−45%)        408k (+3%)   HOUSING   GOLD  EIA-861, CCA = whole county
+  Hoonah-Angoon AK   1,800     84 (−21×!)   (missing)          1,708 (✓)    HOUSING   GOLD  Alaska PCE per-community filings
+  ───────────────────────────────────────────── these two are NON-circular & regulatory → load-bearing ─────────
+  Berkshire MA      76,517     99k (+29%)   284k (impossible)  69.7k (−9%)  HOUSING   SILVER PowerOutage.us tracker
+  Cape May NJ       56,000     56.1k (✓)    56.3k (✓)          99.5k (+77%) MCC/tc    SILVER EIA-861 territory + reasoning
+  Staunton VA       13,000     11.2k        36k (+2.9×)        12.3k (✓)    HOUSING   WEAK  estimate anchored ON housing
+  Jo Daviess IL     10,500     3.6k (−3×)   3.9k (−3×)         13.4k (+28%) HOUSING   WEAK  allocated, anchored ON housing
+```
+
+**Read it honestly:** the two GOLD cases (San Francisco, Hoonah-Angoon) need *no allocation* — the utility/CCA territory
+*is* the county, so they are real regulatory counts — and both show the modelled MCC/`total_customers` grossly wrong
+(−45%, −21×) with housing closest. The WEAK rows lean on housing to *form* the estimate, so "housing closest" there is
+partly self-fulfilling — we don't count them as proof. Cape May is the honest counter-example: in a 59%-vacant shore
+county the modelled counts (~56k) are *right* and housing *over*-counts — the one place A018's anchor has a known
+weakness (vacancy). Net: the modelled counts are unreliable (proved by the clean cases + the `c = p × C/P` structure);
+housing is the best *available* anchor, robust but not perfect.
 
 ---
 
@@ -201,8 +275,8 @@ denominator question is already framed rather than rediscovered.
 
 ## References
 
-- Origin / bug story: [`../../dicsscssion/premium_implausibility_investigation/02_understanding_the_denominator.md`](../../dicsscssion/premium_implausibility_investigation/02_understanding_the_denominator.md) · [`01_denominator_fix.md`](../../dicsscssion/premium_implausibility_investigation/01_denominator_fix.md)
-- The estimator (separate lever): [`../../dicsscssion/premium_implausibility_investigation/03_the_shareout_is_the_bottleneck.md`](../../dicsscssion/premium_implausibility_investigation/03_the_shareout_is_the_bottleneck.md)
+- Origin / bug story: [`../../dicsscssion/done/premium_implausibility_investigation/02_understanding_the_denominator.md`](../../dicsscssion/done/premium_implausibility_investigation/02_understanding_the_denominator.md) · [`01_denominator_fix.md`](../../dicsscssion/done/premium_implausibility_investigation/01_denominator_fix.md)
+- The estimator (separate lever): [`../../dicsscssion/done/premium_implausibility_investigation/03_the_shareout_is_the_bottleneck.md`](../../dicsscssion/done/premium_implausibility_investigation/03_the_shareout_is_the_bottleneck.md)
 - Per-customer mechanics: [`per_customer_pricing_fundamentals.md`](per_customer_pricing_fundamentals.md)
 - MCC derivation: [`../cross_cutting/eagle_i_data_fundamentals.md`](../cross_cutting/eagle_i_data_fundamentals.md) · [Brelsford et al., Nature Sci. Data 2024](https://www.nature.com/articles/s41597-024-03095-5) · [Modeled County Customers 2023](https://openenergyhub.ornl.gov/explore/dataset/modeled-county-customers-2023/)
 - Assumptions: [`../assumptions.md`](../assumptions.md) — **A018** (composite base) · **A011** (share-out estimator) · **A008** (MCC / customer-unit caveats) · **A010** (mean not max)

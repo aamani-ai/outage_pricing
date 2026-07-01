@@ -278,7 +278,7 @@ Granularity issues to document before changing prices:
 > **Detailed plan:** the execution of this modifier — math validation,
 > shadow-rate pipeline, dashboard surface, external validation, and
 > graduation gate — is tracked in
-> [`per_customer_pricing_plan.md`](../02_per_customer/per_customer_pricing_plan.md). This
+> [`per_customer_pricing_plan.md`](../done/2026-05-30_per_customer_pricing_plan.md). This
 > section keeps the modifier definition and lifecycle classification; the
 > phased build sits in the plan file.
 

@@ -145,4 +145,4 @@ For a uniformly-spread book, concentration is latent. For a book that organicall
 - [Per-customer fundamentals — Overestimation as a conservative cushion](../02_per_customer/per_customer_pricing_fundamentals.md)
 - [Roadmap — Portfolio aggregation (parked, v1)](../roadmap.md#portfolio-aggregation--parked-v1)
 - [Portfolio Risk Engine Plan](../../plan/05_forward_regime/portfolio_risk_engine_plan.md)
-- [Per-Customer Pricing Plan §How this interacts with future product layers](../../plan/02_per_customer/per_customer_pricing_plan.md)
+- [Per-Customer Pricing Plan §How this interacts with future product layers](../../plan/done/2026-05-30_per_customer_pricing_plan.md)

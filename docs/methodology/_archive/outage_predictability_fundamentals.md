@@ -1,6 +1,8 @@
+> **SUPERSEDED 2026-06-22 — archived.** The live Step-3 method is [`regime_classification_methodology.md`](../03_risk_clustering/regime_classification_methodology.md); see `_archive/README.md`. Kept for history.
+
 # Outage Predictability Pattern - Fundamentals
 
-*Audience: senior team. First drafted: 2026-06-16. Last reviewed: 2026-06-20. Reads naturally after [`outage_trend_fundamentals.md`](outage_trend_fundamentals.md).*
+*Audience: senior team. First drafted: 2026-06-16. Last reviewed: 2026-06-20. Reads naturally after [`outage_trend_fundamentals.md`](../03_risk_clustering/outage_trend_fundamentals.md).*
 
 > **⚠ Superseded framing (2026-06-22).** This describes the **7-shape** predictability classifier
 > (smooth / volatile trend · episodic · step-change · stable · sparse) that Step 3 has moved away
@@ -245,5 +247,5 @@ outlier count, peak-year share, and cross-T consistency.
 - Shadow pricing: [`lambda_shadow_pricing_fundamentals.md`](lambda_shadow_pricing_fundamentals.md)
 - Pricing adjustment mechanisms:
   [`../../dicsscssion/pricing_adjustment_mechanisms/01_pricing_adjustment_mechanism_design.md`](../../dicsscssion/pricing_adjustment_mechanisms/01_pricing_adjustment_mechanism_design.md)
-- Input trend layer: [`outage_trend_fundamentals.md`](outage_trend_fundamentals.md)
+- Input trend layer: [`outage_trend_fundamentals.md`](../03_risk_clustering/outage_trend_fundamentals.md)
 - Trend validation plan: [`docs/plan/outage_trend_validation_plan.md`](../../plan/03_risk_clustering/outage_trend_validation_plan.md)

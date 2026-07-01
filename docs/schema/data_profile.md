@@ -186,5 +186,5 @@ The multi-month tail is **gap-bridging / never-recovered snapshots**, not real s
 ---
 
 *Generated 2026-06-28 from a 9-dataset parallel profiling pass (schema + distributions + outliers). Companion:
-[`data_lake.md`](data_lake.md) · ties to [premium-implausibility investigation](../dicsscssion/premium_implausibility_investigation/)
+[`data_lake.md`](data_lake.md) · ties to [premium-implausibility investigation](../dicsscssion/done/premium_implausibility_investigation/)
 and [customer-base denominator fundamentals](../methodology/02_per_customer/customer_base_denominator_fundamentals.md).*

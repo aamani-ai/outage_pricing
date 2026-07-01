@@ -86,6 +86,6 @@ canonical URL, reused security plumbing, preview-before-promote.
 
 ## Links
 
-- Design decisions: `../../dicsscssion/dashboard_redesign/00_decisions_locked.md`
+- Design decisions: `../../dicsscssion/done/dashboard_redesign/00_decisions_locked.md`
 - Principles: `../../principles/` (communicate_to_share · + ui_design/scaling/usability to be ported, D9)
 - References (gitignored): `../../extra/references/` (renewablesinfo web · old dashboard)

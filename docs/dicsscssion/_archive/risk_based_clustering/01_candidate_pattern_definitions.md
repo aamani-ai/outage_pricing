@@ -7,7 +7,7 @@
 > **⚠ Superseded (2026-06-22).** This is the **7-shape catalog** Step 3 has retired — the shapes
 > overlapped in practice (bidirectional label churn), so they were never distinct *actions*.
 > Preserved as the audit trail of the thinking that led to **regime routing**:
-> [`OUTAGE_MODELING_FRAMEWORK.md`](../../OUTAGE_MODELING_FRAMEWORK.md) Step 3 ▸ *Reframe — REGIME
+> [`OUTAGE_MODELING_FRAMEWORK.md`](../../../OUTAGE_MODELING_FRAMEWORK.md) Step 3 ▸ *Reframe — REGIME
 > ROUTING*. Do not treat these shapes as the target taxonomy.
 
 This note is deliberately intuitive. The goal is to decide whether the pattern

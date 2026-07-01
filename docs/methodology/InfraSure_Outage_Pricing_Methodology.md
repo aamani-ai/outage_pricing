@@ -175,7 +175,7 @@ were different things — they are one step.
 - Not a black box. The labels are rule-based and auditable (slope normalized by scale,
   residual noise, line fit, one-year dominance, sparse-year count, cross-T consistency).
 
-Detail: [`fundamentals/outage_predictability_fundamentals.md`](03_risk_clustering/outage_predictability_fundamentals.md),
+Detail: [`fundamentals/outage_predictability_fundamentals.md`](_archive/outage_predictability_fundamentals.md),
 [`fundamentals/outage_trend_fundamentals.md`](03_risk_clustering/outage_trend_fundamentals.md),
 [`../dicsscssion/pricing_adjustment_mechanisms/01_pricing_adjustment_mechanism_design.md`](../dicsscssion/pricing_adjustment_mechanisms/01_pricing_adjustment_mechanism_design.md).
 
@@ -258,7 +258,7 @@ premium_effect  = premium × factor
 > of the method. It is **not** the same thing as the *uncertainty load* (which is a v2
 > item — see Section 9). Don't conflate them.
 
-Detail: [`fundamentals/lambda_shadow_pricing_fundamentals.md`](03_risk_clustering/lambda_shadow_pricing_fundamentals.md).
+Detail: [`fundamentals/lambda_shadow_pricing_fundamentals.md`](_archive/lambda_shadow_pricing_fundamentals.md).
 
 ---
 

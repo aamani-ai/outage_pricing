@@ -86,7 +86,7 @@ Each dot is one row in the snapshot table. The event "starts" when `customers_ou
 5. **MCC is modeled and 2023-vintage.** % affected calculations carry this uncertainty silently. Rural counties with population shifts or unusual co-op/IOU mixes have the largest MCC error bars.
 6. **Coverage varies by state and utility.** Counties whose utilities do not publish a public outage map have no observations. Texas (ERCOT-territory utilities) and parts of the rural west are weakest. See coverage map on the dashboard.
 7. **No cause attribution.** Storm, equipment failure, PSPS, scheduled maintenance, vehicle accidents — all look identical in raw data. Cause-of-outage requires joining external sources (NOAA Storm Events, utility press releases).
-8. **Missing samples happen.** Scrapers fail, utility maps go offline, ORNL pipeline has gaps. Our event catalog applies gap-merge rules (30 / 45 / 60 minutes) to stitch fragmented events; the choice of rule is a documented assumption ([A005](../assumptions.md)).
+8. **Missing samples happen.** Scrapers fail, utility maps go offline, ORNL pipeline has gaps. Our event catalog applies gap-merge rules (30 / 45 / 60 minutes) to stitch fragmented events; the choice of rule is a documented assumption ([A024](../assumptions.md)).
 
 ## Why we use it anyway
 

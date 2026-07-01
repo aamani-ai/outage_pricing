@@ -262,7 +262,7 @@ density, which **under-ranks dense commercial / low-residential cores** — they
 read as "rural" and wrongly get an uplift. It bites only the *unvalidated, shadow*
 national layer in big-city downtowns; it does **not** touch the validated pilot.
 But it is wrong, and it is now the **active Step-04 workstream** (see the
-[notebook plan](../../plan/04_location_basis/location_basis_notebook_plan.md)).
+[notebook plan](../../plan/done/2026-06-23_location_basis_notebook_plan.md)).
 
 **The fix — a symmetric, conservative zonal-impervious GUARDRAIL (not a replacement).**
 Compute a **zonal mean of NLCD impervious % per tract** (the *tract mean*, never a

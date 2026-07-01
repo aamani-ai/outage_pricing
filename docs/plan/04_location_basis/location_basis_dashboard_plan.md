@@ -2,7 +2,7 @@
 
 - **Status:** plan of record for wiring the Step-04 location-basis artifact into the Next.js dashboard (`web/`). **Plan first — no code until reviewed.**
 - **Date:** 2026-06-23
-- **Companions:** notebook [`location_basis_notebook_plan.md`](location_basis_notebook_plan.md) · studio spec [`../dashboard_redesign/02_studio_section_spec.md`](../dashboard_redesign/02_studio_section_spec.md) · principles `docs/principles/communicate_to_share.md` + renewablesinfo_org `docs/principles/{ui_design,presentability}.md`
+- **Companions:** notebook [`location_basis_notebook_plan.md`](../done/2026-06-23_location_basis_notebook_plan.md) · studio spec [`../done/2026-06-23_dashboard_02_studio_section_spec.md`](../done/2026-06-23_dashboard_02_studio_section_spec.md) · principles `docs/principles/communicate_to_share.md` + renewablesinfo_org `docs/principles/{ui_design,presentability}.md`
 - **The artifact to consume:** `notebooks/outputs/location_basis/{relativity_table.json, tract_rurality.json (2.4MB / 81,356 tracts), county_lookup.json (3,116 counties), guardrail_spec.json}`
 
 The dashboard does **math only** on this artifact. Calibration stays in the notebook. The location slot **already exists** in the engine (`composePremium` `location:{relativity,status}`, defaulting to neutral 1.0) and in the UI (`adjusters.tsx` renders a Location FactorRow + the price-breakdown waterfall has a Location $ bucket) — this is **populate-the-skeleton**, not build-from-scratch.

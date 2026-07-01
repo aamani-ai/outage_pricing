@@ -133,7 +133,7 @@ These are the minimum feature columns for the second-step cluster read:
 ### Candidate Rule Families
 
 Discussion draft with intuitive definitions and shape sketches:
-[`../dicsscssion/risk_based_clustering/01_candidate_pattern_definitions.md`](../../dicsscssion/risk_based_clustering/01_candidate_pattern_definitions.md).
+[`../dicsscssion/risk_based_clustering/01_candidate_pattern_definitions.md`](../../dicsscssion/_archive/risk_based_clustering/01_candidate_pattern_definitions.md).
 
 1. **Smooth trend**
    - intuitive read: direction is clear, and a simple line is a fair summary of

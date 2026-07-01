@@ -124,7 +124,7 @@ unavailable for trigger-adjusted pricing.
 ### Customer impact modifier (optional challenger)
 
 > **Phased plan:** execution lives in
-> [`per_customer_pricing_plan.md`](../02_per_customer/per_customer_pricing_plan.md). That plan
+> [`per_customer_pricing_plan.md`](../done/2026-05-30_per_customer_pricing_plan.md). That plan
 > sequences the customer-impact track **before** any of the forward-looking
 > modifiers below, on the principle that you cannot honestly calibrate a
 > ±20% climate/grid/hazard modifier on top of a baseline that is 30-100× off

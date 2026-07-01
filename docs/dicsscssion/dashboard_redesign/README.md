@@ -31,17 +31,15 @@ biggest break from the previous dashboard.
 
 ## Index
 
+> **The redesign shipped** — the Next.js dashboard is live in `web/`. The settled design docs **`00`–`06`
+> moved to [`done/dashboard_redesign/`](../done/dashboard_redesign/)** (2026-06-30), kept as the design record.
+> This folder now tracks only the **still-open premium-band decision** (`07`/`08`, A017).
+
 | Doc | What | Status |
 |-----|------|--------|
-| `00_decisions_locked.md` | Converged decisions + rationale | drafted |
-| `01_audience_and_ia.md` | Two audiences, three sections, the IA | drafted |
-| `02_outward_pricing_view.md` | The shareable Pricing section | drafted |
-| `03_underwriting_studio.md` | The deep Studio (chain · regime · T-comfort) | drafted |
-| `04_pricing_model_in_ui.md` | Two-layer chain + grid firewall + status grammar | drafted |
-| `05_visual_system_and_stack.md` | Aesthetic, tokens, components, stack, references | drafted |
-| `06_open_questions.md` | Threads to resolve before the plan | drafted |
-| `07_outward_range.md` | What the premium range means (three-uncertainty framing) + backend, for trust; carries the 2026-06-24 experience-band update | drafted |
-| `08_band_pressure_test.md` | **Band method DECISION (open):** confidence vs experience p10/p90 vs p25/p75 — width tables + dollar comparison, for team feedback | drafted |
+| `00`–`06` | decisions · audience/IA · Pricing & Studio views · pricing-model-in-UI · visual system · open questions | **shipped → [`done/dashboard_redesign/`](../done/dashboard_redesign/)** |
+| `07_outward_range.md` | What the premium range means (three-uncertainty framing) + the 2026-06-24 experience-band update | **LIVE** (A017 open) |
+| `08_band_pressure_test.md` | **Band method DECISION (open):** confidence vs experience p10/p90 vs p25/p75 — width tables + dollar comparison | **LIVE** (A017 open) |
 
 ## Method (how we're designing this)
 

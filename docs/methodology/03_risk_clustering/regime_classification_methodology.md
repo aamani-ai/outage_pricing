@@ -4,7 +4,7 @@
 
 **This supersedes** the 7-shape methodology in this folder (`outage_trend_fundamentals.md`,
 `outage_predictability_fundamentals.md` — both bannered). **Design + history:**
-[`regime_routing_backtest_plan.md`](../../plan/03_risk_clustering/regime_routing_backtest_plan.md)
+[`regime_routing_backtest_plan.md`](../../plan/done/2026-06-22_regime_routing_backtest_plan.md)
 (the backtest now lives as Step-5 evidence). **Framework:** [`OUTAGE_MODELING_FRAMEWORK.md`](../../OUTAGE_MODELING_FRAMEWORK.md) Step 3. **Assumptions:** A013 · A014 · A016.
 
 ## 1. What Step 3 is — and is not
@@ -252,7 +252,7 @@ nuance live there) · the dashboard (color-by-regime map, the county card, the c
 
 ## 9. References
 
-- Design + the retained backtest evidence: [`regime_routing_backtest_plan.md`](../../plan/03_risk_clustering/regime_routing_backtest_plan.md)
+- Design + the retained backtest evidence: [`regime_routing_backtest_plan.md`](../../plan/done/2026-06-22_regime_routing_backtest_plan.md)
 - The masked input series: [`05_source_coverage_mask.md`](../../dicsscssion/eventization_frequency_contract/05_source_coverage_mask.md)
 - Why 8h is conservative: [`04_duration_conservatism.md`](../../dicsscssion/eventization_frequency_contract/04_duration_conservatism.md)
 - Framework: [`OUTAGE_MODELING_FRAMEWORK.md`](../../OUTAGE_MODELING_FRAMEWORK.md) Step 3

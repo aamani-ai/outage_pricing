@@ -138,7 +138,7 @@ visual grammar, defined once.)
 ## Amends to locked decisions
 
 - **D4** ("Settings/Data" as the third section) → **Rules Engine** (carrier rules table). Record in
-  [`00_decisions_locked.md`](../../dicsscssion/dashboard_redesign/00_decisions_locked.md) as part of this change.
+  [`00_decisions_locked.md`](../../dicsscssion/done/dashboard_redesign/00_decisions_locked.md) as part of this change.
 - **D8** (no auth in scope) **still holds** — it is exactly what lets us defer access control here.
 
 ## Verify (after build)

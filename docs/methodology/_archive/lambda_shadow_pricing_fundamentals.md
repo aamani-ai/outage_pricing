@@ -1,3 +1,5 @@
+> **SUPERSEDED 2026-06-22 — archived.** The live Step-3 method is [`regime_classification_methodology.md`](../03_risk_clustering/regime_classification_methodology.md); see `_archive/README.md`. Kept for history.
+
 # Lambda Shadow Pricing - Fundamentals
 
 *Audience: senior team. First drafted: 2026-06-16. Reads after [`outage_predictability_fundamentals.md`](outage_predictability_fundamentals.md).*

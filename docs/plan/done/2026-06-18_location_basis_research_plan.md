@@ -10,7 +10,7 @@ actually explain within-county outage variation, rather than adopting the
 candidate list from the 2026-06-17 meeting on faith.
 
 Companions: engineering pre-op
-[`location_basis_risk_preop_plan.md`](location_basis_risk_preop_plan.md);
+[`location_basis_risk_preop_plan.md`](2026-06-17_location_basis_risk_preop_plan.md);
 design note
 [`../dicsscssion/location_aware_outage_pricing/03_location_basis_risk_design.md`](../../dicsscssion/location_aware_outage_pricing/03_location_basis_risk_design.md);
 spatial entity reference

@@ -84,5 +84,5 @@ reason) when it doesn't. It's an identity, not a forecast, and it moves no price
 | **Pre-clean (the mask)** | [`05_source_coverage_mask.md`](../../dicsscssion/eventization_frequency_contract/05_source_coverage_mask.md) |
 | **Notebooks (live evidence)** | [`regime_classification.ipynb`](../../../notebooks/03_risk_clustering/regime_classification.ipynb) · [`source_coverage_mask_analysis.ipynb`](../../../notebooks/03_risk_clustering/source_coverage_mask_analysis.ipynb) |
 | **Assumptions** | [A013](../assumptions.md) (behavior-not-cause) · A014 (T) · A015 (abstain) · A016 (mask) |
-| **Design history + Step-5 evidence** | [`regime_routing_backtest_plan.md`](../../plan/03_risk_clustering/regime_routing_backtest_plan.md) · [`05_forward_regime/regime_routing_backtest.ipynb`](../../../notebooks/05_forward_regime/regime_routing_backtest.ipynb) (routing beats flat ~+18% OOS — the proof Step 5 is worth building) |
+| **Design history + Step-5 evidence** | [`regime_routing_backtest_plan.md`](../../plan/done/2026-06-22_regime_routing_backtest_plan.md) · [`05_forward_regime/regime_routing_backtest.ipynb`](../../../notebooks/05_forward_regime/regime_routing_backtest.ipynb) (routing beats flat ~+18% OOS — the proof Step 5 is worth building) |
 | **Framework (where Step 3 sits)** | [`OUTAGE_MODELING_FRAMEWORK.md`](../../OUTAGE_MODELING_FRAMEWORK.md) |

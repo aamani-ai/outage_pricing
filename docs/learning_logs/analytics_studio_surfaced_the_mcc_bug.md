@@ -37,7 +37,7 @@ not just the point.*
 
 ```text
   · a validated denominator fix — base = max(MCC, housing_units, peak); exclude where peak-out exceeds any
-    plausible base (numerator corrupt); cap each event ≤ 1. (docs/dicsscssion/premium_implausibility_investigation/)
+    plausible base (numerator corrupt); cap each event ≤ 1. (docs/dicsscssion/done/premium_implausibility_investigation/)
   · a systematic data-quality gate — "MCC must be consistent with Census households" flags ~83, not just patches 6.
   · a real systematic signal — a cluster of NORTH CAROLINA counties have broken MCC (Charlotte 16× too small),
     i.e. a utility-level gap in EAGLE-I's NC source, not random noise.
@@ -65,6 +65,6 @@ not just the point.*
 
 ## Recorded as
 
-Investigation + decision: [`dicsscssion/premium_implausibility_investigation/00_findings_and_plan.md`](../dicsscssion/premium_implausibility_investigation/00_findings_and_plan.md)
-and [`01_denominator_fix.md`](../dicsscssion/premium_implausibility_investigation/01_denominator_fix.md). Analysis:
-`mcc_vs_census.py` → `mcc_vs_census_county.csv`. Level question: [per-customer pricing plan](../plan/02_per_customer/per_customer_pricing_plan.md) (A011).
+Investigation + decision: [`dicsscssion/done/premium_implausibility_investigation/00_findings_and_plan.md`](../dicsscssion/done/premium_implausibility_investigation/00_findings_and_plan.md)
+and [`01_denominator_fix.md`](../dicsscssion/done/premium_implausibility_investigation/01_denominator_fix.md). Analysis:
+`mcc_vs_census.py` → `mcc_vs_census_county.csv`. Level question: [per-customer pricing plan](../plan/done/2026-05-30_per_customer_pricing_plan.md) (A011).

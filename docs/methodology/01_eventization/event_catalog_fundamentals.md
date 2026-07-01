@@ -35,13 +35,13 @@ Without gap-merging, a single real outage with a brief reporting gap would look 
             ←─ A ──→  ←B→  ←──── C ────→
 ```
 
-If the gap between snapshot B's drop-to-zero and snapshot C's first non-zero is **shorter than the gap-merge threshold** (default: 45 min), we treat A+B+C as **one event**. If longer, we treat them as **two separate events**. This single rule — the gap-merge threshold — has a meaningful effect on event counts and is exposed in the dashboard as a configurable assumption (30 / 45 / 60 minutes). It is documented as [A005](../assumptions.md).
+If the gap between snapshot B's drop-to-zero and snapshot C's first non-zero is **shorter than the gap-merge threshold** (default: 45 min), we treat A+B+C as **one event**. If longer, we treat them as **two separate events**. This single rule — the gap-merge threshold — has a meaningful effect on event counts and is exposed in the dashboard as a configurable assumption (30 / 45 / 60 minutes). It is documented as [A024](../assumptions.md).
 
 ## The rules that build the catalog
 
 1. **Onset rule.** An event begins at the first 15-min snapshot where `customers_out > 0` following a period of zero.
 2. **Restoration rule.** An event ends at the first subsequent snapshot where `customers_out` returns to zero. (We do not require a sustained zero — one zero snapshot ends the event, subject to the gap-merge rule below.)
-3. **Gap-merge rule.** If a new non-zero snapshot appears within `G` minutes of the prior restoration, the two segments are merged into one event. Default `G = 45` minutes. This is the single largest discretionary choice in the catalog and is **assumption [A005](../assumptions.md)**.
+3. **Gap-merge rule.** If a new non-zero snapshot appears within `G` minutes of the prior restoration, the two segments are merged into one event. Default `G = 45` minutes. This is the single largest discretionary choice in the catalog and is **assumption [A024](../assumptions.md)**.
 4. **Minimum-duration filter.** Events shorter than 15 minutes (i.e. visible in only one snapshot) are retained but flagged — they are most likely to be reporting artifacts.
 5. **Catalog versioning.** We publish three parallel catalogs — `eagle-i-30min`, `eagle-i-45min`, `eagle-i-60min` — so downstream pricing is reproducible under each gap-merge choice. The dashboard lets you switch between them.
 
@@ -74,5 +74,5 @@ These two quantities are the inputs to the county-trigger pricing formula (see [
 
 - Source data: [EAGLE-I 2014–2025](https://openenergyhub.ornl.gov/explore/dataset/eaglei_outages_2014/)
 - Catalog build code: `curated_outage_data/pipelines/event_catalog/`
-- Catalog rules as assumptions: [`assumptions.md`](../assumptions.md) — A005 (gap-merge), A006 (restoration), A007 (minimum duration)
+- Catalog rules as assumptions: [`assumptions.md`](../assumptions.md) — A024 (gap-merge), A025 (restoration), A026 (minimum duration)
 - Downstream consumer: [`county_trigger_pricing_fundamentals.md`](../02_per_customer/county_trigger_pricing_fundamentals.md), [`per_customer_pricing_fundamentals.md`](../02_per_customer/per_customer_pricing_fundamentals.md)

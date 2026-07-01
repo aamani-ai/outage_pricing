@@ -73,7 +73,7 @@ method choice should depend on the county behavior bucket.
 | [`04_statistical_adjuster_design.md`](04_statistical_adjuster_design.md) | **The resolved structure (for sign-off):** the statistical forecast is the **FORWARD baseline** (inside the forward bucket — the "stat" in `stat + climate + grid`); per-county, asymmetric-loss, one-directional (uplift + abstain), credibility-shrunk, capped, shadow. Climate/grid ML are challengers that must beat it. |
 
 Implementation plan:
-[`../../../plan/05_forward_regime/statistical_router/01_notebook_plan.md`](../../../plan/05_forward_regime/statistical_router/01_notebook_plan.md).
+[`../../../plan/done/2026-06-24_statistical_router_notebook_plan.md`](../../plan/done/2026-06-24_statistical_router_notebook_plan.md).
 
 Notebook workspace:
 [`../../../notebooks/05_forward_regime/statistical_router/`](../../../notebooks/05_forward_regime/statistical_router/).

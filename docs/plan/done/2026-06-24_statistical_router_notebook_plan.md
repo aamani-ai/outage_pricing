@@ -2,7 +2,7 @@
 
 **Status:** plan of record for the first Step-05 statistical-router trial  
 **Date:** 2026-06-24  
-**Discussion:** [`../../../dicsscssion/forward_regime_statistical_router/`](../../../dicsscssion/forward_regime_statistical_router/)  
+**Discussion:** [`../../../dicsscssion/forward_regime_statistical_router/`](../../dicsscssion/forward_regime_statistical_router/)  
 **Notebook target:** `notebooks/05_forward_regime/statistical_router/statistical_router_backtest.ipynb`
 
 ---
@@ -25,14 +25,14 @@ step 2's per-cell numbers.
   the per-customer track + caps.
 - **D2 — step-3 scope = expert-by-T only (2a).** The chosen expert may differ by trigger T, but the
   county keeps its **single** regime label. Re-deriving the regime label per T (**2b**) relaxes
-  [A014](../../../methodology/assumptions.md) and is a later **Step-3** refinement — *out of scope
+  [A014](../../methodology/assumptions.md) and is a later **Step-3** refinement — *out of scope
   here*. `xT` flags where 2a/2b will pay off.
 - **D3 — selection honesty (overfit guard).** Report the hypothesised regime→expert mapping (a
   **prior** rule, *not* fit to the data) evaluated out-of-sample, **alongside** the data-chosen
   "oracle" router. A bucket router that only wins when its experts are picked in-sample is overfit;
   the prior router is the honest test that the *bucket idea* (not the selection) carries the lift.
 - **D4 — band/window coupling (noted, not built).** A shift/trend county's forward point uses recent
-  years; its experience band ([A017](../../../methodology/assumptions.md)) should use the same window.
+  years; its experience band ([A017](../../methodology/assumptions.md)) should use the same window.
   The notebook emits each chosen expert's effective window so the band work can consume it later. No
   band change here.
 
@@ -332,11 +332,11 @@ Those come after the statistical-router baseline exists.
 If the notebook is built and run, update:
 
 - this plan with the executed status and headline metrics;
-- [`../../../dicsscssion/forward_regime_statistical_router/03_sarasi_ne_backtest_read.md`](../../../dicsscssion/forward_regime_statistical_router/03_sarasi_ne_backtest_read.md)
+- [`../../../dicsscssion/forward_regime_statistical_router/03_sarasi_ne_backtest_read.md`](../../dicsscssion/forward_regime_statistical_router/03_sarasi_ne_backtest_read.md)
   with the national comparison;
-- [`../../../OUTAGE_MODELING_FRAMEWORK.md`](../../../OUTAGE_MODELING_FRAMEWORK.md)
+- [`../../../OUTAGE_MODELING_FRAMEWORK.md`](../../OUTAGE_MODELING_FRAMEWORK.md)
   Step 5 status, if the gates pass;
-- [`../../../methodology/assumptions.md`](../../../methodology/assumptions.md)
+- [`../../../methodology/assumptions.md`](../../methodology/assumptions.md)
   only if a new assumption is actually adopted;
 - a task handoff under `docs/extra/tasks_history/` if the implementation session
   is substantial.

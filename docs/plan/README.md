@@ -13,11 +13,11 @@ trigger-source strategy, enriched datasets, and forward-looking modeling.
 
 ## Current Plans
 
-- [Per-Customer Pricing Plan](02_per_customer/per_customer_pricing_plan.md) — close the gap
+- [Per-Customer Pricing Plan](done/2026-05-30_per_customer_pricing_plan.md) — close the gap
   between county-event-rate pricing and per-customer expected loss. This is the
   highest-priority bias-correction track and explicitly sequenced before any
   forward-looking climate / grid / hazard modifier work.
-- [Methodology Library Plan](cross_cutting/methodology_library_plan.md) — in-dashboard
+- [Methodology Library Plan](done/2026-05-30_methodology_library_plan.md) — in-dashboard
   reading surface over `docs/methodology/`. Phases L1 + L2 closed 2026-05-30.
 - [Trigger Source Implications](cross_cutting/trigger_source_implications.md) — pricing-vs-trigger
   architecture and the bridge factor.
@@ -28,13 +28,13 @@ trigger-source strategy, enriched datasets, and forward-looking modeling.
   a viable primary trigger.
 - [Enriched Event Dataset Plan](05_forward_regime/enriched_event_dataset_plan.md)
 - [Forward-Looking Modeling Plan](05_forward_regime/forward_looking_modeling_plan.md)
-- [Statistical Router Plan](05_forward_regime/statistical_router/README.md) — first Step-05
+- [Statistical Router Plan](done/2026-06-24_statistical_router_notebook_plan.md) — first Step-05
   trial: choose simple statistical forecast experts by county behavior bucket before treating
   heavier weather / climate / grid ML as the forward model.
 - [Outage Baseline Adjustment Framework](cross_cutting/outage_baseline_adjustment_framework.md)
   (includes the [Customer Impact Modifier](cross_cutting/outage_baseline_adjustment_framework.md#customer-impact-modifier)
   proposal for handling event-population severity bias)
-- [Location Basis Risk Pre-Op Plan](04_location_basis/location_basis_risk_preop_plan.md) - plan
+- [Location Basis Risk Pre-Op Plan](done/2026-06-17_location_basis_risk_preop_plan.md) - plan
   for turning county-level outage pricing into a location-aware basis-risk
   shadow artifact before any active pricing change.
 - [Lambda Shadow Pricing Verification Plan](03_risk_clustering/lambda_shadow_pricing_verification_plan.md)
@@ -47,7 +47,7 @@ trigger-source strategy, enriched datasets, and forward-looking modeling.
 > to overlap. The replacement is the **regime-routing** direction in
 > [`../OUTAGE_MODELING_FRAMEWORK.md`](../OUTAGE_MODELING_FRAMEWORK.md) (Step 3 ▸ *Reframe — REGIME
 > ROUTING*); the lean backtest-design plan that supersedes it is
-> [Regime Routing — Backtest Design Plan](03_risk_clustering/regime_routing_backtest_plan.md).
+> [Regime Routing — Backtest Design Plan](done/2026-06-22_regime_routing_backtest_plan.md).
 - [Inner-Event Shape Cell-Read Plan](cross_cutting/inner_event_shape_confidence_plan.md)
   - uses event-summary shape proxies for evidence reliability and proxy-posture
   reads on the per-customer conversion, without changing active pricing.

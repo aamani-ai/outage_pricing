@@ -71,7 +71,7 @@ adjusters applied later in the build-up.
        · impossible peaks (customers_out > every home in the county) appear in 8,441 snapshots in 2024 alone.
 ```
 
-These two facts are why the [premium-implausibility investigation](../dicsscssion/premium_implausibility_investigation/)
+These two facts are why the [premium-implausibility investigation](../dicsscssion/done/premium_implausibility_investigation/)
 and the [customer-base denominator fundamentals](../methodology/02_per_customer/customer_base_denominator_fundamentals.md)
 exist. This schema folder is the data-level companion to those.
 

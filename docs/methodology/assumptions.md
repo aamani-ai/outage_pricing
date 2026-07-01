@@ -382,7 +382,7 @@ the event."
 the per-customer plan). If the first-order estimator is biased, the
 shadow rate is recomputed before it reaches the dashboard.
 
-**Cited from.** [`docs/plan/per_customer_pricing_plan.md`](../plan/02_per_customer/per_customer_pricing_plan.md), [Pricing §Per-customer view](cross_cutting/pricing_methodology.md), [Phase 1 notebook (executed 2026-05-30)](../../notebooks/outputs/per_customer_rate_phase1/per_customer_rate_phase1.html).
+**Cited from.** [`docs/plan/per_customer_pricing_plan.md`](../plan/done/2026-05-30_per_customer_pricing_plan.md), [Pricing §Per-customer view](cross_cutting/pricing_methodology.md), [Phase 1 notebook (executed 2026-05-30)](../../notebooks/outputs/per_customer_rate_phase1/per_customer_rate_phase1.html).
 
 ---
 
@@ -438,7 +438,7 @@ outlier major-storm events, `multiplier_median` shows by how much; the
 gap between mean and median is itself a heavy-tail diagnostic for the
 qualifying-event population.
 
-**Cited from.** [`docs/plan/per_customer_pricing_plan.md`](../plan/02_per_customer/per_customer_pricing_plan.md) (Phase 1 gate close), [Phase 1 notebook §F3](../../notebooks/outputs/per_customer_rate_phase1/per_customer_rate_phase1.html).
+**Cited from.** [`docs/plan/per_customer_pricing_plan.md`](../plan/done/2026-05-30_per_customer_pricing_plan.md) (Phase 1 gate close), [Phase 1 notebook §F3](../../notebooks/outputs/per_customer_rate_phase1/per_customer_rate_phase1.html).
 
 ---
 
@@ -524,7 +524,7 @@ cannot measure from EAGLE-I alone.
 contracted PowerOutage.US live feed, or utility OMS overlap — carry
 individual outage lifespans and let us measure the synchronous-vs-
 staggered mix directly. The concrete first step is documented in
-[Phase 4 of the per-customer pricing plan](../plan/02_per_customer/per_customer_pricing_plan.md#phase-4--external-validation-against-poweroutageus-per-outage-data).
+[Phase 4 of the per-customer pricing plan](../plan/done/2026-05-30_per_customer_pricing_plan.md#phase-4--external-validation-against-poweroutageus-per-outage-data).
 The output would be either (a) confirmation that the synchronous
 approximation is within the sensitivity band, or (b) an empirical
 correction factor that tightens the headline. Pending that work, the
@@ -536,7 +536,7 @@ chain on top of v0; every other piece (`λ_county`, `S(T)`, MCC,
 annualization, ER / TM defaults) is inherited from v0's existing
 assumption stack (A001–A008).
 
-**Cited from.** [Per-customer view walkthrough §The one assumption you must read](02_per_customer/per_customer_view_walkthrough.md#the-one-assumption-you-must-read--a011), [`customer_impact_v1` model card](../../curated_outage_data/model_cards/customer_impact_v1.md), [Per-Customer Pricing Plan](../plan/02_per_customer/per_customer_pricing_plan.md), dashboard mode-notes for the per-customer view.
+**Cited from.** [Per-customer view walkthrough §The one assumption you must read](02_per_customer/per_customer_view_walkthrough.md#the-one-assumption-you-must-read--a011), [`customer_impact_v1` model card](../../curated_outage_data/model_cards/customer_impact_v1.md), [Per-Customer Pricing Plan](../plan/done/2026-05-30_per_customer_pricing_plan.md), dashboard mode-notes for the per-customer view.
 
 ---
 
@@ -609,7 +609,7 @@ load-bearing for routing.
 different estimators, the backtest's aggregate routing-vs-flat check (Q2) fails and we default to
 flat — a visible null result, not a hidden error. No price bias either direction.
 
-**Cited from.** [`regime_routing_backtest_plan.md`](../plan/03_risk_clustering/regime_routing_backtest_plan.md); [`OUTAGE_MODELING_FRAMEWORK.md`](../OUTAGE_MODELING_FRAMEWORK.md) Step 3 ▸ Reframe.
+**Cited from.** [`regime_routing_backtest_plan.md`](../plan/done/2026-06-22_regime_routing_backtest_plan.md); [`OUTAGE_MODELING_FRAMEWORK.md`](../OUTAGE_MODELING_FRAMEWORK.md) Step 3 ▸ Reframe.
 
 ### A014 — Regime derived at T=8h and asserted T-invariant (one per county)
 
@@ -644,7 +644,7 @@ mis-routes the other thresholds. Mitigation: the backtest's **cross-T stability 
 measures regime agreement across thresholds; material disagreement downgrades the label to flat
 or flags it, rather than silently trusting T=8h.
 
-**Cited from.** [`regime_routing_backtest_plan.md`](../plan/03_risk_clustering/regime_routing_backtest_plan.md).
+**Cited from.** [`regime_routing_backtest_plan.md`](../plan/done/2026-06-22_regime_routing_backtest_plan.md).
 
 ### A015 — When the data can't support a label, the classifier ABSTAINS (`insufficient`)
 
@@ -669,7 +669,7 @@ cases is the data and the framing, not the rule logic.
 **Impact if wrong / direction.** Some counties that *could* be typed are left `insufficient` (a missed
 classification, not a wrong one). Conservative by construction; revisited as histories lengthen.
 
-**Cited from.** [`regime_routing_backtest_plan.md`](../plan/03_risk_clustering/regime_routing_backtest_plan.md); inherits the masked series from [A012](#a012--per-customer-exposure-uses-one-global-window-dilutes-partial-coverage-counties)'s prerequisite mask.
+**Cited from.** [`regime_routing_backtest_plan.md`](../plan/done/2026-06-22_regime_routing_backtest_plan.md); inherits the masked series from [A012](#a012--per-customer-exposure-uses-one-global-window-dilutes-partial-coverage-counties)'s prerequisite mask.
 
 ### A016 — The all-duration coverage mask is applied as a proxy for T-specific observability
 
@@ -703,7 +703,7 @@ test confirms the mask is **not** the source of the routing skill (improvement c
 under shuffled targets *with the mask in place*). **Open:** derive or sanity-check a T-specific
 coverage signal before this ships to the actuarial consultant.
 
-**Cited from.** [`regime_routing_backtest_plan.md`](../plan/03_risk_clustering/regime_routing_backtest_plan.md); [`regime_classification.ipynb`](../../notebooks/03_risk_clustering/regime_classification.ipynb); builds on the mask in [`05_source_coverage_mask.md`](../dicsscssion/eventization_frequency_contract/05_source_coverage_mask.md); related to [A014](#a014--regime-derived-at-t8h-and-asserted-t-invariant-one-per-county).
+**Cited from.** [`regime_routing_backtest_plan.md`](../plan/done/2026-06-22_regime_routing_backtest_plan.md); [`regime_classification.ipynb`](../../notebooks/03_risk_clustering/regime_classification.ipynb); builds on the mask in [`05_source_coverage_mask.md`](../dicsscssion/eventization_frequency_contract/05_source_coverage_mask.md); related to [A014](#a014--regime-derived-at-t8h-and-asserted-t-invariant-one-per-county).
 
 ### A017 — The premium band is year-based & overdispersion-aware (estimator under review: confidence vs experience)
 
@@ -774,6 +774,10 @@ experience with heterogeneity (`communicate_to_share`). The band is **precompute
 
 ### A018 — The per-customer denominator is validated against Census housing units (not raw MCC)
 
+> **✓ Reaffirmed by [A019](#a019--total_customers-evaluated-as-the-denominator-and-rejected-a018-stands) (2026-06-28).**
+> We evaluated replacing housing with the EAGLE-I `total_customers` column; ground-truth showed housing units is the most
+> reliable anchor (closest to truth in 5 of 6 spot-checks) and the modeled counts unreliable. **A018 stands.**
+
 The customer-base denominator in the share-out (`mean_customers / base`, [A011](#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation)) is **not** raw MCC. MCC (EAGLE-I's modelled customer count) is wrong for a long tail of counties — both garbage extremes (Henderson NC = 24) and a systematic ~30% under-count in **seasonal-home counties**. The denominator is validated against Census **housing units** (ACS B25001), because an electric customer is a *meter* and every home — **including seasonal/vacation homes** — has one; Census *households* (B11001, occupied only) under-counts vacation counties (housing units up to 4.6× households in the Adirondacks/Sierra). MCC ≈ 1.10 × housing units (log-log r = 0.976).
 
 ```text
@@ -785,4 +789,222 @@ The customer-base denominator in the share-out (`mean_customers / base`, [A011](
 
 **Direction of bias.** Conservative for the insurer: `base` is the larger of the candidates, which if anything *under-states* the true count → slightly *over-prices* (the cheap-error direction, [`model_to_the_consequence`](../principles/model_to_the_consequence.md)); the per-event cap can only lower the share-out. The denominator fix is distinct from the **level** question ([A011](#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation): is the mean-over-qualifying-events estimator itself too high — the PoUS validation track).
 
-**Cited from.** Code: [`build_customer_base.py`](../../price_engine/data/build_customer_base.py) → `customer_base.csv`; [`compute_per_customer_lambda.py`](../../curated_outage_data/pipelines/per_customer_rate/compute_per_customer_lambda.py). Investigation + explainer: [`premium_implausibility_investigation/00`](../dicsscssion/premium_implausibility_investigation/00_findings_and_plan.md) · [`01`](../dicsscssion/premium_implausibility_investigation/01_denominator_fix.md) · [`02_understanding_the_denominator.md`](../dicsscssion/premium_implausibility_investigation/02_understanding_the_denominator.md). Learning log: [`analytics_studio_surfaced_the_mcc_bug.md`](../learning_logs/analytics_studio_surfaced_the_mcc_bug.md). Refines the multiplier denominator in [A011](#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation).
+**Cited from.** Code: [`build_customer_base.py`](../../price_engine/data/build_customer_base.py) → `customer_base.csv`; [`compute_per_customer_lambda.py`](../../curated_outage_data/pipelines/per_customer_rate/compute_per_customer_lambda.py). Investigation + explainer: [`done/premium_implausibility_investigation/00`](../dicsscssion/done/premium_implausibility_investigation/00_findings_and_plan.md) · [`01`](../dicsscssion/done/premium_implausibility_investigation/01_denominator_fix.md) · [`02_understanding_the_denominator.md`](../dicsscssion/done/premium_implausibility_investigation/02_understanding_the_denominator.md). Learning log: [`analytics_studio_surfaced_the_mcc_bug.md`](../learning_logs/analytics_studio_surfaced_the_mcc_bug.md). Refines the multiplier denominator in [A011](#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation).
+
+---
+
+### A019 — Research strengthens A018: `total_customers` evaluated as the denominator and REJECTED
+
+We asked whether EAGLE-I's newer `total_customers` column should replace or refine the A018 denominator. After
+understanding *what these numbers are* (Moehl et al. 2024) and ground-truthing six counties, the honest answer is
+**no — and the exercise STRENGTHENS [A018](#a018--the-per-customer-denominator-is-validated-against-census-housing-units-not-raw-mcc).** Housing-anchored A018 stands; `total_customers` is at most a QC cross-check, never the divisor. The value of this assumption is the **documented reasoning** behind that — so we don't re-litigate it.
+
+**What MCC and `total_customers` ARE — the fact to keep front-of-mind:**
+
+> Both are ORNL's **"Modeled County Customers"** — the *same quantity*. Each utility's total customer count from
+> **EIA Form 861** is allocated to counties in proportion to **LandScan** population within **HIFLD** electric retail
+> service territories:
+>
+> **cᵢ = pᵢ × (C / P)**  — county *i* receives its population share `pᵢ/P` of the utility's `C` customers; overlapping
+> utilities are summed.
+>
+> `MCC.csv` is the **2022** vintage shipped as a side file; the **2024** outage file embeds the **same model inline**
+> as **`total_customers`** (a newer vintage). A "customer" is a **utility account / meter / building — not a person and
+> not a household.**
+
+Because they are the *same* population-proportional model, the two counts share the same failure — and it runs **both
+ways**: too **SMALL** (Henderson MCC=24; San Francisco −45%; Jo Daviess −3×; Hoonah-Angoon −21× — partial utility
+coverage) **and** too **BIG** (Berkshire `total_customers`=284,790; Staunton=36,366 — over-allocation). A naive "take the
+larger of MCC and total_customers" is therefore **unsafe** — `max()` can pick the *inflated* one (Berkshire) and
+under-price. So `total_customers` is not an upgrade; it is the same flawed source with different errors.
+
+**How we judged "truth" — and how much to trust it (this matters).** There is **no published metered customer count per
+county** (EIA-861 has no county dimension), so every "true" figure is *assembled*, at different confidence. We tiered the
+six spot-checks rather than treating them as one flat vote:
+
+```text
+  GOLD  (geography lines up · regulatory · NON-circular — load-bearing):
+        San Francisco   EIA-861 CleanPowerSF = the default CCA for the WHOLE county = 384,194 accounts   (housing closest)
+        Hoonah-Angoon   Alaska PCE per-community filings summed ≈ 1,800                                    (housing closest)
+        → no allocation step; both say the modeled counts are grossly wrong (SF −45%, AK −21×).
+  SILVER (independent but allocated / third-party tracker — corroborating):
+        Berkshire  PowerOutage.us ≈ 76.5k     Cape May  EIA-861 ACE territory + reasoning ≈ 56k
+  WEAK  (estimate itself anchored ON housing → "housing closest" is partly self-fulfilling — suggestive only):
+        Jo Daviess · Staunton
+```
+
+The conclusion rests on the **GOLD cases + the structural fact** that the `c = p × C/P` model mis-allocates — **not** on a
+flat "5 of 6 → housing." Those two clean, regulatory, non-circular cases alone show the modeled counts off by 45% and 21×.
+
+**Verdict — A018 reaffirmed:**
+
+```text
+  KEEP  (live):  BASE = max(MCC, housing_units, peak),  EXCLUDE if peak > 1.5 × max(MCC, housing_units)
+                 Census housing units is the most reliable STABLE anchor — it dominates exactly where the modeled
+                 counts go garbage. Robust: never catastrophic. (Mildly over-states base → slight over-price = safe dir.)
+  REJECT:        BASE = max(MCC, total_customers) — trusts a model unreliable in BOTH directions.
+  total_customers role:  a QC CROSS-CHECK / FLAG (agrees with MCC → confidence; diverges wildly → investigate the county),
+                         NOT the divisor.
+```
+
+**Known limits of housing (honest, for the record — A018 is robust, not perfect).** Housing units *over*-counts in
+HIGH-VACANCY counties (Cape May, 59% vacant → housing 99k vs ~56k real accounts), and MCC can *over*-state (Berkshire 99k
+vs ~76k truth). Two refinements are therefore parked for a future pass — both need a proper **EIA-861 × HIFLD county
+allocation** over a larger sample to settle, not a 6-county read: (a) a vacancy haircut on housing for shore/resort
+counties; (b) housing-*primary* (not `max`) where MCC over-states.
+
+**Cited from.** Notebook: [`notebooks/02_per_customer/customer_base_denominator_eval.ipynb`](../../notebooks/02_per_customer/customer_base_denominator_eval.ipynb). At-a-glance mind map: [`02_per_customer/customer_base_denominator_fundamentals.md`](02_per_customer/customer_base_denominator_fundamentals.md). Code (live, A018): [`build_customer_base.py`](../../price_engine/data/build_customer_base.py). Research: Moehl, J.J. et al. (2024), Scientific Data 11:271 (PMC10915145); EAGLE-I Figshare 24237376; EIA Form 861; Alaska PCE; PowerOutage.us. **Reaffirms** [A018](#a018--the-per-customer-denominator-is-validated-against-census-housing-units-not-raw-mcc); the **level** question remains separate ([A011](#a011--per-customer-multiplier-rests-on-a-synchronous-outage-approximation)).
+
+---
+
+### A020 — Forward stat factor: one regime-routed expert per county, one-directional baseline
+
+- **Category:** modeling
+- **Status:** active — **shadow** (built + calibrated + composed in the Studio as a `modeled` factor; **not** in the outward quoted premium); validate before any live move
+- **First written:** 2026-06-24
+- **Last reviewed:** 2026-06-30
+- **Owner:** modeling
+
+**Statement.** The statistical component of the FORWARD factor (the "stat" in `stat + climate + grid`) is a per-county, regime-routed forecast of next-year frequency, expressed as a multiplier on the full-period mean. **One forecast method ("expert") is chosen per Step-3 regime and applied to the county across ALL triggers** — the regime is one-per-county ([A014](#a014--regime-derived-at-t8h-and-asserted-t-invariant-one-per-county)), so the method does not vary by `T`; only the per-`T` input series, and therefore the resulting factor, varies. The raw full-period mean stays the untouched baseline audit anchor (this is **not** a baseline change); climate / grid are challengers that must beat this stat baseline.
+
+```text
+  stat_factor(fips,T) = clip( 1 + (max(1, forecast/λ_full) − 1) × credibility , 1.0, 1.5 )
+    · forecast  = the regime's expert run on the county's own ≥T annual history
+    · λ_full    = full-period mean (the baseline anchor)
+    · ONE-DIRECTIONAL  uplift or hold, never discount       · CREDIBILITY-SHRUNK  thin → ×1.0
+    · CAPPED +50%      · ABSTAIN on `insufficient` (→ ×1.0)  · ASYMMETRIC LOSS  under-pred penalised ~3×
+  method per regime (coverage-stable selection):
+    stable→wtd_recent · trend→capped_lin · shift→capped_lin · episodic→persist · insufficient→persist
+  T=8h:  median ×1.15 · mean ×1.20 · 70% uplift · 18% at the cap.
+```
+
+**Justification.** Behaviour-routed simple experts beat the flat mean out-of-sample (typical-cell WAPE 0.356 → 0.257, **+27.7%**, wins in 66% of cells; rolling-origin, 14,383 county-cells). One-expert-per-county is the robust first-order router — see [A021](#a021--forward-expert-routed-by-regime-only-regime-by-trigger-is-a-future-refinement). Asymmetric loss because under-reserving is the dangerous error; one-directional because `λ_full` is biased low by the coverage ramp, so honest corrections are upward and declining counties keep the higher mean as cushion.
+
+**Impact if wrong / direction.** **HONEST CAVEAT — read this:** ~2/3 of the apparent forward "skill" is the EAGLE-I **coverage ramp**, not a causal forward signal. The full-period mean is ~17% biased low because 2015–2017 under-count (drop those years and the flat-mean bias falls −17% → −6%). So the shipped `stat` factor is **largely a per-county coverage/level correction labelled as forward**, honestly characterised as "recent experience vs the long-run mean," not a clean prediction. Direction is **uplift → over-reserve → conservative (safe for the insurer)**. It is **shadow**, so no live price impact until validated; mis-routing is bounded by the cap + credibility shrink + abstain. Implication: a future climate / grid challenger "beating the stat baseline" is partly beating a data-artifact correction — clean the coverage window or treat the weather model as the first genuine forward signal before leaning on the ladder.
+
+**Cited from.** [`04_statistical_adjuster_design.md`](../dicsscssion/forward_regime_statistical_router/04_statistical_adjuster_design.md), [`stat_forward_factor_model_card.md`](../../notebooks/outputs/forward_regime/statistical_router/stat_forward_factor_model_card.md), learning log [`forward_router_became_baseline_cleanup.md`](../learning_logs/forward_router_became_baseline_cleanup.md), code [`web/lib/data/forward.ts`](../../web/lib/data/forward.ts) + notebooks `05_forward_regime/statistical_router/`. Routing **key** is [A014](#a014--regime-derived-at-t8h-and-asserted-t-invariant-one-per-county); the coverage-ramp caveat relates to [A012](#a012--per-customer-exposure-uses-one-global-window-dilutes-partial-coverage-counties) / [A016](#a016--the-all-duration-coverage-mask-is-applied-as-a-proxy-for-t-specific-observability); routing granularity is [A021](#a021--forward-expert-routed-by-regime-only-regime-by-trigger-is-a-future-refinement). **Supersedes** the "A018 (proposed)" stub in `notebooks/outputs/forward_regime/statistical_router/stat_assumptions_to_register.md` (that ID was reassigned to the denominator).
+
+---
+
+### A021 — Forward expert routed by regime only; regime-by-trigger is a future refinement
+
+- **Category:** modeling
+- **Status:** active — first-order default; **per-trigger (cluster×T) promoted to an in-scope v1 candidate (2026-06-30)** — the forward-expert-routing analysis decides the final granularity
+- **First written:** 2026-06-24
+- **Last reviewed:** 2026-06-30
+- **Owner:** modeling
+
+**Statement.** The forward expert ([A020](#a020--forward-stat-factor-one-regime-routed-expert-per-county-one-directional-baseline)) is routed by **county regime alone** — one method per county, applied across every trigger `T`. Selecting a **different expert per `(regime, trigger)`** — "regime × T", or regime × cross-T-stability / confidence — is a known, plausible refinement (e.g. a county that is `trend` overall may behave more `episodic` or sparse at 24h) but is **not adopted**. It remains a diagnostic until it beats the simpler county-level router out-of-sample *without becoming fragile*.
+
+```text
+  first order  (ADOPTED):   county → one regime → one expert            (same across all T)
+  second order (DEFERRED):  within a county, does a specific T bend differently?  → regime × T
+  third order  (DEFERRED):  regime × T × confidence, with shrinkage
+  when to revisit:  Step-3 carries the cross-T descriptor (xT); a LOW xT flags where the single
+                    expert is shakiest and per-trigger routing might earn its place.
+```
+
+**Update (2026-06-30) — per-trigger promoted to a v1 candidate.** `regime × T` is no longer treated as
+strictly "future." Outage drivers differ by duration (short = routine → history/recent; long =
+storm/weather → weather/trend), and the weather challenger's own skill is threshold-dependent (ties the
+trend baseline at ≥0/1h, beats it at ≥8h+). So selecting the expert **per (cluster × trigger)** is an
+in-scope **v1** candidate, *adopted where it earns a stable out-of-sample win*. The granularity is **not
+pre-decided**: the forward-expert-routing analysis ([`dicsscssion/forward_expert_routing/`](../dicsscssion/forward_expert_routing/00_README.md))
+climbs a ladder (cluster → cluster×T → county → county×T) and adopts the coarsest rung that captures the
+real, stable lift.
+
+**Justification.** Most counties do not need a per-threshold story; one county-level method keeps the router explainable and robust, and avoids a sparse `regime × T` matrix that *looks* more precise than the evidence supports (county-specificity — [`principles/county_specificity.md`](../principles/county_specificity.md)). Adopt the finer routing only where the lift is real and stable.
+
+**Impact if wrong / direction.** If a county's short- vs long-trigger behaviour genuinely differs, a single expert mis-routes the other thresholds. Mitigation: `xT` flags low-stability counties; a regime × T router is built as a **diagnostic** to measure the lift before any adoption; and every factor stays bounded by [A020](#a020--forward-stat-factor-one-regime-routed-expert-per-county-one-directional-baseline)'s cap / credibility / abstain. No price bias is claimed either way.
+
+**Cited from.** [`01_statistical_router_framing.md`](../dicsscssion/forward_regime_statistical_router/01_statistical_router_framing.md) §"First-Order County Nature vs Second-Order Threshold Nuance", [`02_candidate_experts_and_metrics.md`](../dicsscssion/forward_regime_statistical_router/02_candidate_experts_and_metrics.md) §7 (the R3 / R4 / R5 routing ladder). Routes the expert defined in [A020](#a020--forward-stat-factor-one-regime-routed-expert-per-county-one-directional-baseline); the regime identity it keys on is [A014](#a014--regime-derived-at-t8h-and-asserted-t-invariant-one-per-county).
+
+---
+
+### A022 — Location relativity is capped to [0.80, 1.40] (attribution-confidence throttle)
+
+- **Category:** modeling
+- **Status:** active — shadow (Studio-only; not in the outward quote)
+- **First written:** 2026-06-17
+- **Last reviewed:** 2026-06-30
+- **Owner:** modeling
+
+**Statement.** The within-county location relativity ([Step 4](04_location_basis/location_basis_methodology.md)) is clipped to **[0.80, 1.40]** before it composes into the price. The raw empirical density gradient is wider (rural ≈ 1.76–2.06×); the cap is a deliberate **attribution-confidence throttle** — a policy choice that ships only a fraction of an unvalidated within-county effect — **not** the measured signal size. Relativities are renormalized mean-1 within each county (they redistribute, never move the county total).
+
+**Justification.** The gradient is real on the pilot but nationally extrapolated ([A023](#a023--location-basis-is-validated-only-on-the-ctmari-pous-pilot-shadow-elsewhere)); a tight cap bounds the harm if the extrapolation is wrong in a given county, keeping the shadow layer conservative pending outcome validation.
+
+**Impact if wrong.** Conservative: the cap can only shrink an aggressive relativity toward 1.0, so it under-uses a real signal rather than over-applying an unvalidated one. Loosening the cap is gated on [A023](#a023--location-basis-is-validated-only-on-the-ctmari-pous-pilot-shadow-elsewhere).
+
+**Cited from.** [`04_location_basis/location_basis_methodology.md`](04_location_basis/location_basis_methodology.md), [`location_relativity_factor_derivation.md`](04_location_basis/location_relativity_factor_derivation.md); `web/lib/data/location/relativity_table.json`; [`MODEL_QA_AND_CAVEATS.md`](../MODEL_QA_AND_CAVEATS.md) §8 / C-8. Registered 2026-06-30, consolidating the "A022" already referenced in code and the location docs' `LB-*` namespace.
+
+---
+
+### A023 — Location basis is validated only on the CT/MA/RI PoUS pilot (shadow elsewhere)
+
+- **Category:** modeling
+- **Status:** active — shadow; `validated:false` outside the pilot
+- **First written:** 2026-06-17
+- **Last reviewed:** 2026-06-30
+- **Owner:** modeling
+
+**Statement.** The within-county density relativity is calibrated and outcome-validated only on the **CT/MA/RI PoUS pilot** (one quiet season, town-grain): within-county Spearman ρ ≈ −0.35 (median over 24 counties), 22/24 negative, sign-test p = 1.79e-5. **Every other county's relativity is nationally extrapolated, not independently validated** (`validated:false`). Location therefore composes as a **shadow** factor (Studio only), never in the outward quote, until validated.
+
+**Justification.** One pilot region shows the effect is real and directionally correct, but cannot certify it nationally; shipping shadow-only is the honest posture.
+
+**Impact if wrong.** Bounded by [A022](#a022--location-relativity-is-capped-to-080-140-attribution-confidence-throttle) (the cap) and mean-1 conservation (redistribute-only); the guardrail's Type-B leg is deliberately conservative (over-charge an ambiguous location rather than under-charge). Promotion shadow→active is gated on broader outcome validation.
+
+**Cited from.** [`04_location_basis/location_basis_methodology.md`](04_location_basis/location_basis_methodology.md), [`location_basis_fundamentals.md`](04_location_basis/location_basis_fundamentals.md); `web/lib/data/location.ts` (`validated` flag); [`MODEL_QA_AND_CAVEATS.md`](../MODEL_QA_AND_CAVEATS.md) C-8.
+
+---
+
+### A024 — Gap-merge threshold: non-zero snapshots within G minutes are one event (default 45 min)
+
+- **Category:** data
+- **Status:** active
+- **First written:** 2026-05-30
+- **Last reviewed:** 2026-06-30
+- **Owner:** modeling
+
+**Statement.** When constructing events, a new non-zero `customers_out` snapshot appearing within **G minutes** of the prior restoration is **merged** into the same event; a longer gap starts a new event. The shipped default is **G = 45 min** (the dashboard ships the `eagle-i-45min` catalog); `-30min` and `-60min` catalogs are built for sensitivity but not wired. This is the **single largest discretionary choice** in the event catalog.
+
+**Justification.** A gap tolerance is needed because EAGLE-I feeds briefly drop to zero during restoration churn; 45 min balances over-splitting (G too small) against over-merging (G too large). Publishing three catalogs makes the sensitivity explicit rather than hidden.
+
+**Impact if wrong.** Threshold-dependent: too-small G over-counts short events; too-large G merges distinct outages. The 30/45/60 spread is the direct measure; per-cell sensitivity is not yet quantified (see [`MODEL_QA_AND_CAVEATS.md`](../MODEL_QA_AND_CAVEATS.md) C-11).
+
+**Cited from.** [`01_eventization/event_catalog_fundamentals.md`](01_eventization/event_catalog_fundamentals.md), [`event_catalog_creation_methodology.md`](01_eventization/event_catalog_creation_methodology.md), [`eagle_i_data_fundamentals.md`](cross_cutting/eagle_i_data_fundamentals.md); `price_engine/catalogs/eagle-i-45min/data/events_meta.json`. Registered 2026-06-30 — previously mis-cited as "A005" (which the registry assigns to empirical S(T)).
+
+---
+
+### A025 — Restoration rule: an event ends at the last non-zero snapshot + 15 min
+
+- **Category:** data
+- **Status:** active
+- **First written:** 2026-05-30
+- **Last reviewed:** 2026-06-30
+- **Owner:** modeling
+
+**Statement.** An event's `end_time` is the last observed non-zero snapshot's `run_start_time` **+ 15 min** (exclusive); a sustained drop to zero (beyond the [A024](#a024--gap-merge-threshold-non-zero-snapshots-within-g-minutes-are-one-event-default-45-min) gap tolerance) marks restoration. Restoration is **inferred** from the count dropping to zero, not from a customer-level restoration signal.
+
+**Justification.** EAGLE-I gives 15-min county counts, not per-customer restoration; a drop to zero is the only available restoration proxy. The +15-min matches the snapshot cadence ([A003](#a003--each-eagle-i-15-min-snapshot-represents-the-interval-t-t--15-min)).
+
+**Impact if wrong.** A mis-reported single zero can prematurely end (or split) one real event; durations are inferred from positive-observation runs, not true restoration. Direction not uniform.
+
+**Cited from.** [`01_eventization/event_catalog_fundamentals.md`](01_eventization/event_catalog_fundamentals.md), [`event_catalog_creation_methodology.md`](01_eventization/event_catalog_creation_methodology.md). Registered 2026-06-30 — previously mis-cited as "A006" (which the registry assigns to loadings).
+
+---
+
+### A026 — Minimum-duration: single-snapshot (<15 min) events are retained but flagged
+
+- **Category:** data
+- **Status:** active
+- **First written:** 2026-05-30
+- **Last reviewed:** 2026-06-30
+- **Owner:** modeling
+
+**Statement.** Events shorter than one snapshot interval (**< 15 min**, i.e. a single positive snapshot) are **retained** in the catalog but **flagged as artifacts**. They fall far below the minimum offered trigger (min T = 2 h), so they never enter pricing, but are kept for auditability rather than silently dropped.
+
+**Justification.** Dropping them silently would hide data-quality signal; flagging (not deleting) preserves the raw record while keeping them out of the priced set.
+
+**Impact if wrong.** Negligible on price (sub-15-min events are well below the 2 h minimum trigger); relevant only to catalog counts and data-quality diagnostics.
+
+**Cited from.** [`01_eventization/event_catalog_fundamentals.md`](01_eventization/event_catalog_fundamentals.md); `price_engine/catalogs/eagle-i-45min/data/events_meta.json` (`MIN_DURATION_minutes: 15`). Registered 2026-06-30 — previously mis-cited as "A007" (which the registry assigns to portfolio-standalone).

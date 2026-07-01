@@ -1,10 +1,10 @@
 # Per-Customer View — End-to-End Walkthrough
 
 - **Status:** complete (covers Phase 1–3 of the
-  [Per-Customer Pricing Plan](../../plan/02_per_customer/per_customer_pricing_plan.md))
+  [Per-Customer Pricing Plan](../../plan/done/2026-05-30_per_customer_pricing_plan.md))
 - **First written:** 2026-05-30
 - **Last reviewed:** 2026-05-30
-- **Read alongside:** [Pricing Methodology](../cross_cutting/pricing_methodology.md), [Assumptions Registry](../assumptions.md), [Per-Customer Pricing Plan](../../plan/02_per_customer/per_customer_pricing_plan.md), [`customer_impact_v1` model card](../../../curated_outage_data/model_cards/customer_impact_v1.md)
+- **Read alongside:** [Pricing Methodology](../cross_cutting/pricing_methodology.md), [Assumptions Registry](../assumptions.md), [Per-Customer Pricing Plan](../../plan/done/2026-05-30_per_customer_pricing_plan.md), [`customer_impact_v1` model card](../../../curated_outage_data/model_cards/customer_impact_v1.md)
 
 ## Why this file exists
 
@@ -270,7 +270,7 @@ This is the same county-aggregation limitation v0 has, just scaled by the
 multiplier.
 
 The location-aware product track (Path B in the
-[Per-Customer Pricing Plan](../../plan/02_per_customer/per_customer_pricing_plan.md)) is
+[Per-Customer Pricing Plan](../../plan/done/2026-05-30_per_customer_pricing_plan.md)) is
 where this gets addressed properly, via a `location_basis_factor` and
 trigger-source bridge data we do not yet have.
 
@@ -456,7 +456,7 @@ candidates already documented in the project:
   vendor relationships).
 
 When either source is available, [Phase 4 of the per-customer pricing
-plan](../../plan/02_per_customer/per_customer_pricing_plan.md#phase-4--external-validation-against-poweroutageus-per-outage-data)
+plan](../../plan/done/2026-05-30_per_customer_pricing_plan.md#phase-4--external-validation-against-poweroutageus-per-outage-data)
 runs the validation: build per-`OutageId` events for a comparable
 window, compute the per-customer rate directly (no synchronous
 approximation), and compare to the EAGLE-I-derived multiplier. The
@@ -534,7 +534,7 @@ claim:
 
 - [Pricing Methodology](../cross_cutting/pricing_methodology.md) — formula-level summary,
   status of v0 vs Phase-2 shadow output.
-- [Per-Customer Pricing Plan](../../plan/02_per_customer/per_customer_pricing_plan.md) —
+- [Per-Customer Pricing Plan](../../plan/done/2026-05-30_per_customer_pricing_plan.md) —
   phased rollout, gates, open questions.
 - [`customer_impact_v1` model card](../../../curated_outage_data/model_cards/customer_impact_v1.md)
   — cap, floor, failure modes, rollback path.

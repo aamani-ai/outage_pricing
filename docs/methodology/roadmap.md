@@ -99,7 +99,7 @@ sells. These are not climate forecasts. They are data-grain corrections.
   rates are not the same thing as per-policy expected loss.
 - **Current read:** done - discussed with the team and verified. This is the
   active headline rate in the dashboard.
-- **Plan:** [Per-Customer Pricing Plan](../plan/02_per_customer/per_customer_pricing_plan.md).
+- **Plan:** [Per-Customer Pricing Plan](../plan/done/2026-05-30_per_customer_pricing_plan.md).
 - **Walkthrough:** [Per-customer view - end-to-end](02_per_customer/per_customer_view_walkthrough.md).
 - **Model card:** [`customer_impact_v1`](../../curated_outage_data/model_cards/customer_impact_v1.md).
 
@@ -111,7 +111,7 @@ sells. These are not climate forecasts. They are data-grain corrections.
   utility territory, feeder, vegetation, terrain, and restoration context.
 - **Current read:** design and pilot evidence are in; targeting completion this
   week. This is not active premium movement yet.
-- **Plan:** [Location Basis Risk Pre-Op Plan](../plan/04_location_basis/location_basis_risk_preop_plan.md).
+- **Plan:** [Location Basis Risk Pre-Op Plan](../plan/done/2026-06-17_location_basis_risk_preop_plan.md).
 - **Design note:** [Location Basis Risk Design](../dicsscssion/location_aware_outage_pricing/03_location_basis_risk_design.md).
 
 ## 3. Forward-Regime Reads And Modifiers
@@ -146,8 +146,8 @@ models explain the observed pattern or whether a county remains review-only.
   mutate active v0 premiums until category verification and holdout review pass.
 - **Methodology (current):** [Risk Clustering — Regime Classification](03_risk_clustering/README.md)
   (the 5 outcomes + abstain reframe; supersedes the 7-shape predictability/lambda-shadow layer below).
-- **Superseded (context):** [Outage Predictability Pattern](03_risk_clustering/outage_predictability_fundamentals.md);
-  [Lambda Shadow Pricing](03_risk_clustering/lambda_shadow_pricing_fundamentals.md) — the lambda-shadow
+- **Superseded (context):** [Outage Predictability Pattern](_archive/outage_predictability_fundamentals.md);
+  [Lambda Shadow Pricing](_archive/lambda_shadow_pricing_fundamentals.md) — the lambda-shadow
   price-move is now Step-5-gated; see [Verification Plan](../plan/03_risk_clustering/lambda_shadow_pricing_verification_plan.md).
 
 ### Grid condition - **work in progress**

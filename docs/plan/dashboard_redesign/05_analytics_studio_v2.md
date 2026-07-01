@@ -1,7 +1,7 @@
 # 05 — Analytics Studio v2 (QC → an intuitive, multi-granularity analytics workbench)
 
 **Status:** plan — Phase 0 (quick wins) building now; Phases 1–5 await sign-off + a couple of decisions.
-**Grounds:** [`04_analytics_studio.md`](04_analytics_studio.md) (v1) · [`dicsscssion/analytics_studio/00`](../../dicsscssion/analytics_studio/00_purpose_and_shape.md). Direction from Divy 2026-06-28.
+**Grounds:** [`04_analytics_studio.md`](../done/2026-06-28_dashboard_04_analytics_studio_v1.md) (v1) · [`dicsscssion/analytics_studio/00`](../../dicsscssion/analytics_studio/00_purpose_and_shape.md). Direction from Divy 2026-06-28.
 
 ---
 

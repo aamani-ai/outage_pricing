@@ -6,7 +6,7 @@
 [`02_candidate_experts_and_metrics.md`](02_candidate_experts_and_metrics.md) ·
 Sarasi read [`03_sarasi_ne_backtest_read.md`](03_sarasi_ne_backtest_read.md) ·
 plan
-[`../../../plan/05_forward_regime/statistical_router/01_notebook_plan.md`](../../../plan/05_forward_regime/statistical_router/01_notebook_plan.md)
+[`../../../plan/done/2026-06-24_statistical_router_notebook_plan.md`](../../plan/done/2026-06-24_statistical_router_notebook_plan.md)
 
 ---
 

@@ -30,13 +30,27 @@ reporting how many customers were without power then. 12 yearly CSVs, ~11 GB; 20
 | `state` | string | Full state/territory name | 53 values incl. DC, PR, US Virgin Islands |
 | `customers_out` | int64 | **The core measurement** — customers without power at this snapshot | Count of accounts; 0 is valid (~3.9% of rows); instantaneous, not cumulative |
 | `run_start_time` | string ts (`YYYY-MM-DD HH:MM:SS`) | Snapshot time; cadence :00/:15/:30/:45 | Naive (no tz). Rows exist only where EAGLE-I had data → gaps occur |
-| `total_customers` | int64 (nullable) | **County customer base (denominator)** carried in the raw feed | ⚠️ **This is a per-row denominator we were NOT using** (we used MCC.csv). Henderson NC = 69,102 here vs 24 in MCC.csv. Not guaranteed ≥ observed `customers_out`. |
+| `total_customers` | int64 (nullable) | EAGLE-I's own modeled county customer count (the same model as MCC, newer 2024 vintage) | **Evaluated as the denominator and REJECTED ([A019](../methodology/assumptions.md#a019--research-strengthens-a018-total_customers-evaluated-as-the-denominator-and-rejected))** — unreliable both ways (Henderson 69,102 vs MCC 24 = *fixed*; Berkshire 284,790 vs ~76k truth = *broken*). A QC cross-check, not the divisor. |
 
-## 1.2 `MCC.csv` — Modeled County Customers (the denominator we use)
+## 1.2 `MCC.csv` — Modeled County Customers (the denominator)
 `price_engine/data/raw/MCC.csv` → `gs://…/sources/mcc/MCC.csv`
 
-The per-county customer-count denominator the v0 engine actually divides by. 3,232 county rows + a header (UTF-8
-BOM) + a **`Grand Total` footer row** (must be dropped). Correctness of this file directly drives premium plausibility.
+The per-county customer-count denominator. 3,232 county rows + a header (UTF-8 BOM) + a **`Grand Total` footer row**
+(must be dropped). Correctness of this file directly drives premium plausibility.
+
+> **⭐ How MCC (and `total_customers`) are built — keep this front-of-mind.** `MCC.csv` and the raw feed's
+> `total_customers` column are the **same ORNL quantity** ("Modeled County Customers"). Each utility's total customer
+> count from **EIA Form 861** is allocated to counties in proportion to **LandScan** population within **HIFLD** electric
+> retail service territories:
+>
+> &nbsp;&nbsp;&nbsp;&nbsp;**cᵢ = pᵢ × (C / P)** &nbsp;— county *i* gets its population share `pᵢ/P` of a utility's `C` customers; overlapping utilities summed.
+>
+> `MCC.csv` is the **2022** vintage; `total_customers` is the **same model embedded inline in the 2024 file** (newer
+> vintage). A "customer" = a utility **account/meter**, *not* a person or household. Because the allocation is
+> population-proportional and ~8% of US customers are in unmonitored utilities, **both are unreliable** — too small
+> (Henderson 24, SF −45%) *and* sometimes too big (Berkshire 284k). So the live denominator stays **A018** (housing-anchored
+> `max(MCC, housing, peak)`); `total_customers` was evaluated and **rejected** as the divisor — it is a QC cross-check only.
+> See [**A019**](../methodology/assumptions.md#a019--research-strengthens-a018-total_customers-evaluated-as-the-denominator-and-rejected). Source: Moehl et al. 2024 (Scientific Data 11:271).
 
 | Field | Type | Meaning | Lineage / note |
 |-------|------|---------|----------------|

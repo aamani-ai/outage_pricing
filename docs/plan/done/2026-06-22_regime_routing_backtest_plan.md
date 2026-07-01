@@ -221,4 +221,4 @@ If Q2 fails, the honest deliverable is "v0 flat mean is unbeaten — no routing 
 - The masked series this consumes: [`05_source_coverage_mask.md`](../../dicsscssion/eventization_frequency_contract/05_source_coverage_mask.md)
 - Conservatism / why T=8h: [`04_duration_conservatism.md`](../../dicsscssion/eventization_frequency_contract/04_duration_conservatism.md)
 - Superseded predecessor: [`done/2026-06-22_risk_based_clustering_quantification_plan.md`](../done/2026-06-22_risk_based_clustering_quantification_plan.md)
-- Downstream (gated): [`lambda_shadow_pricing_verification_plan.md`](lambda_shadow_pricing_verification_plan.md) — how a regime could move λ, later
+- Downstream (gated): [`lambda_shadow_pricing_verification_plan.md`](../03_risk_clustering/lambda_shadow_pricing_verification_plan.md) — how a regime could move λ, later

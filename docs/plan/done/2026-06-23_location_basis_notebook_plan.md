@@ -7,8 +7,8 @@
   (static-map guardrail) — are **append-only**, not rebuilds. **Skeleton + contract complete → ready
   for the dashboard phase.** *(Original plan-of-record retained below as the design record.)*
 - **Date:** 2026-06-23
-- **Companions:** research plan [`location_basis_research_plan.md`](location_basis_research_plan.md) ·
-  pre-op [`location_basis_risk_preop_plan.md`](location_basis_risk_preop_plan.md) ·
+- **Companions:** research plan [`location_basis_research_plan.md`](2026-06-18_location_basis_research_plan.md) ·
+  pre-op [`location_basis_risk_preop_plan.md`](2026-06-17_location_basis_risk_preop_plan.md) ·
   design note [`../../dicsscssion/location_aware_outage_pricing/03_location_basis_risk_design.md`](../../dicsscssion/location_aware_outage_pricing/03_location_basis_risk_design.md) ·
   canonical method [`../../methodology/04_location_basis/location_basis_methodology.md`](../../methodology/04_location_basis/location_basis_methodology.md)
 

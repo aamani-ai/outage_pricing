@@ -89,4 +89,4 @@ and the customer-impact modifier in the adjustment framework.
 - [Data Ingestion Methodology](data_ingestion_methodology.md)
 - [Aggregation and Annualization Methodology](../02_per_customer/aggregation_and_annualization_methodology.md)
 - [Pricing Methodology](../cross_cutting/pricing_methodology.md)
-- [Per-Customer Pricing Plan](../../plan/02_per_customer/per_customer_pricing_plan.md)
+- [Per-Customer Pricing Plan](../../plan/done/2026-05-30_per_customer_pricing_plan.md)

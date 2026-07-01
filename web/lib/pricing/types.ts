@@ -3,7 +3,7 @@
  * view and the Underwriting Studio render from. No React, no DOM, no fetch.
  *
  * Premium = λ_customer(T) × location_relativity × forward_factor × X ÷ (1 − ER − TM).
- * See docs/dicsscssion/dashboard_redesign/04_pricing_model_in_ui.md and 07_outward_range.md.
+ * See docs/dicsscssion/done/dashboard_redesign/04_pricing_model_in_ui.md and 07_outward_range.md.
  */
 
 /** Per-component honesty badge — provenance is universal, not special-cased. */

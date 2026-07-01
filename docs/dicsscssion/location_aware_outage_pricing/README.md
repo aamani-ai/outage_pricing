@@ -45,4 +45,4 @@ Use this folder to decide the right v1 architecture before implementing:
    enrichment.
 
 The active execution plan is
-[`../../plan/location_basis_risk_preop_plan.md`](../../plan/04_location_basis/location_basis_risk_preop_plan.md).
+[`../../plan/location_basis_risk_preop_plan.md`](../../plan/done/2026-06-17_location_basis_risk_preop_plan.md).
